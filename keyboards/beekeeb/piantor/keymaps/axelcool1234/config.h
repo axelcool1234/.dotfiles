@@ -5,5 +5,11 @@
 #define MATRIX_ROWS 8
 #define MATRIX_COLS 6
 
-/* misc */
+/* comfort */
 #define MASTER_RIGHT
+
+/* default layer count */
+#define DYNAMIC_KEYMAP_LAYER_COUNT 15
+
+/* misc */
+#define ENABLE_COMPILE_KEYCODE
