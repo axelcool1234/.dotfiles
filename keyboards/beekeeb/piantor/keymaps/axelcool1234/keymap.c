@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include QMK_KEYBOARD_H
+#include "oneshot.h"
 
 /* Layers */
 enum layers {
@@ -9,51 +10,47 @@ enum layers {
     _SEMIMAK,
     _QWERTY,
     _GAME,
-    // stack
+    // tri layer
     _NAV,
+    _SYM,
+    _NUM,
+    // stack
     _MOUSE,
     _MEDIA,
-    _NUM,
-    _SYM,
     _FUN,
     _BUTTON
 };
 
+/* Key Codes */
+enum keycodes {
+    // Custom oneshot mod implementation with no timers, courtesy of Callum's mods.
+    OS_GUI = SAFE_RANGE,
+    OS_ALT,
+    OS_SFT,
+    OS_CTL,
+    OS_HYP
+};
+
 /* Misc */
 #define XXXXXXXX XXXXXXX
-
-/* Homerow mods */
-#define HOME_CAP QK_CAPS_WORD_TOGGLE
-
-// Left homerow mods
-#define HOME_S LGUI_T(KC_S)
-#define HOME_R LALT_T(KC_R)
-#define HOME_N LSFT_T(KC_N)
-#define HOME_T LCTL_T(KC_T)
-
-// Right homerow mods
-#define HOME_D RCTL_T(KC_D)
-#define HOME_E RSFT_T(KC_E)
-#define HOME_A LALT_T(KC_A)
-#define HOME_I RGUI_T(KC_I)
-
-/* Thumb cluster mods */
+#define ________ _______
 #define P_BUTTON OSL(_BUTTON)
-
-// Left thumb cluster mods
-#define TH_SPC LT(_NAV,   KC_SPC)
-#define TH_TAB LT(_MOUSE, KC_TAB)
-#define TH_ESC LT(_MEDIA, KC_ESC)
-
-// Right thumb cluster mods
-#define TH_BSPC LT(_NUM, KC_BSPC)
-#define TH_ENT  LT(_SYM, KC_ENT)
-#define TH_DEL  LT(_FUN, KC_DEL)
+#define HOME_CAP QK_CAPS_WORD_TOGGLE
+#define REDO     LCTL(KC_Y)
 
 /* Switch base */
 #define D_QWERTY  DF(_QWERTY)
 #define D_GAME    DF(_GAME)
 #define D_SEMIMAK DF(_SEMIMAK)
+
+/* Move to layer */
+#define LA_NAV    MO(_NAV)
+#define LA_SYM    MO(_SYM)
+#define LA_NUM    MO(_NUM)
+#define LA_MOUSE  MO(_MOUSE)
+#define LA_MEDIA  MO(_MEDIA)
+#define LA_FUN    MO(_FUN)
+#define LA_BUTTON MO(_BUTTON)
 
 /* Keymaps */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -66,7 +63,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_BUTTON, KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, D_QWERTY,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            KC_ESC,  KC_SPC, KC_TAB,      KC_ENT, KC_BSPC, KC_DEL
+                                            KC_ENT, KC_BSPC, LA_NAV,      LA_SYM, KC_SPC, KC_LSFT
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -86,7 +83,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        XXXXXXXX,  KC_G,   KC_Q,    KC_W,    KC_E,    KC_R,        /*------*/      XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------|      |Gaming|      |--------+--------+--------+--------+--------+--------|
-       XXXXXXXX, KC_LSFT,   KC_S,    KC_A,    KC_D,    KC_F,        /*------*/      XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,D_QWERTY,
+       XXXXXXXX, KC_LSFT, KC_S,    KC_A,    KC_D,    KC_F,        /*------*/      XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,D_QWERTY,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        XXXXXXXX,XXXXXXXX, KC_Z,    KC_X,    KC_C,   XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,D_SEMIMAK,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
@@ -94,49 +91,16 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                         //`--------------------------'  `--------------------------'
     ),
 
-    /* Stack Layers */
+    /* Tri Layer */
     [_NAV] = LAYOUT_split_3x6_3(
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
-       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
+       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                       REDO,  KC_PASTE, KC_COPY, KC_CUT, KC_UNDO, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
-    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
-    //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           XXXXXXXX,XXXXXXXX,XXXXXXXX,   XXXXXXXX,XXXXXXXX,XXXXXXXX
-                                        //`--------------------------'  `--------------------------'
-    ),
-    [_MOUSE] = LAYOUT_split_3x6_3(
-    //,-----------------------------------------------------.                    ,-----------------------------------------------------.
-       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
-    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
+       XXXXXXXX, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, XXXXXXXX,                     XXXXXXXX,KC_LEFT, KC_DOWN,  KC_UP,  KC_RIGHT,XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           XXXXXXXX,XXXXXXXX,XXXXXXXX,   XXXXXXXX,XXXXXXXX,XXXXXXXX
-                                        //`--------------------------'  `--------------------------'
-    ),
-    [_MEDIA] = LAYOUT_split_3x6_3(
-    //,-----------------------------------------------------.                    ,-----------------------------------------------------.
-       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
-    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
-    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
-    //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           XXXXXXXX,XXXXXXXX,XXXXXXXX,   XXXXXXXX,XXXXXXXX,XXXXXXXX
-                                        //`--------------------------'  `--------------------------'
-    ),
-    [_NUM] = LAYOUT_split_3x6_3(
-    //,-----------------------------------------------------.                    ,-----------------------------------------------------.
-       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
-    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
-    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
-    //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           XXXXXXXX,XXXXXXXX,XXXXXXXX,   XXXXXXXX,XXXXXXXX,XXXXXXXX
+                                           ________,________,________,   LA_MOUSE,_______, LA_MEDIA
                                         //`--------------------------'  `--------------------------'
     ),
     [_SYM] = LAYOUT_split_3x6_3(
@@ -147,7 +111,42 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           XXXXXXXX,XXXXXXXX,XXXXXXXX,   XXXXXXXX,XXXXXXXX,XXXXXXXX
+                                           ________,________,LA_FUN,     ________,________,________
+                                        //`--------------------------'  `--------------------------'
+    ),
+    [_NUM] = LAYOUT_split_3x6_3(
+    //,-----------------------------------------------------.                    ,-----------------------------------------------------.
+       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
+    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
+       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
+    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
+       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
+    //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
+                                           ________,________,________,   ________,________,________
+                                        //`--------------------------'  `--------------------------'
+    ),
+
+    /* Stack */
+    [_MOUSE] = LAYOUT_split_3x6_3(
+    //,-----------------------------------------------------.                    ,-----------------------------------------------------.
+       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
+    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
+       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
+    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
+       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
+    //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
+                                           ________,________,________,   ________,________,________
+                                        //`--------------------------'  `--------------------------'
+    ),
+    [_MEDIA] = LAYOUT_split_3x6_3(
+    //,-----------------------------------------------------.                    ,-----------------------------------------------------.
+       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
+    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
+       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
+    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
+       XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
+    //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
+                                           ________,________,________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
     [_FUN] = LAYOUT_split_3x6_3(
@@ -158,7 +157,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           XXXXXXXX,XXXXXXXX,XXXXXXXX,   XXXXXXXX,XXXXXXXX,XXXXXXXX
+                                           ________,________,________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
     [_BUTTON] = LAYOUT_split_3x6_3(
@@ -169,9 +168,63 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           XXXXXXXX,XXXXXXXX,XXXXXXXX,   XXXXXXXX,XXXXXXXX,XXXXXXXX
+                                           ________,________,________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
 };
 
-/* Additional Functionality */
+/* Callum Oneshots */
+bool is_oneshot_cancel_key(uint16_t keycode) {
+    switch (keycode) {
+    case TL_LOWR:
+    case TL_UPPR:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool is_oneshot_ignored_key(uint16_t keycode) {
+    switch (keycode) {
+    case LA_NAV:
+    case LA_SYM:
+    case KC_LSFT:
+    case OS_GUI:
+    case OS_ALT:
+    case OS_SFT:
+    case OS_CTL:
+        return true;
+    default:
+        return false;
+    }
+}
+
+oneshot_state os_sft_state = os_up_unqueued;
+oneshot_state os_ctl_state = os_up_unqueued;
+oneshot_state os_alt_state = os_up_unqueued;
+oneshot_state os_gui_state = os_up_unqueued;
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    update_oneshot(
+            &os_sft_state, KC_LSFT, OS_SFT,
+            keycode, record
+            );
+    update_oneshot(
+            &os_ctl_state, KC_LCTL, OS_CTL,
+            keycode, record
+            );
+    update_oneshot(
+            &os_alt_state, KC_LALT, OS_ALT,
+            keycode, record
+            );
+    update_oneshot(
+            &os_gui_state, KC_LGUI, OS_GUI,
+            keycode, record
+            );
+
+    return true;
+}
+
+layer_state_t layer_state_set_user(layer_state_t state) {
+    return update_tri_layer_state(state, _NAV, _SYM, _NUM);
+}

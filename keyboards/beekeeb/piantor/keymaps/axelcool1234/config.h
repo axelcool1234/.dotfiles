@@ -13,10 +13,3 @@
 
 /* misc */
 #define ENABLE_COMPILE_KEYCODE
-
-/* tap dancing */
-#define TAPPING_TERM 175
-#define QUICK_TAP_TERM 0
-
-/* one shot */
-#define ONESHOT_TAP_TOGGLE 2  /* Tapping this number of times holds the key until tapped once again. */
