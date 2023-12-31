@@ -9,7 +9,10 @@
  * LaTeX layer?
  * Common macros in the _FUN layer?
  * Replace repeat with alt repeat (Magic Semimak)?
+ * Implement leader key (put in empty spot of symbol layer or empty spot in Semimak layer)?
  * Implement GPIO manipulation to control LED light on the WeAct RP2040s
+ * Mess with combos at some point? Maybe common LaTeX or other programming language boilerplate can be printed via combos?
+ * Implement SHIFT + QK_AREP = KC_ENT as a key override
 */
 
 /* Layers */
@@ -71,11 +74,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        KC_ESC,   KC_F,   KC_L,     KC_H,    KC_V,    KC_Z,       /*-------*/       KC_Q,    KC_W,    KC_U,    KC_O,   KC_Y,    KC_ESC,
     //|--------+--------+--------+--------+--------+--------|     |SEMIMAK|      |--------+--------+--------+--------+--------+--------|
-       HOME_CAP, KC_S,   KC_R,     KC_N,    KC_T,    KC_K,       /*-------*/       KC_C,    KC_D,    KC_E,    KC_A,   KC_I,    KC_ENT,
+       HOME_CAP, KC_S,   KC_R,     KC_N,    KC_T,    KC_K,       /*-------*/       KC_C,    KC_D,    KC_E,    KC_A,   KC_I,    QK_LEAD,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       P_FUN,    KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, XXXXXXXX,
+       P_FUN,    KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_QUES, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            KC_LSFT, KC_BSPC, LA_NAV,     LA_SYM,  KC_SPC, QK_REP
+                                            KC_LSFT, KC_BSPC, LA_NAV,     LA_SYM,  KC_SPC, QK_AREP
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -85,7 +88,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|      |QWERTY|      |--------+--------+--------+--------+--------+--------|
        HOME_CAP, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,        /*------*/       KC_H,    KC_J,    KC_K,    KC_L,    KC_QUOT, KC_ENT,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       P_FUN,    KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                         KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, XXXXXXX,
+       P_FUN,    KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                         KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_QUES, XXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
                                             KC_LSFT, KC_BSPC, LA_NAV,     LA_SYM,  KC_SPC,  QK_REP
                                         //`--------------------------'  `--------------------------'
@@ -108,9 +111,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        ________, KC_9,   KC_5,    KC_1,    KC_3,     KC_7,                         KC_6,    KC_2,    KC_0,    KC_4,    KC_8,   ________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       ________, KC_DLR, KC_LBRC, KC_LCBR, KC_LPRN,  KC_EXLM,                      KC_PERC, KC_UNDS, KC_EQL,  KC_ASTR, KC_SCLN,________,
+       ________, KC_DLR, KC_LBRC, KC_LCBR, KC_LPRN,  KC_TILD,                      KC_PERC, KC_UNDS, KC_EQL,  KC_ASTR, KC_SCLN,________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       ________, KC_AT,  ________,KC_BSLS, KC_HASH,  KC_GRV,                       KC_CIRC, KC_AMPR,________,________,________,________,
+       ________, KC_AT,  ________,KC_BSLS, KC_HASH,  XXXXXXX,                      KC_CIRC, KC_AMPR,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
                                            ________,________,________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
@@ -171,8 +174,10 @@ const key_override_t brace_key_override =       ko_make_basic(MOD_MASK_SHIFT, KC
 const key_override_t paren_key_override =       ko_make_basic(MOD_MASK_SHIFT, KC_LPRN, KC_RPRN);
 const key_override_t ampr_key_override =        ko_make_basic(MOD_MASK_SHIFT, KC_AMPR, KC_PIPE);
 const key_override_t space_key_override =       ko_make_basic(MOD_MASK_SHIFT, KC_SPC,  KC_TAB);
+const key_override_t asterisk_key_override =    ko_make_basic(MOD_MASK_SHIFT, KC_ASTR, KC_SLSH);
+const key_override_t question_key_override =    ko_make_basic(MOD_MASK_SHIFT, KC_QUES, KC_EXLM);
+const key_override_t tilde_key_override =       ko_make_basic(MOD_MASK_SHIFT, KC_TILD, KC_GRV);
 
-// This globally defines all key overrides to be used
 const key_override_t **key_overrides = (const key_override_t *[]){
     &underscore_key_override,
     &lessthan_key_override,
@@ -180,8 +185,18 @@ const key_override_t **key_overrides = (const key_override_t *[]){
     &bracket_key_override,
     &brace_key_override,
     &paren_key_override,
+    &ampr_key_override,
     &space_key_override,
+    &asterisk_key_override,
+    &question_key_override,
+    &tilde_key_override,
     NULL // Null terminate the array of overrides!
+};
+
+/* Combos */
+const uint16_t PROGMEM delete_combo[] = {KC_SPC, KC_BSPC, COMBO_END};
+combo_t key_combos[] = {
+    COMBO(delete_combo, KC_DEL),
 };
 
 /* Callum Oneshots */
