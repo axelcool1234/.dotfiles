@@ -25,6 +25,7 @@ enum layers {
     // tri layer
     _EXTEND,
     _SYM,
+    _NUM,
     // extend stack
     _MOUSE,
     _MEDIA,
@@ -40,9 +41,14 @@ enum keycodes {
     OS_CTL,
     OS_HYP,
 
-    /* Lower and Raise for tri layer */
+    /* Layer switches */
     LA_SYM,
-    LA_EXTEND
+    LA_NUM,
+    LA_EXTEND,
+
+    /* Macros */
+    M_UP_DIR, // ../
+    M_DCOLN,  // ::
 };
 
 /* Misc */
@@ -120,19 +126,29 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, UNDO,    CUT,     COPY,    PASTE,   REDO,                        ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,________,   ________,________,________
+                                           ________,________,________,   ________,_______, KC_ENT
                                         //`--------------------------'  `--------------------------'
     ),
-    [_SYM] = LAYOUT_split_3x6_3(
+    [_SYM] = LAYOUT_split_3x6_3( // Mirrored version of Pascal Getreuer's symbol layer, with the opening and closing braces flipped for inward rolls.
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
-    //,________,KC_9,    KC_5,    KC_1,    KC_3,    KC_7,                         KC_6,    KC_2,    KC_0,    KC_4,    KC_8,    ________,
-       ________,KC_TILD, KC_AT,   KC_LBRC, KC_LCBR, KC_BSLS,                      KC_CIRC, KC_RCBR, KC_RBRC, KC_PERC, KC_GRV,  ________,
+       ________,KC_PERC, KC_LBRC, KC_RBRC, M_DCOLN, KC_AMPR,                      KC_DOT,  KC_DQT,  KC_GT,   KC_LT,   KC_QUOT, ________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       ________,OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL,  KC_COLN,                      KC_SCLN, KC_UNDS, KC_EQL,  KC_MINS, KC_ASTR, ________,
+       ________,KC_QUES, KC_LPRN, KC_RPRN, KC_COLN, KC_PIPE,                      KC_HASH, KC_EQL,  KC_PLUS, KC_MINS, KC_EXLM, ________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       ________,KC_EXLM, KC_DQT,  KC_DLR,  KC_HASH, KC_PIPE,                      KC_AMPR, KC_PLUS, KC_LT,   KC_GT,   KC_QUES, ________,
+       ________,KC_AT,   KC_LCBR, KC_RCBR, KC_DLR,  KC_TILD,                      M_UP_DIR,KC_BSLS, KC_ASTR, KC_SLSH, KC_CIRC, ________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,________,   ________,KC_LPRN, KC_RPRN
+                                           ________,________,________,    LA_NUM, KC_UNDS, QK_LEAD
+                                        //`--------------------------'  `--------------------------'
+    ),
+    [_NUM] = LAYOUT_split_3x6_3(
+    //,-----------------------------------------------------.                    ,-----------------------------------------------------.
+       ________,  KC_9,   KC_5,    KC_1,   KC_3,     KC_7,                          KC_6,    KC_2,    KC_0,    KC_4,    KC_8,  ________,
+    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
+       ________, OS_GUI,  OS_ALT,  OS_SFT, OS_CTL,  ________,                     ________,________,________,________,________,________,
+    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
+       ________,________,________,________,________,________,                     ________,________,________,________,________,________,
+    //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
+                                           ________,________,________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
     /* Extend Stack */
@@ -172,35 +188,20 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 };
 
 /* Thumb Cluster Overrides */
-const key_override_t space_key_override =       ko_make_basic(MOD_MASK_SHIFT, KC_SPC,  KC_TAB);
+const key_override_t space_key_override = ko_make_basic(MOD_MASK_SHIFT, KC_SPC,  KC_TAB);
 
-/* Number Row Overrides */
-const key_override_t tilde_override =           ko_make_basic(MOD_MASK_SHIFT, KC_TILD, KC_9);
-const key_override_t at_override =              ko_make_basic(MOD_MASK_SHIFT, KC_AT,   KC_5);
-const key_override_t open_bracket_override =    ko_make_basic(MOD_MASK_SHIFT, KC_LBRC, KC_1);
-const key_override_t open_brace_override =      ko_make_basic(MOD_MASK_SHIFT, KC_LCBR, KC_3);
-const key_override_t backslash_override =       ko_make_basic(MOD_MASK_SHIFT, KC_BSLS, KC_7);
-
-const key_override_t caret_override =           ko_make_basic(MOD_MASK_SHIFT, KC_CIRC, KC_6);
-const key_override_t close_brace_override =     ko_make_basic(MOD_MASK_SHIFT, KC_RCBR, KC_2);
-const key_override_t close_bracket_override =   ko_make_basic(MOD_MASK_SHIFT, KC_RBRC, KC_0);
-const key_override_t percent_override =         ko_make_basic(MOD_MASK_SHIFT, KC_PERC, KC_4);
-const key_override_t grave_override =           ko_make_basic(MOD_MASK_SHIFT, KC_GRV,  KC_8);
-
+/* Base Layer Overrides */
+const key_override_t comma_key_override = ko_make_basic(MOD_MASK_SHIFT, KC_COMM, KC_EXLM);
+const key_override_t dot_key_override =   ko_make_basic(MOD_MASK_SHIFT, KC_DOT, KC_QUES);
+const key_override_t slash_key_override = ko_make_basic(MOD_MASK_SHIFT, KC_SLSH, KC_SCLN);
 const key_override_t **key_overrides = (const key_override_t *[]){
+    /* Thumb Cluster */
     &space_key_override,
 
-    &tilde_override,
-    &at_override,
-    &open_bracket_override,
-    &open_brace_override,
-    &backslash_override,
-
-    &caret_override,
-    &close_brace_override,
-    &close_bracket_override,
-    &percent_override,
-    &grave_override,
+    /* Base Layer */
+    &comma_key_override,
+    &dot_key_override,
+    &slash_key_override,
     NULL // Null terminate the array of overrides!
 };
 
@@ -265,24 +266,45 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         case LA_EXTEND:
             if (record->event.pressed) {
                 layer_on(_EXTEND);
-                //update_tri_layer(_SYM, _EXTEND, _NUM);
             }
             else {
                 layer_off(_EXTEND);
-                //update_tri_layer(_SYM, _EXTEND, _NUM);
             }
             return false;
         case LA_SYM:
             if (record->event.pressed) {
                 layer_on(_SYM);
-                //update_tri_layer(_SYM, _EXTEND, _NUM);
             }
             else {
                 layer_off(_SYM);
-                //update_tri_layer(_SYM, _EXTEND, _NUM);
             }
             return false;
-        }
+        case LA_NUM:
+            if (record->event.pressed) {
+                layer_on(_NUM);
+            }
+            else {
+                layer_off(_NUM);
+            }
+            return false;
+        /* Macros */
+        case M_UP_DIR:
+            if (record->event.pressed) {
+                SEND_STRING("../");
+            }
+            else {
+
+            }
+            return false;
+        case M_DCOLN:
+            if (record->event.pressed) {
+                SEND_STRING("::");
+            }
+            else {
+
+            }
+            return false;
+    }
     return true;
 }
 
