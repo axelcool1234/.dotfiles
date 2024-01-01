@@ -8,11 +8,9 @@
  * Vim layer?
  * LaTeX layer?
  * Common macros in the _FUN layer?
- * Replace repeat with alt repeat (Magic Semimak)?
  * Implement leader key (put in empty spot of symbol layer or empty spot in Semimak layer)?
  * Implement GPIO manipulation to control LED light on the WeAct RP2040s
- * Mess with combos at some point? Maybe common LaTeX or other programming language boilerplate can be printed via combos?
- * Implement SHIFT + QK_AREP = KC_ENT as a key override
+ * Implement SHIFT + QK_REP = QK_AREP as a key override somehow
  * Additional extend stack layers?
 */
 
@@ -43,12 +41,14 @@ enum keycodes {
 
     /* Layer switches */
     LA_SYM,
-    LA_NUM,
     LA_EXTEND,
 
     /* Macros */
     M_UP_DIR, // ../
     M_DCOLN,  // ::
+
+    /* Multi-Repeat Key */
+    REPEAT,
 };
 
 /* Misc */
@@ -73,10 +73,8 @@ enum keycodes {
 #define D_SEMIMAK DF(_SEMIMAK)
 
 /* Switch layer */
-#define MS_ON     TO(_MOUSE)
-#define MS_OFF    TG(_MOUSE)
-#define MED_ON    TO(_MEDIA)
-#define MED_OFF   TG(_MEDIA)
+#define LA_MOUSE    TG(_MOUSE)
+#define LA_MEDIA    TG(_MEDIA)
 
 /* Keymaps */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -89,7 +87,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           LA_EXTEND, KC_BSPC, LA_SYM,   KC_LSFT, KC_SPC,  QK_AREP
+                                            KC_LSFT, KC_BSPC, LA_SYM,    LA_EXTEND,KC_SPC,  QK_REP
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -101,7 +99,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                         KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, XXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            KC_LSFT, KC_BSPC,LA_SYM,     LA_EXTEND,KC_SPC,  QK_AREP
+                                            KC_LSFT, KC_BSPC,LA_SYM,     LA_EXTEND,KC_SPC,  QK_REP
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -122,13 +120,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        ________,________,________,________,________,________,                     ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-        MED_ON,  OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL,  MS_ON,                       ________,KC_LEFT, KC_DOWN,  KC_UP,  KC_RIGHT,________,
+       LA_MEDIA, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, LA_MOUSE,                     ________,KC_LEFT, KC_DOWN,  KC_UP,  KC_RIGHT,________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, UNDO,    CUT,     COPY,    PASTE,   REDO,                        ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,________,   ________,KC_TAB,  KC_ENT
+                                           ________,KC_ENT,  ________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
+
     [_SYM] = LAYOUT_split_3x6_3( // Mirrored version of Pascal Getreuer's symbol layer, with the opening and closing braces flipped for inward rolls.
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        ________,KC_PERC, KC_LBRC, KC_RBRC, M_DCOLN, KC_AMPR,                      KC_DOT,  KC_DQT,  KC_LT,   KC_GT,   KC_QUOT, ________,
@@ -137,9 +136,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,KC_AT,   KC_LCBR, KC_RCBR, KC_DLR,  KC_TILD,                      M_UP_DIR,KC_BSLS, KC_SLSH, KC_ASTR, KC_CIRC, ________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,________,    LA_NUM, KC_UNDS, QK_LEAD
+                                           ________,________,________,   ________, KC_UNDS, QK_LEAD
                                         //`--------------------------'  `--------------------------'
     ),
+
     [_NUM] = LAYOUT_split_3x6_3(
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        ________,  KC_9,   KC_5,    KC_1,   KC_3,     KC_7,                          KC_6,    KC_2,    KC_0,    KC_4,    KC_8,  ________,
@@ -151,29 +151,32 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                            ________,________,________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
+
     /* Extend Stack */
     [_MOUSE] = LAYOUT_split_3x6_3(
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        ________,________,________,________,________,________,                       REDO,  KC_PASTE, KC_COPY, KC_CUT,  KC_UNDO, KC_ACL0,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       MED_ON,  OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL,  MS_OFF,                       ________,KC_MS_L,  KC_MS_D, KC_MS_U, KC_MS_R, KC_ACL1,
+       ________, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, ________,                     ________,KC_MS_L,  KC_MS_D, KC_MS_U, KC_MS_R, KC_ACL1,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,________,________,________,________,________,                     ________,KC_WH_L,  KC_WH_D, KC_WH_U, KC_WH_R, KC_ACL2,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
                                            ________,________,________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
+
     [_MEDIA] = LAYOUT_split_3x6_3(
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        ________,________,________,________,________,________,                     ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       MED_OFF, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL,  MS_ON,                         KC_MPLY,KC_MRWD, VOL_DOWN, VOL_UP, KC_MFFD, ________,
+       ________, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, ________,                      KC_MPLY,KC_MRWD, VOL_DOWN, VOL_UP, KC_MFFD, ________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,________,________,________,________,________,                     ________,________,KC_BRID,  KC_BRIU,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
                                            ________,________,________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
+
     [_FUN] = LAYOUT_split_3x6_3(
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
       D_SEMIMAK, KC_F9,   KC_F5,   KC_F1,   KC_F3,   KC_F7,                        KC_F6,   KC_F2,   KC_F10,  KC_F4,   KC_F8,  CL_EEP,
@@ -186,12 +189,16 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                         //`--------------------------'  `--------------------------'
     ),
 };
+/* Thumb Cluster Overrides */
+const key_override_t space_key_override = ko_make_basic(MOD_MASK_SHIFT, KC_SPC,  KC_TAB);
 
 /* Base Layer Overrides */
 const key_override_t comma_key_override = ko_make_basic(MOD_MASK_SHIFT, KC_COMM, KC_EXLM);
 const key_override_t dot_key_override =   ko_make_basic(MOD_MASK_SHIFT, KC_DOT, KC_QUES);
 const key_override_t slash_key_override = ko_make_basic(MOD_MASK_SHIFT, KC_SLSH, KC_SCLN);
 const key_override_t **key_overrides = (const key_override_t *[]){
+    /* Thumb Cluster */
+    &space_key_override,
     /* Base Layer */
     &comma_key_override,
     &dot_key_override,
@@ -258,27 +265,28 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
         /* Tri Layer */
         case LA_EXTEND:
+            if ((! record->tap.count) && (! record->event.pressed)) {
+                /* turn off extend stack once extend is off */
+                layer_off(_MOUSE);
+                layer_off(_MEDIA);
+            }
             if (record->event.pressed) {
                 layer_on(_EXTEND);
+                update_tri_layer(_SYM, _EXTEND, _NUM);
             }
             else {
                 layer_off(_EXTEND);
+                update_tri_layer(_SYM, _EXTEND, _NUM);
             }
             return false;
         case LA_SYM:
             if (record->event.pressed) {
                 layer_on(_SYM);
+                update_tri_layer(_SYM, _EXTEND, _NUM);
             }
             else {
                 layer_off(_SYM);
-            }
-            return false;
-        case LA_NUM:
-            if (record->event.pressed) {
-                layer_on(_NUM);
-            }
-            else {
-                layer_off(_NUM);
+                update_tri_layer(_SYM, _EXTEND, _NUM);
             }
             return false;
         /* Macros */
