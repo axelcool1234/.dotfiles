@@ -14,6 +14,3 @@
 /* misc */
 #define ENABLE_COMPILE_KEYCODE
 #define CAPS_WORD_INVERT_ON_SHIFT
-
-/* leader key */
-#define LEADER_TIMEOUT 10000
