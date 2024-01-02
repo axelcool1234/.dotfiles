@@ -66,7 +66,7 @@ enum keycodes {
 #define UNDO      LCTL(KC_Z)
 #define REDO      LCTL(KC_Y)
 #define P_FUN     OSL(_FUN)
-#define BSPC_SFT  SC_LSPO   // SC_LSPO is redifined in config.h to be SHIFT when held, BACKSPACE when tapped.
+#define SFT_BSPC  SFT_T(KC_BSPC)
 
 /* Switch base */
 #define D_QWERTY  DF(_QWERTY)
@@ -88,7 +88,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           BSPC_SFT, QK_REP, LA_SYM,     LA_EXTEND, KC_SPC, QK_AREP
+                                           SFT_BSPC, QK_REP, LA_SYM,    LA_EXTEND, KC_SPC,  QK_AREP
                                         //`--------------------------'  `--------------------------'
                                         //
     ),
@@ -101,7 +101,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                         KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, XXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            KC_LSFT, KC_BSPC, LA_SYM,   LA_EXTEND, KC_SPC,  QK_AREP
+                                           SFT_BSPC, KC_BSPC, LA_SYM,   LA_EXTEND, KC_SPC,  QK_AREP
                                         //`--------------------------'  `--------------------------'
     ),
 

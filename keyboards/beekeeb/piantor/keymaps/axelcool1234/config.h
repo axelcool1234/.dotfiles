@@ -14,6 +14,3 @@
 /* misc */
 #define ENABLE_COMPILE_KEYCODE
 #define CAPS_WORD_INVERT_ON_SHIFT
-
-/* shift / delete key using space cadet */
-#define LSPO_KEYS KC_LSFT, KC_TRNS, KC_BSPC
