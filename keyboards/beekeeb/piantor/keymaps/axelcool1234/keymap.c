@@ -48,7 +48,7 @@ enum keycodes {
     M_DCOLN,  // ::
 
     /* Multi-Repeat Key */
-    REPEAT,
+    //REPEAT,
 };
 
 /* Misc */
@@ -66,6 +66,7 @@ enum keycodes {
 #define UNDO      LCTL(KC_Z)
 #define REDO      LCTL(KC_Y)
 #define P_FUN     OSL(_FUN)
+#define BSPC_SFT  SC_LSPO   // SC_LSPO is redifined in config.h to be SHIFT when held, BACKSPACE when tapped.
 
 /* Switch base */
 #define D_QWERTY  DF(_QWERTY)
@@ -87,8 +88,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            KC_LSFT, KC_BSPC, LA_SYM,    LA_EXTEND,KC_SPC,  QK_REP
+                                           BSPC_SFT, QK_REP, LA_SYM,     LA_EXTEND, KC_SPC, QK_AREP
                                         //`--------------------------'  `--------------------------'
+                                        //
     ),
 
     [_QWERTY] = LAYOUT_split_3x6_3(
@@ -99,7 +101,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                         KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, XXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            KC_LSFT, KC_BSPC,LA_SYM,     LA_EXTEND,KC_SPC,  QK_REP
+                                            KC_LSFT, KC_BSPC, LA_SYM,   LA_EXTEND, KC_SPC,  QK_AREP
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -124,7 +126,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, UNDO,    CUT,     COPY,    PASTE,   REDO,                        ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,KC_ENT,  ________,   ________,________,________
+                                           QK_LEAD, KC_ENT,  ________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -136,7 +138,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,KC_AT,   KC_LCBR, KC_RCBR, KC_DLR,  KC_TILD,                      M_UP_DIR,KC_BSLS, KC_SLSH, KC_ASTR, KC_CIRC, ________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,________,   ________, KC_UNDS, QK_LEAD
+                                           ________,________,________,   ________, KC_UNDS,QK_REP
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -212,6 +214,42 @@ combo_t key_combos[] = {
     COMBO(delete_combo, KC_DEL),
 };
 */
+
+/* Repeat Key */
+//bool remember_last_key_user(uint16_t keycode, keyrecord_t* record,
+//                            uint8_t* remembered_mods) {
+//    switch (keycode) {
+//        case REPEAT:
+//            return false;  // Ignore REPEAT key.
+//    }
+//    return true;  // Other keys can be repeated.
+//}
+//
+//static void process_repeat(uint16_t keycode, uint8_t mods) {
+//    if (get_mods() & MOD_MASK_SHIFT) { // SHIFT + REPEAT = QK_AREP
+//        switch (keycode) {
+//            case KC_A: SEND_STRING(/*a*/"tion"); break;
+//            case KC_I: SEND_STRING(/*i*/"tion"); break;
+//            case KC_S: SEND_STRING(/*s*/"sion"); break;
+//            case KC_T: SEND_STRING(/*t*/"heir"); break;
+//            case KC_W: SEND_STRING(/*w*/"hich"); break;
+//        }
+//    }
+//    else { // REPEAT = QK_REP
+//
+//    }
+//}
+bool remember_last_key_user(uint16_t keycode, keyrecord_t* record,
+                            uint8_t* remembered_mods) {
+    switch (keycode) {
+        case LA_SYM:
+        case LA_EXTEND:
+            return false;  // Ignore
+    }
+
+    return true;  // Other keys can be repeated.
+}
+
 
 /* Callum Oneshots */
 bool is_oneshot_cancel_key(uint16_t keycode) {
@@ -306,17 +344,13 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
             }
             return false;
+        /* Custom Keys
+        case REPEAT:
+            if (record->event.pressed) {
+                process_repeat(get_last_keycode(), get_last_mods());
+            }
+            return false;
+        */
     }
     return true;
 }
-
-/* Alt Repeat Key */
-/*
-uint16_t get_alt_repeat_key_keycode_user(uint16_t keycode, uint8_t mods) {
-    bool shifted =    (mods & MOD_MASK_SHIFT);  // Was SFT held?
-    switch (keycode) {
-
-    }
-    return KC_TRNS;
-}
-*/
