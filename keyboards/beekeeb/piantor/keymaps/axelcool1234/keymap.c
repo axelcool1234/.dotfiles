@@ -12,6 +12,12 @@
  * Implement GPIO manipulation to control LED light on the WeAct RP2040s
  * Implement SHIFT + QK_REP = QK_AREP as a key override somehow
  * Additional extend stack layers?
+ *
+ * Create magic keys:
+ * - MAG_1: base magic key for common bigrams/trigrams
+ * - MAG_2: SHIFT + MAG_1 = MAG_2. Used for more uncommon n-grams and possibly even words.
+ * - MAG_3: SYM + MAG_1 = MAG_3. Used mostly for common words.
+ * - REVERSE: Used on the EXTEND layer for reversing movements.
 */
 
 /* Layers */
@@ -47,8 +53,10 @@ enum keycodes {
     M_UP_DIR, // ../
     M_DCOLN,  // ::
 
-    /* Multi-Repeat Key */
-    //REPEAT,
+    /* Magic Keys */
+    MAG_1,
+    MAG_2,
+    MAG_3,
 };
 
 /* Misc */
@@ -77,6 +85,12 @@ enum keycodes {
 #define LA_MOUSE    TG(_MOUSE)
 #define LA_MEDIA    TG(_MEDIA)
 
+/* Magic */
+#define magic_case(trigger, supplement) \
+    case trigger: \
+        SEND_STRING(supplement); \
+        return
+
 /* Keymaps */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     /* Base Layers */
@@ -88,9 +102,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           SFT_BSPC, QK_REP, LA_SYM,    LA_EXTEND, KC_SPC,  QK_AREP
+                                           QK_REP, SFT_BSPC, LA_SYM,   LA_EXTEND, KC_SPC,  MAG_1
                                         //`--------------------------'  `--------------------------'
-                                        //
     ),
 
     [_QWERTY] = LAYOUT_split_3x6_3(
@@ -101,7 +114,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                         KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, XXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           SFT_BSPC, KC_BSPC, LA_SYM,   LA_EXTEND, KC_SPC,  QK_AREP
+                                            QK_REP, SFT_BSPC, LA_SYM,  LA_EXTEND, KC_SPC,  MAG_3
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -126,7 +139,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, UNDO,    CUT,     COPY,    PASTE,   REDO,                        ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           QK_LEAD, KC_ENT,  ________,   ________,________,________
+                                           QK_AREP, KC_ENT,  QK_LEADER,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -138,7 +151,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,KC_AT,   KC_LCBR, KC_RCBR, KC_DLR,  KC_TILD,                      M_UP_DIR,KC_BSLS, KC_SLSH, KC_ASTR, KC_CIRC, ________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,________,   ________, KC_UNDS,QK_REP
+                                           ________,________,LA_SYM,     ________, KC_UNDS,QK_AREP
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -193,6 +206,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 };
 /* Thumb Cluster Overrides */
 const key_override_t space_key_override = ko_make_basic(MOD_MASK_SHIFT, KC_SPC,  KC_TAB);
+const key_override_t mag_key_override = ko_make_basic(MOD_MASK_SHIFT, MAG_1, MAG_2);
 
 /* Base Layer Overrides */
 const key_override_t comma_key_override = ko_make_basic(MOD_MASK_SHIFT, KC_COMM, KC_EXLM);
@@ -201,6 +215,7 @@ const key_override_t slash_key_override = ko_make_basic(MOD_MASK_SHIFT, KC_SLSH,
 const key_override_t **key_overrides = (const key_override_t *[]){
     /* Thumb Cluster */
     &space_key_override,
+    &mag_key_override,
     /* Base Layer */
     &comma_key_override,
     &dot_key_override,
@@ -208,37 +223,122 @@ const key_override_t **key_overrides = (const key_override_t *[]){
     NULL // Null terminate the array of overrides!
 };
 
-/* Combos
-const uint16_t PROGMEM delete_combo[] = {KC_SPC, KC_BSPC, COMBO_END};
-combo_t key_combos[] = {
-    COMBO(delete_combo, KC_DEL),
-};
-*/
+bool get_repeat_key_eligible_user(uint16_t keycode, keyrecord_t* record, uint8_t* remembered_mods) {
+    switch (keycode) {
+        // Ignore Custom Magic Keys
+        case MAG_1:
+        case MAG_2:
+        case MAG_3:
+            return false;
+        // Forget Shift on letter keys when Shift is the only mod being pressed.
+        case KC_A ... KC_Z:
+            if ((*remembered_mods & ~(MOD_MASK_SHIFT)) == 0) {
+                *remembered_mods &= ~MOD_MASK_SHIFT;
+            }
+            break;
+    }
 
-/* Repeat Key */
-//bool remember_last_key_user(uint16_t keycode, keyrecord_t* record,
-//                            uint8_t* remembered_mods) {
-//    switch (keycode) {
-//        case REPEAT:
-//            return false;  // Ignore REPEAT key.
-//    }
-//    return true;  // Other keys can be repeated.
-//}
-//
-//static void process_repeat(uint16_t keycode, uint8_t mods) {
-//    if (get_mods() & MOD_MASK_SHIFT) { // SHIFT + REPEAT = QK_AREP
-//        switch (keycode) {
-//            case KC_A: SEND_STRING(/*a*/"tion"); break;
-//            case KC_I: SEND_STRING(/*i*/"tion"); break;
-//            case KC_S: SEND_STRING(/*s*/"sion"); break;
-//            case KC_T: SEND_STRING(/*t*/"heir"); break;
-//            case KC_W: SEND_STRING(/*w*/"hich"); break;
-//        }
-//    }
-//    else { // REPEAT = QK_REP
-//
-//    }
-//}
+    return true;
+}
+void process_magic_key_1(uint16_t prev_keycode, uint8_t prev_mods) {
+    switch (prev_keycode) {
+        magic_case(KC_C, "Y");
+        magic_case(KC_P, "Y");
+        magic_case(KC_D, "Y");
+        magic_case(KC_G, "Y");
+        magic_case(KC_Z, "Y");
+        magic_case(KC_Y, "P");
+        magic_case(KC_R, "L");
+        magic_case(KC_K, "S");
+        magic_case(KC_L, "K");
+        magic_case(KC_S, "K");
+        magic_case(KC_U, "E");
+        magic_case(KC_E, "U");
+        magic_case(KC_O, "A");
+        magic_case(KC_A, "O");
+         case KC_DOT:
+            if (prev_mods & MOD_MASK_SHIFT) {
+                SEND_STRING("=");
+                return;
+            }
+            else {
+                SEND_STRING("\\");
+                return;
+            }
+        case KC_COMM:
+            if (prev_mods & MOD_MASK_SHIFT) {
+                SEND_STRING("=");
+                return;
+            }
+            else {
+                SEND_STRING(" but");
+                return;
+            }
+        magic_case(KC_EQL, ">");
+        magic_case(KC_MINS, ">");
+        magic_case(KC_Q, "mlativ");
+        magic_case(KC_H, "oa");
+        magic_case(KC_I, "on");
+        magic_case(KC_N, "ion");
+        magic_case(KC_V, "er");
+        magic_case(KC_X, "es");
+        magic_case(KC_M, "ent");
+        magic_case(KC_T, "ment");
+        magic_case(KC_J, "ust");
+        magic_case(KC_B, "efore");
+        magic_case(KC_W, "hich");
+        magic_case(KC_1 ... KC_0, ".");
+        magic_case(KC_SPC, "the");
+    }
+}
+void process_magic_key_2(uint16_t prev_keycode, uint8_t prev_mods) {
+    switch (prev_keycode) {
+        magic_case(KC_B, "ecome");
+        magic_case(KC_F, "ollow");
+        magic_case(KC_N, "eighbor");
+        magic_case(KC_H, "owever");
+        magic_case(KC_U, "pgrade");
+        magic_case(KC_O, "ther");
+        magic_case(KC_A, "lready");
+        magic_case(KC_P, "sych");
+        magic_case(KC_I, "'ll");
+        magic_case(KC_K, "now");
+        magic_case(KC_T, "hough");
+        magic_case(KC_L, "ittle");
+        magic_case(KC_M, "ight");
+        magic_case(KC_R, "ight");
+        magic_case(KC_J, "udge");
+        magic_case(KC_C, "ould");
+        magic_case(KC_D, "evelop");
+        magic_case(KC_G, "eneral");
+        magic_case(KC_W, "here");
+        magic_case(KC_S, "hould");
+        magic_case(KC_DOT, "org");
+        magic_case(KC_COMM, " however");
+    }
+}
+void process_magic_key_3(uint16_t prev_keycode, uint8_t prev_mods) {
+    switch (prev_keycode) {
+        magic_case(KC_B, "etween");
+        magic_case(KC_N, "umber");
+        magic_case(KC_U, "pdate");
+        magic_case(KC_A, "bout");
+        magic_case(KC_W, "orld");
+        magic_case(KC_G, "overn");
+        magic_case(KC_P, "rogram");
+        magic_case(KC_Q, "uestion");
+        magic_case(KC_C, "rowd");
+        magic_case(KC_S, "chool");
+        magic_case(KC_T, "hrough");
+        magic_case(KC_M, "anage");
+        magic_case(KC_O, "xygen");
+        magic_case(KC_I, "'m");
+        magic_case(KC_E, "'re");
+        magic_case(KC_DOT, "com");
+        magic_case(KC_COMM, " since");
+    }
+}
+
 bool remember_last_key_user(uint16_t keycode, keyrecord_t* record,
                             uint8_t* remembered_mods) {
     switch (keycode) {
@@ -249,7 +349,6 @@ bool remember_last_key_user(uint16_t keycode, keyrecord_t* record,
 
     return true;  // Other keys can be repeated.
 }
-
 
 /* Callum Oneshots */
 bool is_oneshot_cancel_key(uint16_t keycode) {
@@ -344,13 +443,22 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 
             }
             return false;
-        /* Custom Keys
-        case REPEAT:
+        /* Magic Keys */
+        case MAG_1:
             if (record->event.pressed) {
-                process_repeat(get_last_keycode(), get_last_mods());
+                process_magic_key_1(get_last_keycode(), get_last_mods());
             }
             return false;
-        */
+        case MAG_2:
+            if (record->event.pressed) {
+                process_magic_key_2(get_last_keycode(), get_last_mods());
+            }
+            return false;
+        case MAG_3:
+            if (record->event.pressed) {
+                process_magic_key_3(get_last_keycode(), get_last_mods());
+            }
+            return false;
     }
     return true;
 }
