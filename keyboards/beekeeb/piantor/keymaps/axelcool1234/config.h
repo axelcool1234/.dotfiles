@@ -14,3 +14,6 @@
 /* misc */
 #define ENABLE_COMPILE_KEYCODE
 #define CAPS_WORD_INVERT_ON_SHIFT
+
+/* tapping */
+#define TAPPING_TERM 175
