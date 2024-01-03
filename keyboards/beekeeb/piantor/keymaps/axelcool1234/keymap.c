@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include QMK_KEYBOARD_H
+// Code provided by Pascal Getreuer.
+#include "sentence_case.h"
+#include "custom_shift_keys.h"
+// Code provided by Callum.
 #include "oneshot.h"
 
 /* TODO:
@@ -57,6 +61,9 @@ enum keycodes {
     MAG_1,
     MAG_2,
     MAG_3,
+
+    /* Toggle Sentence Case */
+    SENTENCE,
 };
 
 /* Misc */
@@ -114,7 +121,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                         KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, XXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            QK_REP, SFT_BSPC, LA_SYM,  LA_EXTEND, KC_SPC,  MAG_3
+                                            QK_REP, SFT_BSPC, LA_SYM,   LA_EXTEND, KC_SPC,  MAG_2
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -124,7 +131,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|      |Gaming|      |--------+--------+--------+--------+--------+--------|
        XXXXXXXX, KC_LSFT, KC_S,    KC_A,    KC_D,    KC_F,        /*------*/      XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       XXXXXXXX,XXXXXXXX, KC_Z,    KC_X,    KC_C,   XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,D_SEMIMAK,
+       P_FUN,   XXXXXXXX, KC_Z,    KC_X,    KC_C,   XXXXXXXX,                     XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
                                            XXXXXXXX, KC_SPC, XXXXXXXX,   XXXXXXXX,XXXXXXXX,XXXXXXXX
                                         //`--------------------------'  `--------------------------'
@@ -139,7 +146,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, UNDO,    CUT,     COPY,    PASTE,   REDO,                        ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           QK_AREP, KC_ENT,  QK_LEADER,   ________,________,________
+                                            MAG_3,   KC_ENT, ________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -194,34 +201,27 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
     [_FUN] = LAYOUT_split_3x6_3(
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
-      D_SEMIMAK, KC_F9,   KC_F5,   KC_F1,   KC_F3,   KC_F7,                        KC_F6,   KC_F2,   KC_F10,  KC_F4,   KC_F8,  CL_EEP,
+       XXXXXXXX, KC_F9,   KC_F5,   KC_F1,   KC_F3,   KC_F7,                        KC_F6,   KC_F2,   KC_F10,  KC_F4,   KC_F8,  CL_EEP,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       D_QWERTY, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL,  KC_F11,                       KC_F12,  DM_PLY1, DM_PLY2,XXXXXXXX,XXXXXXXX,QK_MAKE,
+       SENTENCE, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL,  KC_F11,                       KC_F12,  DM_PLY1, DM_PLY2,XXXXXXXX,XXXXXXXX,QK_MAKE,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       D_GAMING,  UNDO,    CUT,     COPY,   PASTE,    REDO,                        DM_RSTP, DM_REC1, DM_REC2,XXXXXXXX,XXXXXXXX,QK_BOOT,
+       XXXXXXXX,  UNDO,    CUT,     COPY,   PASTE,    REDO,                        DM_RSTP, DM_REC1, DM_REC2,XXXXXXXX,XXXXXXXX,QK_BOOT,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,________,   ________,________,________
+                                           D_GAMING,________,D_SEMIMAK,  D_QWERTY,________,________
                                         //`--------------------------'  `--------------------------'
     ),
 };
-/* Thumb Cluster Overrides */
-const key_override_t space_key_override = ko_make_basic(MOD_MASK_SHIFT, KC_SPC,  KC_TAB);
-const key_override_t mag_key_override = ko_make_basic(MOD_MASK_SHIFT, MAG_1, MAG_2);
-
-/* Base Layer Overrides */
-const key_override_t comma_key_override = ko_make_basic(MOD_MASK_SHIFT, KC_COMM, KC_EXLM);
-const key_override_t dot_key_override =   ko_make_basic(MOD_MASK_SHIFT, KC_DOT, KC_QUES);
-const key_override_t slash_key_override = ko_make_basic(MOD_MASK_SHIFT, KC_SLSH, KC_SCLN);
-const key_override_t **key_overrides = (const key_override_t *[]){
-    /* Thumb Cluster */
-    &space_key_override,
-    &mag_key_override,
-    /* Base Layer */
-    &comma_key_override,
-    &dot_key_override,
-    &slash_key_override,
-    NULL // Null terminate the array of overrides!
+/* Custom Shift Keys */
+const custom_shift_key_t custom_shift_keys[] = {
+    /* Thumb Cluster Overrides */
+    {KC_SPC, KC_TAB},
+    /* Base Layer Overrides */
+    {KC_COMM, KC_EXLM},
+    {KC_DOT, KC_QUES},
+    {KC_SLSH, KC_SCLN},
 };
+uint8_t NUM_CUSTOM_SHIFT_KEYS =
+    sizeof(custom_shift_keys) / sizeof(custom_shift_key_t);
 
 bool get_repeat_key_eligible_user(uint16_t keycode, keyrecord_t* record, uint8_t* remembered_mods) {
     switch (keycode) {
@@ -342,6 +342,11 @@ void process_magic_key_3(uint16_t prev_keycode, uint8_t prev_mods) {
 bool remember_last_key_user(uint16_t keycode, keyrecord_t* record,
                             uint8_t* remembered_mods) {
     switch (keycode) {
+        /* Magic Keys */
+        case MAG_1:
+        case MAG_2:
+        case MAG_3:
+        /* Tri Layer */
         case LA_SYM:
         case LA_EXTEND:
             return false;  // Ignore
@@ -382,6 +387,10 @@ oneshot_state os_alt_state = os_up_unqueued;
 oneshot_state os_gui_state = os_up_unqueued;
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    /* Sentence Case */
+    if (!process_sentence_case(keycode, record)) { return false; }
+    /* Custom Shift Keys */
+    if (!process_custom_shift_keys(keycode, record)) { return false; }
     /* Callum Oneshots */
     update_oneshot(
             &os_sft_state, KC_LSFT, OS_SFT,
@@ -457,6 +466,15 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
         case MAG_3:
             if (record->event.pressed) {
                 process_magic_key_3(get_last_keycode(), get_last_mods());
+            }
+            return false;
+        /* Toggle Sentence Case provided by Pascal Getreuer*/
+        case SENTENCE:
+            if (record->event.pressed) {
+                sentence_case_toggle();
+            }
+            else {
+
             }
             return false;
     }
