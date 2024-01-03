@@ -9,19 +9,14 @@
 #include "oneshot.h"
 
 /* TODO:
- * Vim layer?
+ * Vim Mode (https://github.com/andrewjrae/qmk-vim)
  * LaTeX layer?
  * Common macros in the _FUN layer?
- * Implement leader key (put in empty spot of symbol layer or empty spot in Semimak layer)?
- * Implement GPIO manipulation to control LED light on the WeAct RP2040s
- * Implement SHIFT + QK_REP = QK_AREP as a key override somehow
+ * Implement GPIO manipulation to control LED light on the WeAct RP2040s (Possibly for a "lock" layer that locks my keyboard. A specific tap-dance only I know will unlock it)
  * Additional extend stack layers?
  *
- * Create magic keys:
- * - MAG_1: base magic key for common bigrams/trigrams
- * - MAG_2: SHIFT + MAG_1 = MAG_2. Used for more uncommon n-grams and possibly even words.
- * - MAG_3: SYM + MAG_1 = MAG_3. Used mostly for common words.
- * - REVERSE: Used on the EXTEND layer for reversing movements.
+ * Quad-function key, (BPSC + SHIFT + ENTER + CTRL)
+ * Implement Leader Key (once quad-function key is implemented)
 */
 
 /* Layers */
@@ -82,6 +77,7 @@ enum keycodes {
 #define REDO      LCTL(KC_Y)
 #define P_FUN     OSL(_FUN)
 #define SFT_BSPC  SFT_T(KC_BSPC)
+#define T_CAPS    TD(TD_CAPS)
 
 /* Switch base */
 #define D_QWERTY  DF(_QWERTY)
@@ -98,6 +94,30 @@ enum keycodes {
         SEND_STRING(supplement); \
         return
 
+/* Tap Dance */
+// Tap Dance functions
+void tap_caps(tap_dance_state_t *state, void *user_data) {
+    switch (state->count) {
+        case 1:
+            caps_word_toggle();
+            break;
+        case 2:
+            tap_code(KC_CAPS);
+            break;
+    }
+}
+
+// Tap Dance declarations
+enum {
+    TD_CAPS,
+};
+
+// Tap Dance definitions
+tap_dance_action_t tap_dance_actions[] = {
+    // Tap once for Escape, twice for Caps Lock
+    [TD_CAPS] = ACTION_TAP_DANCE_FN(tap_caps),
+};
+
 /* Keymaps */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     /* Base Layers */
@@ -105,11 +125,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        KC_ESC,   KC_F,   KC_L,     KC_H,    KC_V,    KC_Z,       /*-------*/       KC_Q,    KC_W,    KC_U,    KC_O,   KC_Y,    KC_GRV,
     //|--------+--------+--------+--------+--------+--------|     |SEMIMAK|      |--------+--------+--------+--------+--------+--------|
-       HOME_CAP, KC_S,   KC_R,     KC_N,    KC_T,    KC_K,       /*-------*/       KC_C,    KC_D,    KC_E,    KC_A,   KC_I,    KC_ENT,
+       T_CAPS,   KC_S,   KC_R,     KC_N,    KC_T,    KC_K,       /*-------*/       KC_C,    KC_D,    KC_E,    KC_A,   KC_I,    KC_ENT,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           QK_REP, SFT_BSPC, LA_SYM,   LA_EXTEND, KC_SPC,  MAG_1
+                                           SFT_BSPC, QK_REP, LA_SYM,    LA_EXTEND, KC_SPC,  MAG_1
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -117,11 +137,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        KC_ESC,   KC_Q,    KC_W,    KC_E,    KC_R,    KC_T,        /*------*/       KC_Y,    KC_U,    KC_I,    KC_O,    KC_P,    KC_ESC,
     //|--------+--------+--------+--------+--------+--------|      |QWERTY|      |--------+--------+--------+--------+--------+--------|
-       HOME_CAP, KC_A,    KC_S,    KC_D,    KC_F,    KC_G,        /*------*/       KC_H,    KC_J,    KC_K,    KC_L,    KC_QUOT, KC_ENT,
+       T_CAPS,   KC_A,    KC_S,    KC_D,    KC_F,    KC_G,        /*------*/       KC_H,    KC_J,    KC_K,    KC_L,    KC_QUOT, KC_ENT,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                         KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, XXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            QK_REP, SFT_BSPC, LA_SYM,   LA_EXTEND, KC_SPC,  MAG_2
+                                           SFT_BSPC, QK_REP, LA_SYM,    LA_EXTEND, KC_SPC,  MAG_2
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -158,7 +178,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,KC_AT,   KC_LCBR, KC_RCBR, KC_DLR,  KC_TILD,                      M_UP_DIR,KC_BSLS, KC_SLSH, KC_ASTR, KC_CIRC, ________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,LA_SYM,     ________, KC_UNDS,QK_AREP
+                                           ________,________,_______,    ________, KC_UNDS,QK_AREP
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -223,6 +243,17 @@ const custom_shift_key_t custom_shift_keys[] = {
 uint8_t NUM_CUSTOM_SHIFT_KEYS =
     sizeof(custom_shift_keys) / sizeof(custom_shift_key_t);
 
+/* Tap Dance */
+uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case T_CAPS:
+            return TAPPING_TERM + 175;
+        default:
+            return TAPPING_TERM;
+    }
+}
+
+/* Magic Keys */
 bool get_repeat_key_eligible_user(uint16_t keycode, keyrecord_t* record, uint8_t* remembered_mods) {
     switch (keycode) {
         // Ignore Custom Magic Keys
