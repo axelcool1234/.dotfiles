@@ -317,24 +317,16 @@ __attribute__((weak)) char sentence_case_press_user(uint16_t keycode,
       case KC_A ... KC_Z:
         return 'a';  // Letter key.
 
-      /* Axel: Default implementation assumes shift + 1 == ! and shift + / == ? and shift + . == >
       case KC_DOT:  // . is punctuation, Shift . is a symbol (>)
         return !shifted ? '.' : '#';
       case KC_1:
       case KC_SLSH:
         return shifted ? '.' : '#';
-      */
-      case KC_DOT:
-        return '.';
-      case KC_COMM:
-        return shifted ? '.' : '#';
       case KC_2 ... KC_0:  // 2 3 4 5 6 7 8 9 0
       case KC_MINS ... KC_SCLN:  // - = [ ] ; backslash
       case KC_GRV:
-      /* Axel: Default implementation assumes shift + , == <
       case KC_COMM:
         return '#';  // Symbol key.
-      */
 
       case KC_SPC:
         return ' ';  // Space key.

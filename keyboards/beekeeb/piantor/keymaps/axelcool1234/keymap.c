@@ -238,6 +238,40 @@ const custom_shift_key_t custom_shift_keys[] = {
 uint8_t NUM_CUSTOM_SHIFT_KEYS =
     sizeof(custom_shift_keys) / sizeof(custom_shift_key_t);
 
+/* Sentence Case */
+char sentence_case_press_user(uint16_t keycode,
+                              keyrecord_t* record,
+                              uint8_t mods) {
+   if ((mods & ~(MOD_MASK_SHIFT | MOD_BIT(KC_RALT))) == 0) {
+    const bool shifted = mods & MOD_MASK_SHIFT;
+    switch (keycode) {
+      case T_ESC:
+      case KC_LCTL ... KC_RGUI:  // Mod keys.
+        return '\0';  // These keys are ignored.
+      case KC_A ... KC_Z:
+        return 'a';  // Letter key.
+      case KC_EXLM:
+      case KC_QUES:
+      case KC_DOT:
+        return '.';
+      case KC_COMM:
+        return shifted ? '.' : '#';
+      case KC_1 ... KC_0:  // 1 2 3 4 5 6 7 8 9 0
+      case KC_MINS ... KC_SCLN:  // - = [ ] ; backslash
+      case KC_GRV:
+      case KC_SLSH:
+        return '#';
+      case KC_SPC:
+        return ' ';  // Space key.
+      case KC_QUOT:
+        return '\'';  // Quote key.
+    }
+  }
+  // Otherwise clear Sentence Case to initial state.
+  sentence_case_clear();
+  return '\0';
+}
+
 /* Tap Dance */
 // Tap Dance functions
 void tap_caps(tap_dance_state_t *state, void *user_data) {
@@ -375,20 +409,20 @@ bool get_repeat_key_eligible_user(uint16_t keycode, keyrecord_t* record, uint8_t
 }
 void process_magic_key_1(uint16_t prev_keycode, uint8_t prev_mods) {
     switch (prev_keycode) {
-        magic_case(KC_C, "Y");
-        magic_case(KC_P, "Y");
-        magic_case(KC_D, "Y");
-        magic_case(KC_G, "Y");
-        magic_case(KC_Z, "Y");
-        magic_case(KC_Y, "P");
-        magic_case(KC_R, "L");
-        magic_case(KC_K, "S");
-        magic_case(KC_L, "K");
-        magic_case(KC_S, "K");
-        magic_case(KC_U, "E");
-        magic_case(KC_E, "U");
-        magic_case(KC_O, "A");
-        magic_case(KC_A, "O");
+        magic_case(KC_C, "y");
+        magic_case(KC_P, "y");
+        magic_case(KC_D, "y");
+        magic_case(KC_G, "y");
+        magic_case(KC_Z, "y");
+        magic_case(KC_Y, "p");
+        magic_case(KC_R, "l");
+        magic_case(KC_K, "s");
+        magic_case(KC_L, "k");
+        magic_case(KC_S, "k");
+        magic_case(KC_U, "e");
+        magic_case(KC_E, "u");
+        magic_case(KC_O, "a");
+        magic_case(KC_A, "o");
          case KC_DOT:
             if (prev_mods & MOD_MASK_SHIFT) {
                 SEND_STRING("=");
