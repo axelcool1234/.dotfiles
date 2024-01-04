@@ -31,7 +31,6 @@ enum layers {
     _NUM,
     // extend stack
     _MOUSE,
-    _MEDIA,
     _FUN,
 };
 
@@ -45,8 +44,8 @@ enum keycodes {
     OS_HYP,
 
     /* Layer switches */
-    LA_SYM,
-    LA_EXTEND,
+    LT_SYM,
+    LT_EXTEND,
 
     /* Macros */
     M_UP_DIR, // ../
@@ -78,6 +77,7 @@ enum keycodes {
 #define P_FUN     OSL(_FUN)
 #define SFT_BSPC  SFT_T(KC_BSPC)
 #define T_CAPS    TD(TD_CAPS)
+#define T_ESC     TD(ESC_MOD)
 
 /* Switch base */
 #define D_QWERTY  DF(_QWERTY)
@@ -86,7 +86,8 @@ enum keycodes {
 
 /* Switch layer */
 #define LA_MOUSE    TG(_MOUSE)
-#define LA_MEDIA    TG(_MEDIA)
+#define LT_SYM      LT(_SYM, KC_ENT)
+#define LT_EXTEND   LT(_EXTEND, KC_BSPC)
 
 /* Magic */
 #define magic_case(trigger, supplement) \
@@ -95,28 +96,33 @@ enum keycodes {
         return
 
 /* Tap Dance */
-// Tap Dance functions
-void tap_caps(tap_dance_state_t *state, void *user_data) {
-    switch (state->count) {
-        case 1:
-            caps_word_toggle();
-            break;
-        case 2:
-            tap_code(KC_CAPS);
-            break;
-    }
-}
+typedef enum {
+    TD_NONE,
+    TD_UNKNOWN,
+    TD_SINGLE_TAP,
+    TD_SINGLE_HOLD,
+    TD_DOUBLE_TAP,
+    TD_DOUBLE_HOLD,
+    TD_DOUBLE_SINGLE_TAP, // Send two single taps
+    TD_TRIPLE_TAP,
+    TD_TRIPLE_HOLD,
+    TD_TRIPLE_SINGLE_TAP, // Send three single taps
+    TD_QUADRUPLE_TAP,
+    TD_QUADRUPLE_HOLD,
+    TD_QUADRUPLE_SINGLE_TAP, // Send four single taps
+} td_state_t;
+
+typedef struct {
+    bool is_press_action;
+    td_state_t state;
+} td_tap_t;
 
 // Tap Dance declarations
 enum {
     TD_CAPS,
+    ESC_MOD,
 };
 
-// Tap Dance definitions
-tap_dance_action_t tap_dance_actions[] = {
-    // Tap once for Escape, twice for Caps Lock
-    [TD_CAPS] = ACTION_TAP_DANCE_FN(tap_caps),
-};
 
 /* Keymaps */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -129,7 +135,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           SFT_BSPC, QK_REP, LA_SYM,    LA_EXTEND, KC_SPC,  MAG_1
+                                            T_ESC,   QK_REP, LT_SYM,    LT_EXTEND, KC_SPC,  MAG_1
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -141,7 +147,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                         KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, XXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           SFT_BSPC, QK_REP, LA_SYM,    LA_EXTEND, KC_SPC,  MAG_2
+                                            T_ESC,   QK_REP, LT_SYM,    LT_EXTEND, KC_SPC,  MAG_2
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -162,11 +168,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        ________,________,________,________,________,________,                     ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       LA_MEDIA, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, LA_MOUSE,                     ________,KC_LEFT, KC_DOWN,  KC_UP,  KC_RIGHT,________,
+       LA_MOUSE, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, ________,                     ________,KC_LEFT, KC_DOWN,  KC_UP,  KC_RIGHT,________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, UNDO,    CUT,     COPY,    PASTE,   REDO,                        ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            MAG_3,   KC_ENT, ________,   ________,________,________
+                                          QK_LEADER, MAG_3,  ________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -197,23 +203,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     /* Extend Stack */
     [_MOUSE] = LAYOUT_split_3x6_3(
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
-       ________,________,________,________,________,________,                       REDO,  KC_PASTE, KC_COPY, KC_CUT,  KC_UNDO, KC_ACL0,
+       ________,________,________,________,________,________,                     ________,________, KC_MS_U,________,________, KC_ACL0,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       ________, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, ________,                     ________,KC_MS_L,  KC_MS_D, KC_MS_U, KC_MS_R, KC_ACL1,
+       ________, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, ________,                     KC_WH_L, KC_MS_L,  KC_MS_D, KC_MS_R, KC_WH_D, KC_ACL1,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,________,________,________,________,________,                     ________,KC_WH_L,  KC_WH_D, KC_WH_U, KC_WH_R, KC_ACL2,
-    //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,________,   ________,________,________
-                                        //`--------------------------'  `--------------------------'
-    ),
-
-    [_MEDIA] = LAYOUT_split_3x6_3(
-    //,-----------------------------------------------------.                    ,-----------------------------------------------------.
-       ________,________,________,________,________,________,                     ________,________,________,________,________,________,
-    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       ________, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, ________,                      KC_MPLY,KC_MRWD, VOL_DOWN, VOL_UP, KC_MFFD, ________,
-    //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       ________,________,________,________,________,________,                     ________,________,KC_BRID,  KC_BRIU,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
                                            ________,________,________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
@@ -235,6 +229,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 const custom_shift_key_t custom_shift_keys[] = {
     /* Thumb Cluster Overrides */
     {KC_SPC, KC_TAB},
+    {LT_EXTEND, KC_DEL}, // BSCP -> DEL
     /* Base Layer Overrides */
     {KC_COMM, KC_EXLM},
     {KC_DOT, KC_QUES},
@@ -244,6 +239,113 @@ uint8_t NUM_CUSTOM_SHIFT_KEYS =
     sizeof(custom_shift_keys) / sizeof(custom_shift_key_t);
 
 /* Tap Dance */
+// Tap Dance functions
+void tap_caps(tap_dance_state_t *state, void *user_data) {
+    switch (state->count) {
+        case 1:
+            caps_word_toggle();
+            break;
+        case 2:
+            tap_code(KC_CAPS);
+            break;
+    }
+}
+
+// Tap Dance definitions
+/* Return an integer that corresponds to what kind of tap dance should be executed.
+ *
+ * How to figure out tap dance state: interrupted and pressed.
+ *
+ * Interrupted: If the state of a dance is "interrupted", that means that another key has been hit
+ *  under the tapping term. This is typically indicitive that you are trying to "tap" the key.
+ *
+ * Pressed: Whether or not the key is still being pressed. If this value is true, that means the tapping term
+ *  has ended, but the key is still being pressed down. This generally means the key is being "held".
+ *
+ * One thing that is currenlty not possible with qmk software in regards to tap dance is to mimic the "permissive hold"
+ *  feature. In general, advanced tap dances do not work well if they are used with commonly typed letters.
+ *  For example "A". Tap dances are best used on non-letter keys that are not hit while typing letters.
+ *
+ * Good places to put an advanced tap dance:
+ *  z,q,x,j,k,v,b, any function key, home/end, comma, semi-colon
+ *
+ * Criteria for "good placement" of a tap dance key:
+ *  Not a key that is hit frequently in a sentence
+ *  Not a key that is used frequently to double tap, for example 'tab' is often double tapped in a terminal, or
+ *    in a web form. So 'tab' would be a poor choice for a tap dance.
+ *  Letters used in common words as a double. For example 'p' in 'pepper'. If a tap dance function existed on the
+ *    letter 'p', the word 'pepper' would be quite frustating to type.
+ *
+ * For the third point, there does exist the 'TD_DOUBLE_SINGLE_TAP', however this is not fully tested
+ *
+ */
+td_state_t cur_dance(tap_dance_state_t *state) {
+    if (state->count == 1) {
+        if (!state->pressed) return TD_SINGLE_TAP;
+        // Key has not been interrupted, but the key is still held. Means you want to send a 'HOLD'.
+        else return TD_SINGLE_HOLD;
+    }
+    else if (state->count == 2) {
+        if (!state->pressed) return TD_DOUBLE_TAP;
+        else return TD_DOUBLE_HOLD;
+    }
+
+    // Assumes no one is trying to type the same letter three times (at least not quickly).
+    // If your tap dance key is 'KC_W', and you want to type "www." quickly - then you will need to add
+    // an exception here to return a 'TD_TRIPLE_SINGLE_TAP', and define that enum just like 'TD_DOUBLE_SINGLE_TAP'
+    else if (state->count == 3) {
+        if (!state->pressed) return TD_TRIPLE_TAP;
+        else return TD_TRIPLE_HOLD;
+    }
+    else if (state->count == 4) {
+        if (!state->pressed) return TD_QUADRUPLE_TAP;
+        else return TD_QUADRUPLE_HOLD;
+    }
+    else return TD_UNKNOWN;
+}
+
+// Create an instance of 'td_tap_t' for the 'esc' tap dance.
+static td_tap_t esctap_state = {
+    .is_press_action = true,
+    .state = TD_NONE
+};
+
+void esc_finished(tap_dance_state_t *state, void *user_data) {
+    esctap_state.state = cur_dance(state);
+    switch (esctap_state.state) {
+        case TD_SINGLE_TAP:     register_code(KC_ESC);  break;
+        case TD_SINGLE_HOLD:    register_code(KC_LSFT); break;
+        case TD_DOUBLE_TAP:     register_code(KC_ESC);  break;
+        case TD_DOUBLE_HOLD:    register_code(KC_LCTL); break;
+        case TD_TRIPLE_TAP:     register_code(KC_ESC);  break;
+        case TD_TRIPLE_HOLD:    register_code(KC_LALT); break;
+        case TD_QUADRUPLE_TAP:  register_code(KC_ESC);  break;
+        case TD_QUADRUPLE_HOLD: register_code(KC_LGUI); break;
+        default: break;
+    }
+}
+
+void esc_reset(tap_dance_state_t *state, void *user_data) {
+    switch (esctap_state.state) {
+        case TD_SINGLE_TAP:     unregister_code(KC_ESC);  break;
+        case TD_SINGLE_HOLD:    unregister_code(KC_LSFT); break;
+        case TD_DOUBLE_TAP:     unregister_code(KC_ESC);  break;
+        case TD_DOUBLE_HOLD:    unregister_code(KC_LCTL); break;
+        case TD_TRIPLE_TAP:     unregister_code(KC_ESC);  break;
+        case TD_TRIPLE_HOLD:    unregister_code(KC_LALT); break;
+        case TD_QUADRUPLE_TAP:  unregister_code(KC_ESC);  break;
+        case TD_QUADRUPLE_HOLD: unregister_code(KC_LGUI); break;
+        default: break;
+    }
+    esctap_state.state = TD_NONE;
+}
+
+tap_dance_action_t tap_dance_actions[] = {
+    // Tap once for Escape, twice for Caps Lock
+    [TD_CAPS] = ACTION_TAP_DANCE_FN(tap_caps),
+    [ESC_MOD] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, esc_finished, esc_reset),
+};
+
 uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
         case T_CAPS:
@@ -378,8 +480,8 @@ bool remember_last_key_user(uint16_t keycode, keyrecord_t* record,
         case MAG_2:
         case MAG_3:
         /* Tri Layer */
-        case LA_SYM:
-        case LA_EXTEND:
+        case LT_SYM:
+        case LT_EXTEND:
             return false;  // Ignore
     }
 
@@ -389,8 +491,8 @@ bool remember_last_key_user(uint16_t keycode, keyrecord_t* record,
 /* Callum Oneshots */
 bool is_oneshot_cancel_key(uint16_t keycode) {
     switch (keycode) {
-    case LA_SYM:
-    case LA_EXTEND:
+    case LT_SYM:
+    case LT_EXTEND:
         return true;
     default:
         return false;
@@ -399,9 +501,15 @@ bool is_oneshot_cancel_key(uint16_t keycode) {
 
 bool is_oneshot_ignored_key(uint16_t keycode) {
     switch (keycode) {
-    case LA_SYM:
-    case LA_EXTEND:
+    /* Thumb Layers */
+    case LT_SYM:
+    case LT_EXTEND:
+    /* Thumb Mods */
     case KC_LSFT:
+    case KC_LCTL:
+    case KC_LALT:
+    case KC_LGUI:
+    /* One Shot Mods */
     case OS_GUI:
     case OS_ALT:
     case OS_SFT:
@@ -441,14 +549,16 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             );
     switch (keycode) {
         /* Tri Layer */
-        case LA_EXTEND:
+        case LT_EXTEND:
             if ((! record->tap.count) && (! record->event.pressed)) {
                 /* turn off extend stack once extend is off */
                 layer_off(_MOUSE);
-                layer_off(_MEDIA);
             }
-            if (record->event.pressed) {
-                layer_on(_EXTEND);
+            if (record->tap.count && record->event.pressed) {
+                tap_code16(KC_BSPC); // Tap to send Backspace
+            }
+            else if (record->event.pressed) {
+                layer_on(_EXTEND); // Hold to go to EXTEND layer
                 update_tri_layer(_SYM, _EXTEND, _NUM);
             }
             else {
@@ -456,9 +566,12 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 update_tri_layer(_SYM, _EXTEND, _NUM);
             }
             return false;
-        case LA_SYM:
-            if (record->event.pressed) {
-                layer_on(_SYM);
+        case LT_SYM:
+            if (record->tap.count && record->event.pressed) {
+                tap_code16(KC_ENT); // Tap to send Enter
+            }
+            else if (record->event.pressed) {
+                layer_on(_SYM); // Hold to go to SYM layer
                 update_tri_layer(_SYM, _EXTEND, _NUM);
             }
             else {
