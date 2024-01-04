@@ -10,6 +10,18 @@ typedef enum {
     os_down_used,
 } oneshot_state;
 
+// Logic for keydown of oneshot mod
+void down_oneshot(
+    oneshot_state *state,
+    uint16_t mod
+);
+
+// Logic for keyup of oneshot mod
+void up_oneshot(
+    oneshot_state *state,
+    uint16_t mod
+);
+
 // Custom oneshot mod implementation that doesn't rely on timers. If a mod is
 // used while it is held it will be unregistered on keyup as normal, otherwise
 // it will be queued and only released after the next non-mod keyup.

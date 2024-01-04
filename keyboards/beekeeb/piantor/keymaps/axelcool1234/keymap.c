@@ -272,123 +272,6 @@ char sentence_case_press_user(uint16_t keycode,
   return '\0';
 }
 
-/* Tap Dance */
-// Tap Dance functions
-void tap_caps(tap_dance_state_t *state, void *user_data) {
-    switch (state->count) {
-        case 1:
-            caps_word_toggle();
-            break;
-        case 2:
-            tap_code(KC_CAPS);
-            break;
-    }
-}
-
-// Tap Dance definitions
-/* Return an integer that corresponds to what kind of tap dance should be executed.
- *
- * How to figure out tap dance state: interrupted and pressed.
- *
- * Interrupted: If the state of a dance is "interrupted", that means that another key has been hit
- *  under the tapping term. This is typically indicitive that you are trying to "tap" the key.
- *
- * Pressed: Whether or not the key is still being pressed. If this value is true, that means the tapping term
- *  has ended, but the key is still being pressed down. This generally means the key is being "held".
- *
- * One thing that is currenlty not possible with qmk software in regards to tap dance is to mimic the "permissive hold"
- *  feature. In general, advanced tap dances do not work well if they are used with commonly typed letters.
- *  For example "A". Tap dances are best used on non-letter keys that are not hit while typing letters.
- *
- * Good places to put an advanced tap dance:
- *  z,q,x,j,k,v,b, any function key, home/end, comma, semi-colon
- *
- * Criteria for "good placement" of a tap dance key:
- *  Not a key that is hit frequently in a sentence
- *  Not a key that is used frequently to double tap, for example 'tab' is often double tapped in a terminal, or
- *    in a web form. So 'tab' would be a poor choice for a tap dance.
- *  Letters used in common words as a double. For example 'p' in 'pepper'. If a tap dance function existed on the
- *    letter 'p', the word 'pepper' would be quite frustating to type.
- *
- * For the third point, there does exist the 'TD_DOUBLE_SINGLE_TAP', however this is not fully tested
- *
- */
-td_state_t cur_dance(tap_dance_state_t *state) {
-    if (state->count == 1) {
-        if (!state->pressed) return TD_SINGLE_TAP;
-        // Key has not been interrupted, but the key is still held. Means you want to send a 'HOLD'.
-        else return TD_SINGLE_HOLD;
-    }
-    else if (state->count == 2) {
-        if (!state->pressed) return TD_DOUBLE_TAP;
-        else return TD_DOUBLE_HOLD;
-    }
-
-    // Assumes no one is trying to type the same letter three times (at least not quickly).
-    // If your tap dance key is 'KC_W', and you want to type "www." quickly - then you will need to add
-    // an exception here to return a 'TD_TRIPLE_SINGLE_TAP', and define that enum just like 'TD_DOUBLE_SINGLE_TAP'
-    else if (state->count == 3) {
-        if (!state->pressed) return TD_TRIPLE_TAP;
-        else return TD_TRIPLE_HOLD;
-    }
-    else if (state->count == 4) {
-        if (!state->pressed) return TD_QUADRUPLE_TAP;
-        else return TD_QUADRUPLE_HOLD;
-    }
-    else return TD_UNKNOWN;
-}
-
-// Create an instance of 'td_tap_t' for the 'esc' tap dance.
-static td_tap_t esctap_state = {
-    .is_press_action = true,
-    .state = TD_NONE
-};
-
-void esc_finished(tap_dance_state_t *state, void *user_data) {
-    esctap_state.state = cur_dance(state);
-    switch (esctap_state.state) {
-        case TD_SINGLE_TAP:     register_code(KC_ESC);  break;
-        case TD_SINGLE_HOLD:    register_code(KC_LSFT); break;
-        case TD_DOUBLE_TAP:     register_code(KC_ESC);  break;
-        case TD_DOUBLE_HOLD:    register_code(KC_LCTL); break;
-        case TD_TRIPLE_TAP:     register_code(KC_ESC);  break;
-        case TD_TRIPLE_HOLD:    register_code(KC_LALT); break;
-        case TD_QUADRUPLE_TAP:  register_code(KC_ESC);  break;
-        case TD_QUADRUPLE_HOLD: register_code(KC_LGUI); break;
-        default: break;
-    }
-}
-
-void esc_reset(tap_dance_state_t *state, void *user_data) {
-    switch (esctap_state.state) {
-        case TD_SINGLE_TAP:     unregister_code(KC_ESC);  break;
-        case TD_SINGLE_HOLD:    unregister_code(KC_LSFT); break;
-        case TD_DOUBLE_TAP:     unregister_code(KC_ESC);  break;
-        case TD_DOUBLE_HOLD:    unregister_code(KC_LCTL); break;
-        case TD_TRIPLE_TAP:     unregister_code(KC_ESC);  break;
-        case TD_TRIPLE_HOLD:    unregister_code(KC_LALT); break;
-        case TD_QUADRUPLE_TAP:  unregister_code(KC_ESC);  break;
-        case TD_QUADRUPLE_HOLD: unregister_code(KC_LGUI); break;
-        default: break;
-    }
-    esctap_state.state = TD_NONE;
-}
-
-tap_dance_action_t tap_dance_actions[] = {
-    // Tap once for Escape, twice for Caps Lock
-    [TD_CAPS] = ACTION_TAP_DANCE_FN(tap_caps),
-    [ESC_MOD] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, esc_finished, esc_reset),
-};
-
-uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
-    switch (keycode) {
-        case T_CAPS:
-            return TAPPING_TERM + 175;
-        default:
-            return TAPPING_TERM;
-    }
-}
-
 /* Magic Keys */
 bool get_repeat_key_eligible_user(uint16_t keycode, keyrecord_t* record, uint8_t* remembered_mods) {
     switch (keycode) {
@@ -558,6 +441,123 @@ oneshot_state os_sft_state = os_up_unqueued;
 oneshot_state os_ctl_state = os_up_unqueued;
 oneshot_state os_alt_state = os_up_unqueued;
 oneshot_state os_gui_state = os_up_unqueued;
+
+/* Tap Dance */
+// Tap Dance functions
+void tap_caps(tap_dance_state_t *state, void *user_data) {
+    switch (state->count) {
+        case 1:
+            caps_word_toggle();
+            break;
+        case 2:
+            tap_code(KC_CAPS);
+            break;
+    }
+}
+
+// Tap Dance definitions
+/* Return an integer that corresponds to what kind of tap dance should be executed.
+ *
+ * How to figure out tap dance state: interrupted and pressed.
+ *
+ * Interrupted: If the state of a dance is "interrupted", that means that another key has been hit
+ *  under the tapping term. This is typically indicitive that you are trying to "tap" the key.
+ *
+ * Pressed: Whether or not the key is still being pressed. If this value is true, that means the tapping term
+ *  has ended, but the key is still being pressed down. This generally means the key is being "held".
+ *
+ * One thing that is currenlty not possible with qmk software in regards to tap dance is to mimic the "permissive hold"
+ *  feature. In general, advanced tap dances do not work well if they are used with commonly typed letters.
+ *  For example "A". Tap dances are best used on non-letter keys that are not hit while typing letters.
+ *
+ * Good places to put an advanced tap dance:
+ *  z,q,x,j,k,v,b, any function key, home/end, comma, semi-colon
+ *
+ * Criteria for "good placement" of a tap dance key:
+ *  Not a key that is hit frequently in a sentence
+ *  Not a key that is used frequently to double tap, for example 'tab' is often double tapped in a terminal, or
+ *    in a web form. So 'tab' would be a poor choice for a tap dance.
+ *  Letters used in common words as a double. For example 'p' in 'pepper'. If a tap dance function existed on the
+ *    letter 'p', the word 'pepper' would be quite frustating to type.
+ *
+ * For the third point, there does exist the 'TD_DOUBLE_SINGLE_TAP', however this is not fully tested
+ *
+ */
+td_state_t cur_dance(tap_dance_state_t *state) {
+    if (state->count == 1) {
+        if (!state->pressed) return TD_SINGLE_TAP;
+        // Key has not been interrupted, but the key is still held. Means you want to send a 'HOLD'.
+        else return TD_SINGLE_HOLD;
+    }
+    else if (state->count == 2) {
+        if (!state->pressed) return TD_DOUBLE_TAP;
+        else return TD_DOUBLE_HOLD;
+    }
+
+    // Assumes no one is trying to type the same letter three times (at least not quickly).
+    // If your tap dance key is 'KC_W', and you want to type "www." quickly - then you will need to add
+    // an exception here to return a 'TD_TRIPLE_SINGLE_TAP', and define that enum just like 'TD_DOUBLE_SINGLE_TAP'
+    else if (state->count == 3) {
+        if (!state->pressed) return TD_TRIPLE_TAP;
+        else return TD_TRIPLE_HOLD;
+    }
+    else if (state->count == 4) {
+        if (!state->pressed) return TD_QUADRUPLE_TAP;
+        else return TD_QUADRUPLE_HOLD;
+    }
+    else return TD_UNKNOWN;
+}
+
+// Create an instance of 'td_tap_t' for the 'esc' tap dance.
+static td_tap_t esctap_state = {
+    .is_press_action = true,
+    .state = TD_NONE
+};
+
+void esc_finished(tap_dance_state_t *state, void *user_data) {
+    esctap_state.state = cur_dance(state);
+    switch (esctap_state.state) {
+        case TD_SINGLE_TAP:     down_oneshot(&os_sft_state, KC_LSFT); break;
+        case TD_SINGLE_HOLD:    register_code(KC_LSFT); break;
+        case TD_DOUBLE_TAP:     register_code(KC_ESC);  break;
+        case TD_DOUBLE_HOLD:    register_code(KC_LCTL); break;
+        case TD_TRIPLE_TAP:     register_code(KC_ESC);  break;
+        case TD_TRIPLE_HOLD:    register_code(KC_LALT); break;
+        case TD_QUADRUPLE_TAP:  register_code(KC_ESC);  break;
+        case TD_QUADRUPLE_HOLD: register_code(KC_LGUI); break;
+        default: break;
+    }
+}
+
+void esc_reset(tap_dance_state_t *state, void *user_data) {
+    switch (esctap_state.state) {
+        case TD_SINGLE_TAP:     up_oneshot(&os_sft_state, KC_LSFT); break;
+        case TD_SINGLE_HOLD:    unregister_code(KC_LSFT); break;
+        case TD_DOUBLE_TAP:     unregister_code(KC_ESC);  break;
+        case TD_DOUBLE_HOLD:    unregister_code(KC_LCTL); break;
+        case TD_TRIPLE_TAP:     unregister_code(KC_ESC);  break;
+        case TD_TRIPLE_HOLD:    unregister_code(KC_LALT); break;
+        case TD_QUADRUPLE_TAP:  unregister_code(KC_ESC);  break;
+        case TD_QUADRUPLE_HOLD: unregister_code(KC_LGUI); break;
+        default: break;
+    }
+    esctap_state.state = TD_NONE;
+}
+
+tap_dance_action_t tap_dance_actions[] = {
+    // Tap once for Escape, twice for Caps Lock
+    [TD_CAPS] = ACTION_TAP_DANCE_FN(tap_caps),
+    [ESC_MOD] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, esc_finished, esc_reset),
+};
+
+uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case T_CAPS:
+            return TAPPING_TERM + 175;
+        default:
+            return TAPPING_TERM;
+    }
+}
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     /* Sentence Case */

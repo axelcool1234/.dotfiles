@@ -1,5 +1,37 @@
 #include "oneshot.h"
 
+void down_oneshot(
+    oneshot_state *state,
+    uint16_t mod
+) {
+    // Trigger keydown
+    if (*state == os_up_unqueued) {
+        register_code(mod);
+    }
+    *state = os_down_unused;
+}
+
+void up_oneshot(
+    oneshot_state *state,
+    uint16_t mod
+) {
+    // Trigger keyup
+    switch (*state) {
+    case os_down_unused:
+        // If we didn't use the mod while trigger was held, queue it.
+        *state = os_up_queued;
+        break;
+    case os_down_used:
+        // If we did use the mod while trigger was held, unregister it.
+        *state = os_up_unqueued;
+        unregister_code(mod);
+        break;
+    default:
+        break;
+    }
+}
+
+
 void update_oneshot(
     oneshot_state *state,
     uint16_t mod,
@@ -9,26 +41,9 @@ void update_oneshot(
 ) {
     if (keycode == trigger) {
         if (record->event.pressed) {
-            // Trigger keydown
-            if (*state == os_up_unqueued) {
-                register_code(mod);
-            }
-            *state = os_down_unused;
+            down_oneshot(state, mod);
         } else {
-            // Trigger keyup
-            switch (*state) {
-            case os_down_unused:
-                // If we didn't use the mod while trigger was held, queue it.
-                *state = os_up_queued;
-                break;
-            case os_down_used:
-                // If we did use the mod while trigger was held, unregister it.
-                *state = os_up_unqueued;
-                unregister_code(mod);
-                break;
-            default:
-                break;
-            }
+            up_oneshot(state, mod);
         }
     } else {
         if (record->event.pressed) {
