@@ -74,7 +74,7 @@ enum keycodes {
 #define P_FUN     OSL(_FUN)
 #define SFT_BSPC  SFT_T(KC_BSPC)
 #define T_CAPS    TD(TD_CAPS)
-#define T_ESC     TD(ESC_MOD)
+#define T_ENT     TD(ENT_MOD)
 
 /* Switch base */
 #define D_QWERTY  DF(_QWERTY)
@@ -83,7 +83,7 @@ enum keycodes {
 
 /* Switch layer */
 #define LA_MOUSE    TG(_MOUSE)
-#define LT_SYM      LT(_SYM, KC_ENT)
+#define LT_SYM      LT(_SYM, KC_NO) // on tap toggles one-shot Shift
 #define LT_EXTEND   LT(_EXTEND, KC_BSPC)
 
 /* Magic */
@@ -117,7 +117,7 @@ typedef struct {
 // Tap Dance declaratigions
 enum {
     TD_CAPS,
-    ESC_MOD,
+    ENT_MOD,
 };
 
 
@@ -132,7 +132,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            T_ESC,   QK_REP, LT_SYM,    LT_EXTEND, KC_SPC,  MAG_1
+                                            T_ENT,   QK_REP, LT_SYM,    LT_EXTEND, KC_SPC,  MAG_1
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -144,7 +144,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        P_FUN,    KC_Z,    KC_X,    KC_C,    KC_V,    KC_B,                         KC_N,    KC_M,    KC_COMM, KC_DOT,  KC_SLSH, XXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            T_ESC,   QK_REP, LT_SYM,    LT_EXTEND, KC_SPC,  MAG_2
+                                            T_ENT,   QK_REP, LT_SYM,    LT_EXTEND, KC_SPC,  MAG_2
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -175,7 +175,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
     [_SYM] = LAYOUT_split_3x6_3( // Mirrored version of Pascal Getreuer's symbol layer, with the opening and closing braces flipped for inward rolls.
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
-       ________,KC_PERC, KC_LBRC, KC_RBRC, M_DCOLN, KC_AMPR,                      KC_DOT,  KC_DQT,  KC_LT,   KC_GT,   KC_QUOT, ________,
+       ________,KC_PERC, KC_LBRC, KC_RBRC, KC_SCLN, KC_AMPR,                      KC_DOT,  KC_DQT,  KC_LT,   KC_GT,   KC_QUOT, ________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,KC_QUES, KC_LPRN, KC_RPRN, KC_COLN, KC_PIPE,                      KC_HASH, KC_EQL,  KC_MINS, KC_PLUS, KC_EXLM, ________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
@@ -242,7 +242,7 @@ char sentence_case_press_user(uint16_t keycode,
    if ((mods & ~(MOD_MASK_SHIFT | MOD_BIT(KC_RALT))) == 0) {
     const bool shifted = mods & MOD_MASK_SHIFT;
     switch (keycode) {
-      case T_ESC:
+      case T_ENT:
       case KC_LCTL ... KC_RGUI:  // Mod keys.
         return '\0';  // These keys are ignored.
       case KC_A ... KC_Z:
@@ -505,16 +505,16 @@ td_state_t cur_dance(tap_dance_state_t *state) {
     else return TD_UNKNOWN;
 }
 
-// Create an instance of 'td_tap_t' for the 'esc' tap dance.
-static td_tap_t esctap_state = {
+// Create an instance of 'td_tap_t' for the 'ent' tap dance.
+static td_tap_t enttap_state = {
     .is_press_action = true,
     .state = TD_NONE
 };
 
-void esc_finished(tap_dance_state_t *state, void *user_data) {
-    esctap_state.state = cur_dance(state);
-    switch (esctap_state.state) {
-        case TD_SINGLE_TAP:     set_oneshot_mods(MOD_BIT(KC_LSFT)); break;
+void ent_finished(tap_dance_state_t *state, void *user_data) {
+    enttap_state.state = cur_dance(state);
+    switch (enttap_state.state) {
+        case TD_SINGLE_TAP:     register_code(KC_ENT);  break;
         case TD_SINGLE_HOLD:    register_code(KC_LSFT); break;
         case TD_DOUBLE_TAP:     register_code(KC_ESC);  break;
         case TD_DOUBLE_HOLD:    register_code(KC_LCTL); break;
@@ -526,9 +526,9 @@ void esc_finished(tap_dance_state_t *state, void *user_data) {
     }
 }
 
-void esc_reset(tap_dance_state_t *state, void *user_data) {
-    switch (esctap_state.state) {
-        case TD_SINGLE_TAP:     break;
+void ent_reset(tap_dance_state_t *state, void *user_data) {
+    switch (enttap_state.state) {
+        case TD_SINGLE_TAP:     unregister_code(KC_ENT);  break;
         case TD_SINGLE_HOLD:    unregister_code(KC_LSFT); break;
         case TD_DOUBLE_TAP:     unregister_code(KC_ESC);  break;
         case TD_DOUBLE_HOLD:    unregister_code(KC_LCTL); break;
@@ -538,13 +538,13 @@ void esc_reset(tap_dance_state_t *state, void *user_data) {
         case TD_QUADRUPLE_HOLD: unregister_code(KC_LGUI); break;
         default: break;
     }
-    esctap_state.state = TD_NONE;
+    enttap_state.state = TD_NONE;
 }
 
 tap_dance_action_t tap_dance_actions[] = {
     // Tap once for Escape, twice for Caps Lock
     [TD_CAPS] = ACTION_TAP_DANCE_FN(tap_caps),
-    [ESC_MOD] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, esc_finished, esc_reset),
+    [ENT_MOD] = ACTION_TAP_DANCE_FN_ADVANCED(NULL, ent_finished, ent_reset),
 };
 
 uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
@@ -599,7 +599,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             return false;
         case LT_SYM:
             if (record->tap.count && record->event.pressed) {
-                tap_code16(KC_ENT); // Tap to send Enter
+                set_oneshot_mods(MOD_BIT(KC_LSFT)); // Tap to toggle one-shot Shift
             }
             else if (record->event.pressed) {
                 layer_on(_SYM); // Hold to go to SYM layer
