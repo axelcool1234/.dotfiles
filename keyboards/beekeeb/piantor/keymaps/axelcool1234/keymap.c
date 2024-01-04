@@ -14,9 +14,6 @@
  * Common macros in the _FUN layer?
  * Implement GPIO manipulation to control LED light on the WeAct RP2040s (Possibly for a "lock" layer that locks my keyboard. A specific tap-dance only I know will unlock it)
  * Additional extend stack layers?
- *
- * Quad-function key, (BPSC + SHIFT + ENTER + CTRL)
- * Implement Leader Key (once quad-function key is implemented)
 */
 
 /* Layers */
@@ -117,7 +114,7 @@ typedef struct {
     td_state_t state;
 } td_tap_t;
 
-// Tap Dance declarations
+// Tap Dance declaratigions
 enum {
     TD_CAPS,
     ESC_MOD,
@@ -552,7 +549,7 @@ tap_dance_action_t tap_dance_actions[] = {
 
 uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
-        case T_CAPS:
+        case TD_CAPS:
             return TAPPING_TERM + 175;
         default:
             return TAPPING_TERM;
