@@ -514,7 +514,7 @@ static td_tap_t esctap_state = {
 void esc_finished(tap_dance_state_t *state, void *user_data) {
     esctap_state.state = cur_dance(state);
     switch (esctap_state.state) {
-        case TD_SINGLE_TAP:     down_oneshot(&os_sft_state, KC_LSFT); break;
+        case TD_SINGLE_TAP:     set_oneshot_mods(MOD_BIT(KC_LSFT)); break;
         case TD_SINGLE_HOLD:    register_code(KC_LSFT); break;
         case TD_DOUBLE_TAP:     register_code(KC_ESC);  break;
         case TD_DOUBLE_HOLD:    register_code(KC_LCTL); break;
@@ -528,7 +528,7 @@ void esc_finished(tap_dance_state_t *state, void *user_data) {
 
 void esc_reset(tap_dance_state_t *state, void *user_data) {
     switch (esctap_state.state) {
-        case TD_SINGLE_TAP:     up_oneshot(&os_sft_state, KC_LSFT); break;
+        case TD_SINGLE_TAP:     break;
         case TD_SINGLE_HOLD:    unregister_code(KC_LSFT); break;
         case TD_DOUBLE_TAP:     unregister_code(KC_ESC);  break;
         case TD_DOUBLE_HOLD:    unregister_code(KC_LCTL); break;
