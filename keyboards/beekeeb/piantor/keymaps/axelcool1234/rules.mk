@@ -7,5 +7,4 @@ LEADER_ENABLE = yes
 TAP_DANCE_ENABLE = yes
 
 SRC += oneshot.c
-SRC += custom_shift_keys.c
 SRC += sentence_case.c
