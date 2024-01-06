@@ -623,7 +623,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
         /* Tri Layer */
         case LT_SFT:
-            if (record->event.pressed) {
+            if (record->event.pressed && !record->tap.count) {
                 layer_on(_SHIFT); // Hold to go to SHIFT layer
             }
             else {
@@ -632,7 +632,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             update_tri_layer(_SHIFT, _SYM, _NUM);
             return true;
         case LT_SYM:
-            if (record->event.pressed) {
+            if (record->event.pressed && !record->tap.count) {
                 layer_on(_SYM); // Hold to go to SYM layer
             }
             else {
