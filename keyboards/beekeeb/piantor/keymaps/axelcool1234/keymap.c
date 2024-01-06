@@ -142,7 +142,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        OS_FUN,   KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                          LT_EXTEND, QK_REP, LT_SYM,      LT_SFT,  KC_SPC,  MAG_1
+                                            MAG_1, QK_REP,   LT_SYM,      LT_SFT,  KC_SPC,  LT_EXTEND
                                         //`--------------------------'  `--------------------------'
     ),
     [_SHIFT] = LAYOUT_split_3x6_3(
@@ -153,7 +153,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        OS_FUN,   S(KC_X), SFT_QT,  S(KC_B), S(KC_M), S(KC_J),                      S(KC_P), S(KC_G),KC_EXLM, KC_QUES, KC_SCLN, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                          QK_LEADER, MAG_3,________,     ________,________,________
+                                            MAG_2,   MAG_3,  ________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -177,7 +177,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, UNDO,    CUT,     COPY,    PASTE,   REDO,                        ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,________,   ________, KC_TAB,  MAG_4
+                                            MAG_4,   KC_TAB, QK_LEADER,  ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -204,13 +204,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                  //   inward rolls. The arrow operator -> would have to be more common than (), [], and {} combined for this to be considered
                                  //   a downside.
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
-       ________,KC_PERC, KC_LBRC, KC_RBRC, M_DCOLN, KC_AMPR,                      KC_DOT,  KC_DQT,  KC_LT,   KC_GT,   KC_QUOT, ________,
+       ________,KC_PERC, KC_LBRC, KC_RBRC, KC_DCOLN, KC_AMPR,                     KC_DOT,  KC_DQT,  KC_LT,   KC_GT,   KC_QUOT, ________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,KC_QUES, KC_LPRN, KC_RPRN, KC_COLN, KC_PIPE,                      KC_HASH, KC_EQL,  KC_MINS, KC_PLUS, KC_EXLM, ________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,KC_AT,   KC_LCBR, KC_RCBR, KC_DLR,  KC_TILD,                      M_UP_DIR,KC_BSLS, KC_SLSH, KC_ASTR, KC_CIRC, ________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,_______,    ________,KC_UNDS, MAG_2
+                                           ________,________,_______,    ________,KC_UNDS, KC_SCLN
                                         //`--------------------------'  `--------------------------' <
     ),
 
@@ -623,6 +623,24 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
         /* Tri Layer */
         case LT_SFT:
+            /* Layer-tap Hold/One-shot implementation
+            if (record->event.pressed && !record->tap.count) {
+                layer_on(_SHIFT); // Hold to go to SHIFT layer
+            }
+            else if (record->event.pressed) {
+                set_oneshot_layer(_SHIFT, ONESHOT_START); // Tap to go to SHIFT layer (OSL)
+                os_lsft_state = os_up_queued;
+            }
+            else {
+                switch(os_lsft_state){
+                    case os_up_unqueued:
+                        layer_off(_SHIFT);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            */
             if (record->event.pressed && !record->tap.count) {
                 layer_on(_SHIFT); // Hold to go to SHIFT layer
             }
