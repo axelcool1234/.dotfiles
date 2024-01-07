@@ -138,8 +138,7 @@ enum {
 
 // Combo declarations
 enum combo_events {
-  NUM_RIGHT_COMBO,
-  NUM_LEFT_COMBO,
+  NUM_COMBO,
   BSPC_COMBO,
   BSPC_SFT_COMBO,
 };
@@ -235,7 +234,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL,  KC_EQL,                       KC_MINS, KC_PLUS, KC_SLSH, KC_ASTR, KC_CIRC,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,TG(_NUM),________,   ________,TG(_NUM),________
+                                           ________,TG(_NUM),________,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -600,13 +599,11 @@ uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
 */
 
 /* Combos */
-const uint16_t PROGMEM num_right_combo[] = {KC_SPC, OSL_SYM, COMBO_END};
-const uint16_t PROGMEM num_left_combo[] = {OSL_SFT, QK_REP, COMBO_END};
+const uint16_t PROGMEM num_combo[] = {KC_SPC, OSL_SYM, COMBO_END};
 const uint16_t PROGMEM bspc_combo[] = {KC_SPC, QK_REP, COMBO_END};
 const uint16_t PROGMEM bspc_sft_combo[] = {QK_REP, KC_UNDS, COMBO_END};
 combo_t key_combos[] = {
-    [NUM_RIGHT_COMBO] =  COMBO(num_right_combo, TG(_NUM)),
-    [NUM_LEFT_COMBO] = COMBO(num_left_combo, TG(_NUM)),
+    [NUM_COMBO] =  COMBO(num_combo, TG(_NUM)),
     [BSPC_COMBO] = COMBO(bspc_combo, KC_BSPC),
     [BSPC_SFT_COMBO] = COMBO(bspc_sft_combo, KC_BSPC),
 };
