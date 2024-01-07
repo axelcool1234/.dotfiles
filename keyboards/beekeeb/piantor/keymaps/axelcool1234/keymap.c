@@ -4,6 +4,7 @@
 #include QMK_KEYBOARD_H
 // Code provided by Pascal Getreuer.
 #include "sentence_case.h"
+#include "layer_lock.h"
 // Code provided by Callum.
 #include "oneshot.h"
 
@@ -13,8 +14,8 @@
  * Common macros in the _FUN layer?
  * Implement GPIO manipulation to control LED light on the WeAct RP2040s (Possibly for a "lock" layer that locks my keyboard. A specific tap-dance only I know will unlock it)
  * Additional extend stack layers?
- * Additional tri-layer?
  * Find a use for bottom right key on SEMIMAK layer.
+ * Autocorrection
 */
 
 /* Layers */
@@ -53,6 +54,9 @@ enum keycodes {
 
     /* Toggle Sentence Case */
     SENTENCE,
+
+    /* Layer Lock */
+    LLOCK,
 };
 
 /* Misc */
@@ -87,14 +91,13 @@ enum keycodes {
 /* Switch layer
  * LT means Layer-Tap
  * LA means Layer-Activate (the same as an MO() call, deactivates upon keyup)
- * Tri-layers:
- * LT_SFT + LT_EXTEND = _NUM layer activation
- * LT_SYM + LT_EXTEND = NONE for now.
+ * OSL means Oneshot-Layer
+ * TD means Tapdance
  * */
 #define LA_MOUSE    TG(_MOUSE)
-#define LT_EXTEND   TD(TD_MOD)
-#define LT_SYM      LT(_SYM, KC_ENT)
-#define LT_SFT      LT(_SHIFT, KC_BSPC)
+#define LT_EXTEND   TD(TD_EXTEND)
+#define OSL_SFT     OSL(_SHIFT)
+#define OSL_SYM     OSL(_SYM)
 
 /* Magic */
 #define magic_case(trigger, supplement) \
@@ -124,12 +127,22 @@ typedef struct {
     td_state_t state;
 } td_tap_t;
 
+
 // Tap Dance declaratigions
 enum {
     TD_CAPS,
-    TD_MOD,
+    TD_EXTEND,
+    //TD_SHIFT,
+    //TD_SYM,
 };
 
+// Combo declarations
+enum combo_events {
+  NUM_RIGHT_COMBO,
+  NUM_LEFT_COMBO,
+  BSPC_COMBO,
+  BSPC_SFT_COMBO,
+};
 
 /* Keymaps */
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
@@ -142,7 +155,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        OS_FUN,   KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            MAG_1, QK_REP,   LT_SYM,      LT_SFT,  KC_SPC,  LT_EXTEND
+                                            MAG_1,   KC_SPC, OSL_SFT,     OSL_SYM, QK_REP,  LT_EXTEND
                                         //`--------------------------'  `--------------------------'
     ),
     [_SHIFT] = LAYOUT_split_3x6_3(
@@ -153,7 +166,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        OS_FUN,   S(KC_X), SFT_QT,  S(KC_B), S(KC_M), S(KC_J),                      S(KC_P), S(KC_G),KC_EXLM, KC_QUES, KC_SCLN, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            MAG_2,   MAG_3,  ________,   ________,________,________
+                                           ________, QK_REP, LLOCK,       KC_ENT,  KC_UNDS, KC_SCLN
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -177,7 +190,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, UNDO,    CUT,     COPY,    PASTE,   REDO,                        ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            MAG_4,   KC_TAB, QK_LEADER,  ________,________,________
+                                            _______, QK_REP,QK_LEADER,   ________,________,________
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -204,13 +217,13 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                  //   inward rolls. The arrow operator -> would have to be more common than (), [], and {} combined for this to be considered
                                  //   a downside.
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
-       ________,KC_PERC, KC_LBRC, KC_RBRC, KC_DCOLN, KC_AMPR,                     KC_DOT,  KC_DQT,  KC_LT,   KC_GT,   KC_QUOT, ________,
+       ________,KC_PERC, KC_LBRC, KC_RBRC, M_DCOLN, KC_AMPR,                      KC_DOT,  KC_DQT,  KC_LT,   KC_GT,   KC_QUOT, ________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,KC_QUES, KC_LPRN, KC_RPRN, KC_COLN, KC_PIPE,                      KC_HASH, KC_EQL,  KC_MINS, KC_PLUS, KC_EXLM, ________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,KC_AT,   KC_LCBR, KC_RCBR, KC_DLR,  KC_TILD,                      M_UP_DIR,KC_BSLS, KC_SLSH, KC_ASTR, KC_CIRC, ________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,_______,    ________,KC_UNDS, KC_SCLN
+                                           MAG_2,   ________, KC_TAB,     LLOCK,  ________,________
                                         //`--------------------------'  `--------------------------' <
     ),
 
@@ -222,7 +235,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL,  KC_EQL,                       KC_MINS, KC_PLUS, KC_SLSH, KC_ASTR, KC_CIRC,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,________,   ________,________,________
+                                           ________,TG(_NUM),________,   ________,TG(_NUM),________
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -258,8 +271,8 @@ char sentence_case_press_user(uint16_t keycode,
    if ((mods & ~(MOD_MASK_SHIFT | MOD_BIT(KC_RALT))) == 0) {
     const bool shifted = mods & MOD_MASK_SHIFT;
     switch (keycode) {
-      case LT_SYM:
-      case LT_SFT:
+      case OSL_SYM:
+      case OSL_SFT:
       case LT_EXTEND:
       case KC_LCTL ... KC_RGUI:  // Mod keys.
         return '\0';  // These keys are ignored.
@@ -490,47 +503,91 @@ td_state_t cur_dance(tap_dance_state_t *state) {
     else return TD_UNKNOWN;
 }
 
-// Create an instance of 'td_tap_t' for the 'ent' tap dance.
-static td_tap_t modtap_state = {
+// Create an instance of 'td_tap_t' for the 'EXTEND' tap dance.
+static td_tap_t extendtap_state = {
     .is_press_action = true,
     .state = TD_NONE
 };
 
-void mod_finished(tap_dance_state_t *state, void *user_data) {
-    modtap_state.state = cur_dance(state);
-    switch (modtap_state.state) {
+void extend_finished(tap_dance_state_t *state, void *user_data) {
+    extendtap_state.state = cur_dance(state);
+    switch (extendtap_state.state) {
         case TD_SINGLE_TAP:     register_code(KC_ESC);  break;
         case TD_SINGLE_HOLD:    layer_on(_EXTEND);      break;
-        case TD_DOUBLE_TAP:     layer_invert(_EXTEND);  break;
-        case TD_DOUBLE_HOLD:    register_code(KC_LCTL); break;
-        case TD_TRIPLE_TAP:     register_code(KC_ESC);  break;
-        case TD_TRIPLE_HOLD:    register_code(KC_LALT); break;
-        case TD_QUADRUPLE_TAP:  register_code(KC_ESC);  break;
-        case TD_QUADRUPLE_HOLD: register_code(KC_LGUI); break;
+        case TD_DOUBLE_TAP:     layer_invert(_EXTEND); layer_off(_MOUSE); break;
         default: break;
     }
 }
 
-void mod_reset(tap_dance_state_t *state, void *user_data) {
-    switch (modtap_state.state) {
+void extend_reset(tap_dance_state_t *state, void *user_data) {
+    switch (extendtap_state.state) {
         case TD_SINGLE_TAP:     unregister_code(KC_ESC);  break;
         case TD_SINGLE_HOLD:    layer_off(_EXTEND); layer_off(_MOUSE); break;
-        case TD_DOUBLE_TAP:                               break;
-        case TD_DOUBLE_HOLD:    unregister_code(KC_LCTL); break;
-        case TD_TRIPLE_TAP:     unregister_code(KC_ESC);  break;
-        case TD_TRIPLE_HOLD:    unregister_code(KC_LALT); break;
-        case TD_QUADRUPLE_TAP:  unregister_code(KC_ESC);  break;
-        case TD_QUADRUPLE_HOLD: unregister_code(KC_LGUI); break;
+        case TD_DOUBLE_TAP:     break;
         default: break;
     }
-    modtap_state.state = TD_NONE;
+    extendtap_state.state = TD_NONE;
 }
 
+/*
+// Create an instance of 'td_tap_t' for the 'SHIFT' tap dance.
+oneshot_state osl_sft_state = os_up_unqueued;
+static td_tap_t sfttap_state = {
+    .is_press_action = true,
+    .state = TD_NONE
+};
+
+void sft_finished(tap_dance_state_t *state, void *user_data) {
+    sfttap_state.state = cur_dance(state);
+    switch (sfttap_state.state) {
+        case TD_SINGLE_TAP:     set_oneshot_layer(_SHIFT, ONESHOT_START);  osl_sft_state = os_up_queued; break;
+        case TD_DOUBLE_TAP:     reset_oneshot_layer(); layer_on(_SHIFT); break;
+        default: break;
+    }
+}
+
+void sft_reset(tap_dance_state_t *state, void *user_data) {
+    switch (sfttap_state.state) {
+        case TD_SINGLE_TAP:     break;
+        case TD_DOUBLE_TAP:     break;
+        default: break;
+    }
+    sfttap_state.state = TD_NONE;
+}
+
+// Create an instance of 'td_tap_t' for the 'SYM' tap dance.
+oneshot_state osl_sym_state = os_up_unqueued;
+static td_tap_t symtap_state = {
+    .is_press_action = true,
+    .state = TD_NONE
+};
+
+void sym_finished(tap_dance_state_t *state, void *user_data) {
+    symtap_state.state = cur_dance(state);
+    switch (symtap_state.state) {
+        case TD_SINGLE_TAP:     set_oneshot_layer(_SYM, ONESHOT_START);  osl_sym_state = os_up_queued; break;
+        case TD_DOUBLE_TAP:     reset_oneshot_layer(); layer_on(_SYM); break;
+        default: break;
+    }
+}
+
+void sym_reset(tap_dance_state_t *state, void *user_data) {
+    switch (symtap_state.state) {
+        case TD_SINGLE_TAP:     break;
+        case TD_DOUBLE_TAP:     break;
+        default: break;
+    }
+    symtap_state.state = TD_NONE;
+}
+*/
 tap_dance_action_t tap_dance_actions[] = {
     // Tap once for Escape, twice for Caps Lock
-    [TD_CAPS] = ACTION_TAP_DANCE_FN(tap_caps),
-    [TD_MOD] =  ACTION_TAP_DANCE_FN_ADVANCED(NULL, mod_finished, mod_reset),
+    [TD_CAPS]   =  ACTION_TAP_DANCE_FN(tap_caps),
+    [TD_EXTEND] =  ACTION_TAP_DANCE_FN_ADVANCED(NULL, extend_finished, extend_reset),
+    //[TD_SHIFT]  =  ACTION_TAP_DANCE_FN_ADVANCED(NULL, sft_finished, sft_reset),
+    //[TD_SYM]    =  ACTION_TAP_DANCE_FN_ADVANCED(NULL, sym_finished, sym_reset),
 };
+
 /*
 uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
@@ -542,11 +599,23 @@ uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
 }
 */
 
+/* Combos */
+const uint16_t PROGMEM num_right_combo[] = {KC_SPC, OSL_SYM, COMBO_END};
+const uint16_t PROGMEM num_left_combo[] = {OSL_SFT, QK_REP, COMBO_END};
+const uint16_t PROGMEM bspc_combo[] = {KC_SPC, QK_REP, COMBO_END};
+const uint16_t PROGMEM bspc_sft_combo[] = {QK_REP, KC_UNDS, COMBO_END};
+combo_t key_combos[] = {
+    [NUM_RIGHT_COMBO] =  COMBO(num_right_combo, TG(_NUM)),
+    [NUM_LEFT_COMBO] = COMBO(num_left_combo, TG(_NUM)),
+    [BSPC_COMBO] = COMBO(bspc_combo, KC_BSPC),
+    [BSPC_SFT_COMBO] = COMBO(bspc_sft_combo, KC_BSPC),
+};
+
 /* Callum Oneshots */
 bool is_oneshot_cancel_key(uint16_t keycode) {
     switch (keycode) {
-    case LT_SFT:
-    case LT_SYM:
+    case OSL_SFT:
+    case OSL_SYM:
     case LT_EXTEND:
         return true;
     default:
@@ -557,8 +626,8 @@ bool is_oneshot_cancel_key(uint16_t keycode) {
 bool is_oneshot_ignored_key(uint16_t keycode) {
     switch (keycode) {
     /* Thumb Layers */
-    case LT_SFT:
-    case LT_SYM:
+    case OSL_SFT:
+    case OSL_SYM:
     case LT_EXTEND:
     /* Thumb Mods */
     case KC_LSFT:
@@ -576,11 +645,13 @@ bool is_oneshot_ignored_key(uint16_t keycode) {
     }
 }
 
-oneshot_state os_sft_state = os_up_unqueued;
-oneshot_state os_ctl_state = os_up_unqueued;
-oneshot_state os_alt_state = os_up_unqueued;
-oneshot_state os_gui_state = os_up_unqueued;
+oneshot_state os_sft_state  = os_up_unqueued;
+oneshot_state os_ctl_state  = os_up_unqueued;
+oneshot_state os_alt_state  = os_up_unqueued;
+oneshot_state os_gui_state  = os_up_unqueued;
+//oneshot_state osl_sym_state = os_up_unqueued;
 
+/* Oneshot Layers */
 void update_oneshot_layer(
     oneshot_state *state,
     uint16_t keycode,
@@ -600,7 +671,47 @@ void update_oneshot_layer(
     }
 }
 
+/*
+// Number Case
+bool is_number_case_finished_key(uint16_t keycode) {
+    switch(keycode) {
+        // Whitespace
+        case KC_SPC:
+        case KC_ENT:
+        case KC_TAB:
+        // Symbols
+        case KC_SCLN:
+        case M_DCOLN:
+            return true;
+        default:
+            return false;
+    }
+}
+
+void process_number_case(
+        oneshot_state *state,
+        uint16_t layer,
+        uint16_t keycode,
+        keyrecord_t *record
+) {
+    if (record->event.pressed) {
+        switch(*state) {
+            case os_up_queued:
+                if (is_number_case_finished_key(keycode)) {
+                    *state = os_up_unqueued;
+                    layer_off(layer);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+}
+*/
+
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    /* Layer Lock */
+    if (!process_layer_lock(keycode, record, LLOCK)) { return false; }
     /* Sentence Case */
     if (!process_sentence_case(keycode, record)) { return false; }
     /* Callum Oneshots */
@@ -620,44 +731,21 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             &os_gui_state, KC_LGUI, OS_GUI,
             keycode, record
             );
+    /* Layer One-Shots */
+    //update_oneshot_layer(&osl_sft_state, keycode, record);
+    //update_oneshot_layer(&osl_sym_state, keycode, record);
     switch (keycode) {
-        /* Tri Layer */
-        case LT_SFT:
-            /* Layer-tap Hold/One-shot implementation
-            if (record->event.pressed && !record->tap.count) {
-                layer_on(_SHIFT); // Hold to go to SHIFT layer
-            }
-            else if (record->event.pressed) {
-                set_oneshot_layer(_SHIFT, ONESHOT_START); // Tap to go to SHIFT layer (OSL)
-                os_lsft_state = os_up_queued;
+        /*
+        case OSL_SYM:
+            if(record->event.pressed) {
+                layer_invert(_SYM);
+                osl_sym_state = os_up_queued;
             }
             else {
-                switch(os_lsft_state){
-                    case os_up_unqueued:
-                        layer_off(_SHIFT);
-                        break;
-                    default:
-                        break;
-                }
+
             }
-            */
-            if (record->event.pressed && !record->tap.count) {
-                layer_on(_SHIFT); // Hold to go to SHIFT layer
-            }
-            else {
-                layer_off(_SHIFT);
-            }
-            update_tri_layer(_SHIFT, _SYM, _NUM);
-            return true;
-        case LT_SYM:
-            if (record->event.pressed && !record->tap.count) {
-                layer_on(_SYM); // Hold to go to SYM layer
-            }
-            else {
-                layer_off(_SYM);
-            }
-            update_tri_layer(_SHIFT, _SYM, _NUM);
-            return true;
+            return false;
+        */
         /* Macros */
         case M_UP_DIR:
             if (record->event.pressed) {
