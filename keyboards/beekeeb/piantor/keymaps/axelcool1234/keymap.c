@@ -109,6 +109,16 @@ enum keycodes {
         SEND_STRING(supplement); \
         return
 
+#define magic_shift_case(trigger, shifted_supplement, supplement) \
+    case trigger: \
+        if (prev_mods & MOD_MASK_SHIFT) { \
+            SEND_STRING(shifted_supplement); \
+        } \
+        else { \
+            SEND_STRING(supplement); \
+        } \
+        return;
+
 /* Tap Dance */
 typedef enum {
     TD_NONE,
@@ -145,6 +155,9 @@ enum combo_events {
   NUM_COMBO,
   BSPC_COMBO,
   ENT_COMBO,
+  ENT_EXT_COMBO,
+  ENT_SYM_COMBO,
+  ENT_SFT_COMBO,
   UNDS_COMBO,
   SCLN_COMBO,
   TAB_COMBO,
@@ -163,7 +176,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        OS_FUN,   KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            MAG_1,   KC_SPC, OSL_SFT,     OSL_SYM, QK_REP,  LT_EXTEND
+                                          LT_EXTEND, KC_SPC, OSL_SFT,     OSL_SYM, QK_REP,  MAG_1
                                         //`--------------------------'  `--------------------------'
     ),
     [_SHIFT] = LAYOUT_split_3x6_3(
@@ -174,7 +187,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        OS_FUN,   S(KC_X), SFT_QT,  S(KC_B), S(KC_M), S(KC_J),                      S(KC_P), S(KC_G), KC_COMM, KC_DOT,  KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________, LLOCK,     ________, KC_UNDS, KC_SCLN
+                                           ________,________,LLOCK,      ________, KC_UNDS, KC_SCLN
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -194,11 +207,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        ________,________,________,________,________,________,                     ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       LA_MOUSE, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, ________,                     ________,KC_LEFT, KC_DOWN,  KC_UP,  KC_RIGHT,________,
+       LA_MOUSE, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, ________,                     KC_TAB,  KC_LEFT, KC_DOWN,  KC_UP,  KC_RIGHT,________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, UNDO,    CUT,     COPY,    PASTE,   REDO,                        ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            _______, QK_REP,QK_LEADER,   ________,________,________
+                                            _______,________,________,  QK_LEADER,________,________
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -335,12 +348,15 @@ void process_magic_key_1(uint16_t prev_keycode, uint8_t prev_mods) {
         magic_case(KC_AMPR, "=");
         magic_case(KC_PIPE, "=");
         magic_case(KC_PLUS, "=");
-        magic_case(KC_MINS, ">");
+        magic_case(KC_MINS, "=");
         magic_case(KC_EQL,  ">");
         magic_case(KC_SLSH, "=");
         magic_case(KC_EXLM, "=");
         magic_case(KC_CIRC, "=");
+        magic_case(KC_PERC, "=");
         magic_case(KC_ASTR, "=");
+        magic_case(KC_DOT, "/");
+        magic_case(KC_1 ... KC_0, ".");
 
         magic_case(KC_C, "y");
         magic_case(KC_P, "y");
@@ -356,24 +372,10 @@ void process_magic_key_1(uint16_t prev_keycode, uint8_t prev_mods) {
         magic_case(KC_E, "u");
         magic_case(KC_O, "a");
         magic_case(KC_A, "o");
-         case KC_DOT:
-            if (prev_mods & MOD_MASK_SHIFT) {
-                SEND_STRING("=");
-                return;
-            }
-            else {
-                SEND_STRING("\\");
-                return;
-            }
-        case KC_COMM:
-            if (prev_mods & MOD_MASK_SHIFT) {
-                SEND_STRING("=");
-                return;
-            }
-            else {
-                SEND_STRING(" but");
-                return;
-            }
+
+        magic_case(KC_F, "y");
+
+        magic_case(KC_COMM, " but");
         magic_case(KC_Q, "uen");
         magic_case(KC_H, "oa");
         magic_case(KC_I, "on");
@@ -385,7 +387,6 @@ void process_magic_key_1(uint16_t prev_keycode, uint8_t prev_mods) {
         magic_case(KC_J, "ust");
         magic_case(KC_B, "efore");
         magic_case(KC_W, "hich");
-        magic_case(KC_1 ... KC_0, ".");
         magic_case(KC_SPC, "the");
     }
 }
@@ -531,7 +532,7 @@ static td_tap_t extendtap_state = {
 void extend_finished(tap_dance_state_t *state, void *user_data) {
     extendtap_state.state = cur_dance(state);
     switch (extendtap_state.state) {
-        case TD_SINGLE_TAP:     register_code(KC_ESC);  break;
+        case TD_SINGLE_TAP:     set_oneshot_mods(MOD_BIT(KC_LCTL));  break;
         case TD_SINGLE_HOLD:    layer_on(_EXTEND);      break;
         case TD_DOUBLE_TAP:     layer_invert(_EXTEND); layer_off(_MOUSE); break;
         default: break;
@@ -556,21 +557,12 @@ tap_dance_action_t tap_dance_actions[] = {
     //[TD_SYM]    =  ACTION_TAP_DANCE_FN_ADVANCED(NULL, sym_finished, sym_reset),
 };
 
-/*
-uint16_t get_tapping_term(uint16_t keycode, keyrecord_t *record) {
-    switch (keycode) {
-        case QK_TAP_DANCE ... QK_TAP_DANCE_MAX:
-            return TAPPING_TERM;
-        default:
-            return TAPPING_TERM;
-    }
-}
-*/
-
-
 /* Combos */
 const uint16_t PROGMEM num_combo[] = {KC_SPC, OSL_SYM, COMBO_END};
 const uint16_t PROGMEM ent_combo[] = {OSL_SYM, OSL_SFT, COMBO_END};
+const uint16_t PROGMEM ent_sym_combo[] = {OSL_SYM, LLOCK, COMBO_END};
+const uint16_t PROGMEM ent_sft_combo[] = {OSL_SFT, LLOCK, COMBO_END};
+const uint16_t PROGMEM ent_ext_combo[] = {LT_EXTEND, OSL_SYM, COMBO_END};
 const uint16_t PROGMEM unds_combo[] = {OSL_SFT, QK_REP, COMBO_END};
 const uint16_t PROGMEM scln_combo[] = {OSL_SFT, LT_EXTEND, COMBO_END};
 const uint16_t PROGMEM tab_combo[] =  {MAG_1, LT_EXTEND, COMBO_END};
@@ -580,6 +572,9 @@ const uint16_t PROGMEM bspc_num_combo[] = {KC_SPC, TG(_NUM),  COMBO_END};
 combo_t key_combos[] = {
     [NUM_COMBO] =       COMBO(num_combo, OSL(_NUM)),
     [ENT_COMBO] =       COMBO(ent_combo, KC_ENT),
+    [ENT_SYM_COMBO] =   COMBO(ent_sym_combo, KC_ENT),
+    [ENT_SFT_COMBO] =   COMBO(ent_sft_combo, KC_ENT),
+    [ENT_EXT_COMBO] =   COMBO(ent_ext_combo, LCTL(KC_ENT)),
     [UNDS_COMBO] =      COMBO(unds_combo, KC_UNDS),
     [SCLN_COMBO] =      COMBO(scln_combo, KC_SCLN),
     [TAB_COMBO] =       COMBO(tab_combo, KC_TAB),
@@ -637,7 +632,7 @@ oneshot_state os_sft_state  = os_up_unqueued;
 oneshot_state os_ctl_state  = os_up_unqueued;
 oneshot_state os_alt_state  = os_up_unqueued;
 oneshot_state os_gui_state  = os_up_unqueued;
-//oneshot_state osl_sym_state = os_up_unqueued;
+oneshot_state os_ext_state  = os_up_unqueued;
 
 /* Oneshot Layers */
 void update_oneshot_layer(
@@ -658,36 +653,18 @@ void update_oneshot_layer(
         }
     }
 }
-
-/*
-// Number Case
-bool is_number_case_finished_key(uint16_t keycode) {
-    switch(keycode) {
-        // Whitespace
-        case KC_SPC:
-        case KC_ENT:
-        case KC_TAB:
-        // Symbols
-        case KC_SCLN:
-        case M_DCOLN:
-            return true;
-        default:
-            return false;
-    }
-}
-
-void process_number_case(
-        oneshot_state *state,
-        uint16_t layer,
-        uint16_t keycode,
-        keyrecord_t *record
+/* Oneshot Mods */
+void update_oneshot_mod(
+    oneshot_state *state,
+    uint16_t keycode,
+    keyrecord_t *record
 ) {
     if (record->event.pressed) {
-        switch(*state) {
+        switch(*state){
             case os_up_queued:
-                if (is_number_case_finished_key(keycode)) {
+                if (!is_oneshot_ignored_key(keycode)) {
                     *state = os_up_unqueued;
-                    layer_off(layer);
+                    clear_oneshot_mods();
                 }
                 break;
             default:
@@ -695,8 +672,6 @@ void process_number_case(
         }
     }
 }
-*/
-
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     /* Layer Lock */
     if (!process_layer_lock(keycode, record, LLOCK)) { return false; }
@@ -719,9 +694,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             &os_gui_state, KC_LGUI, OS_GUI,
             keycode, record
             );
-    /* Layer One-Shots */
-    //update_oneshot_layer(&osl_sft_state, keycode, record);
-    //update_oneshot_layer(&osl_sym_state, keycode, record);
+    update_oneshot_mod(&os_ext_state, keycode, record);
     switch (keycode) {
         case OSL_SYM:
             if(record->event.pressed) {
