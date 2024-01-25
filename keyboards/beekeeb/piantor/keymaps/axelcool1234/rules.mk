@@ -7,5 +7,6 @@ TAP_DANCE_ENABLE = yes
 COMBO_ENABLE = yes
 
 SRC += oneshot.c
+SRC += swapper.c
 SRC += sentence_case.c
 SRC += layer_lock.c

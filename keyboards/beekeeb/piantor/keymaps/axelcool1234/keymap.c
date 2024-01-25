@@ -7,6 +7,7 @@
 #include "layer_lock.h"
 // Code provided by Callum.
 #include "oneshot.h"
+#include "swapper.h"
 
 /* TODO:
  * Vim Mode (https://github.com/andrewjrae/qmk-vim)
@@ -55,6 +56,9 @@ enum keycodes {
     MAG_2,
     MAG_3,
     MAG_4,
+
+    /* Swapper */
+    SW_WIN,
 
     /* Toggle Sentence Case */
     SENTENCE,
@@ -152,17 +156,32 @@ enum {
 
 // Combo declarations
 enum combo_events {
-  NUM_COMBO,
-  BSPC_COMBO,
-  ENT_COMBO,
-  ENT_EXT_COMBO,
-  ENT_SYM_COMBO,
-  ENT_SFT_COMBO,
-  UNDS_COMBO,
-  SCLN_COMBO,
-  TAB_COMBO,
-  BSPC_SFT_COMBO,
-  BSPC_NUM_COMBO,
+    /* Commonly Used */
+    ENT_COMBO,
+    BSPC_COMBO,
+    TAB_COMBO,
+    ESC_COMBO,
+
+    /* Layer Change */
+    NUM_COMBO,
+
+    /* OSL + Key (made into combos to prevent misfire) */
+    CTL_SPC_COMBO,
+    UNDS_COMBO,
+    SCLN_COMBO,
+
+    /* Commonly Used Combos (but on another layer) */
+    ENT_SYM_COMBO,
+    ENT_SFT_COMBO,
+    BSPC_SYM_COMBO,
+    BSPC_SFT_COMBO,
+    TAB_SYM_COMBO,
+    TAB_SFT_COMBO,
+    //ESC_SYM_COMBO,
+    ESC_SFT_COMBO,
+
+    /* Num Layer */
+    BSPC_NUM_COMBO,
 };
 
 /* Keymaps */
@@ -176,7 +195,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        OS_FUN,   KC_X,   KC_QUOT,  KC_B,    KC_M,    KC_J,                         KC_P,    KC_G,    KC_COMM, KC_DOT, KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                          LT_EXTEND, KC_SPC, OSL_SFT,     OSL_SYM, QK_REP,  MAG_1
+                                          LT_EXTEND, QK_REP, OSL_SYM,    OSL_SFT,  KC_SPC,  MAG_1
                                         //`--------------------------'  `--------------------------'
     ),
     [_SHIFT] = LAYOUT_split_3x6_3(
@@ -187,7 +206,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        OS_FUN,   S(KC_X), SFT_QT,  S(KC_B), S(KC_M), S(KC_J),                      S(KC_P), S(KC_G), KC_COMM, KC_DOT,  KC_SLSH, XXXXXXXX,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,LLOCK,      ________, KC_UNDS, KC_SCLN
+                                            MAG_3,   MAG_2,  ________,    LLOCK,  ________,________
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -207,11 +226,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //,-----------------------------------------------------.                    ,-----------------------------------------------------.
        ________,________,________,________,________,________,                     ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
-       LA_MOUSE, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, ________,                     KC_TAB,  KC_LEFT, KC_DOWN,  KC_UP,  KC_RIGHT,________,
+       LA_MOUSE, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL, ________,                     SW_WIN,  KC_LEFT, KC_DOWN,  KC_UP,  KC_RIGHT,________,
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, UNDO,    CUT,     COPY,    PASTE,   REDO,                        ________,________,________,________,________,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                            _______,________,________,  QK_LEADER,________,________
+                                            _______,________,________,  QK_LEADER,QK_REP,  ________
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -244,7 +263,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________,KC_AT,   KC_LCBR, KC_RCBR, KC_DLR,  KC_TILD,                      M_UP_DIR,KC_BSLS, KC_SLSH, KC_ASTR, KC_CIRC, ________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           MAG_2,   ________,________,    LLOCK,  ________,________
+                                           ________,________, LLOCK,     ________,KC_UNDS, KC_SCLN
                                         //`--------------------------'  `--------------------------' <
     ),
 
@@ -256,7 +275,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     //|--------+--------+--------+--------+--------+--------|                    |--------+--------+--------+--------+--------+--------|
        ________, OS_GUI,  OS_ALT,  OS_SFT,  OS_CTL,  KC_EQL,                       KC_MINS, KC_PLUS, KC_SLSH, KC_ASTR, KC_CIRC,________,
     //|--------+--------+--------+--------+--------+--------+--------|  |--------+--------+--------+--------+--------+--------+--------|
-                                           ________,________,________,   ________, KC_BSPC,________
+                                           ________,________,________,   KC_COMM,  KC_BSPC, KC_DOT
                                         //`--------------------------'  `--------------------------'
     ),
 
@@ -558,36 +577,62 @@ tap_dance_action_t tap_dance_actions[] = {
 };
 
 /* Combos */
-const uint16_t PROGMEM num_combo[] = {KC_SPC, OSL_SYM, COMBO_END};
+/* Commonly Used Combos */
 const uint16_t PROGMEM ent_combo[] = {OSL_SYM, OSL_SFT, COMBO_END};
-const uint16_t PROGMEM ent_sym_combo[] = {OSL_SYM, LLOCK, COMBO_END};
-const uint16_t PROGMEM ent_sft_combo[] = {OSL_SFT, LLOCK, COMBO_END};
-const uint16_t PROGMEM ent_ext_combo[] = {LT_EXTEND, OSL_SYM, COMBO_END};
-const uint16_t PROGMEM unds_combo[] = {OSL_SFT, QK_REP, COMBO_END};
-const uint16_t PROGMEM scln_combo[] = {OSL_SFT, LT_EXTEND, COMBO_END};
-const uint16_t PROGMEM tab_combo[] =  {MAG_1, LT_EXTEND, COMBO_END};
-const uint16_t PROGMEM bspc_combo[] = {KC_SPC, QK_REP, COMBO_END};
-const uint16_t PROGMEM bspc_sft_combo[] = {KC_SPC, KC_UNDS, COMBO_END};
-const uint16_t PROGMEM bspc_num_combo[] = {KC_SPC, TG(_NUM),  COMBO_END};
+const uint16_t PROGMEM bspc_combo[] = {QK_REP, KC_SPC, COMBO_END};
+const uint16_t PROGMEM tab_combo[] = {LT_EXTEND, MAG_1, COMBO_END};
+const uint16_t PROGMEM esc_combo[] = {LT_EXTEND, OSL_SFT, COMBO_END};
+/* Layer Change Combo */
+const uint16_t PROGMEM num_combo[] = {QK_REP, OSL_SFT, COMBO_END};
+/* OSL + Key Combos */
+const uint16_t PROGMEM ctl_spc_combo[] = {LT_EXTEND, KC_SPC, COMBO_END};
+const uint16_t PROGMEM unds_combo[] = {OSL_SYM, KC_SPC, COMBO_END};
+const uint16_t PROGMEM scln_combo[] = {OSL_SYM, MAG_1, COMBO_END};
+/* Commonly Used Combos (but on another layer) */
+const uint16_t PROGMEM ent_sym_combo[] = {LLOCK, OSL_SFT, COMBO_END};
+const uint16_t PROGMEM ent_sft_combo[] = {OSL_SYM, LLOCK, COMBO_END};
+const uint16_t PROGMEM bspc_sym_combo[] = {QK_REP, KC_UNDS, COMBO_END};
+const uint16_t PROGMEM bspc_sft_combo[] = {MAG_2, KC_SPC, COMBO_END};
+const uint16_t PROGMEM tab_sym_combo[] = {LT_EXTEND, KC_SCLN, COMBO_END};
+const uint16_t PROGMEM tab_sft_combo[] = {MAG_3, MAG_1, COMBO_END};
+//const uint16_t PROGMEM esc_sym_combo[] = { , , COMBO_END};
+const uint16_t PROGMEM esc_sft_combo[] = {LT_EXTEND, LLOCK, COMBO_END};
+/* Num Layer */
+const uint16_t PROGMEM bspc_num_combo[] = {TG(_NUM), KC_SPC, COMBO_END};
 combo_t key_combos[] = {
-    [NUM_COMBO] =       COMBO(num_combo, OSL(_NUM)),
-    [ENT_COMBO] =       COMBO(ent_combo, KC_ENT),
-    [ENT_SYM_COMBO] =   COMBO(ent_sym_combo, KC_ENT),
-    [ENT_SFT_COMBO] =   COMBO(ent_sft_combo, KC_ENT),
-    [ENT_EXT_COMBO] =   COMBO(ent_ext_combo, LCTL(KC_ENT)),
-    [UNDS_COMBO] =      COMBO(unds_combo, KC_UNDS),
-    [SCLN_COMBO] =      COMBO(scln_combo, KC_SCLN),
-    [TAB_COMBO] =       COMBO(tab_combo, KC_TAB),
-    [BSPC_COMBO] =      COMBO(bspc_combo, KC_BSPC),
-    [BSPC_SFT_COMBO] =  COMBO(bspc_sft_combo, KC_BSPC),
-    [BSPC_NUM_COMBO] =  COMBO(bspc_num_combo, KC_BSPC),
+    /* Commonly Used */
+    [ENT_COMBO] = COMBO(ent_combo, KC_ENT),
+    [BSPC_COMBO] = COMBO(bspc_combo, KC_BSPC),
+    [TAB_COMBO] = COMBO(tab_combo, KC_TAB),
+    [ESC_COMBO] = COMBO(esc_combo, KC_ESC),
+
+    /* Layer Change */
+    [NUM_COMBO] = COMBO(num_combo, OSL(_NUM)),
+
+    /* OSL + Key (made into combos to prevent misfire) */
+    [CTL_SPC_COMBO] = COMBO(ctl_spc_combo, LCTL(KC_SPC)),
+    [UNDS_COMBO] = COMBO(unds_combo, KC_UNDS),
+    [SCLN_COMBO] = COMBO(scln_combo, KC_SCLN),
+
+    /* Commonly Used (but on another layer) */
+    [ENT_SYM_COMBO] = COMBO(ent_sym_combo, KC_ENT),
+    [ENT_SFT_COMBO] = COMBO(ent_sft_combo, KC_ENT),
+    [BSPC_SYM_COMBO] = COMBO(bspc_sym_combo, KC_BSPC),
+    [BSPC_SFT_COMBO] = COMBO(bspc_sft_combo, KC_BSPC),
+    [TAB_SYM_COMBO] = COMBO(tab_sym_combo, KC_TAB),
+    [TAB_SFT_COMBO] = COMBO(tab_sft_combo, KC_TAB),
+    //[ESC_SYM_COMBO] = COMBO(esc_sym_combo, KC_ESC),
+    [ESC_SFT_COMBO] = COMBO(esc_sft_combo, KC_ESC),
+
+    /* Num Layer */
+    [BSPC_NUM_COMBO] = COMBO(bspc_num_combo, KC_BSPC),
 };
 
 bool process_combo_key_release(uint16_t combo_index, combo_t *combo, uint8_t key_index, uint16_t keycode) {
     switch (combo_index) {
         case NUM_COMBO:
             switch(keycode) {
-                case KC_SPC:
+                case QK_REP:
                     return true;
             }
             return false; // do not release combo
@@ -627,6 +672,8 @@ bool is_oneshot_ignored_key(uint16_t keycode) {
         return false;
     }
 }
+
+bool sw_win_active = false;
 
 oneshot_state os_sft_state  = os_up_unqueued;
 oneshot_state os_ctl_state  = os_up_unqueued;
@@ -677,6 +724,11 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     if (!process_layer_lock(keycode, record, LLOCK)) { return false; }
     /* Sentence Case */
     if (!process_sentence_case(keycode, record)) { return false; }
+    /* Callum Swapper */
+    update_swapper(
+        &sw_win_active, KC_LALT, KC_TAB, SW_WIN,
+        keycode, record
+    );
     /* Callum Oneshots */
     update_oneshot(
             &os_sft_state, KC_LSFT, OS_SFT,
