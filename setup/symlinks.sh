@@ -6,7 +6,7 @@ DIR=$HOME/.dotfiles
 CONFIG_DIR=$HOME/.config
 
 HOME_DOTFILES=(
-
+	".bashrc"
 )
 CONFIG_DOTFILES=(
 	"nvim"
