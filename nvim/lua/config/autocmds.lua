@@ -42,10 +42,10 @@ vim.api.nvim_exec(
 ]],
     false
 )
--- -- Disable autoformat for cpp files
--- vim.api.nvim_create_autocmd({ "FileType" }, {
---     pattern = { "c", "cpp" },
---     callback = function()
---         vim.b.autoformat = false
---     end,
--- })
+-- Disable autoformat for cpp files
+vim.api.nvim_create_autocmd({ "FileType" }, {
+    pattern = { "c", "cpp" },
+    callback = function()
+        vim.b.autoformat = false
+    end,
+})
