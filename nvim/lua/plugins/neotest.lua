@@ -1,29 +1,21 @@
 return {
-    "nvim-neotest/neotest",
-    opts = {
-        -- Can be a list of adapters like what neotest expects,
-        -- or a list of adapter names,
-        -- or a table of adapter names, mapped to adapter configs.
-        -- The adapter will then be automatically loaded with the config.
-        adapters = {
-            ["neotest-gtest"] = {},
+    {
+        "nvim-neotest/neotest",
+        dependencies = {
+            "alfaix/neotest-gtest",
         },
-        -- Example for loading neotest-go with a custom config
-        -- adapters = {
-        --   ["neotest-go"] = {
-        --     args = { "-tags=integration" },
-        --   },
-        -- },
-        status = { virtual_text = true },
-        output = { open_on_run = true },
-        quickfix = {
-            open = function()
-                if require("lazyvim.util").has("trouble.nvim") then
-                    require("trouble").open({ mode = "quickfix", focus = false })
-                else
-                    vim.cmd("copen")
-                end
-            end,
+        keys = {
+            {
+                "<leader>tL",
+                function()
+                    require("neotest").run.run_last({ strategy = "dap" })
+                end,
+                desc = "Debug Last Test",
+            },
         },
+        opts = function(_, opts)
+            table.insert(opts.adapters, require("neotest-gtest").setup({}))
+            --table.insert(opts.adapters, require("")) - For additional adapters, just add more table.insert calls (and add a corresponding dependency)
+        end,
     },
 }
