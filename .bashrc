@@ -12,6 +12,6 @@ alias grep='grep --color=auto'
 # PS1='[\u@\h \W]\$ '
 PS1='\[\033[1;31m\][\[\033[1;33m\]\u\[\033[1;32m\]@\[\033[1;34m\]\h:\[\033[35m\]/\w\[\033[31m\]]\[\033[00m\] '
 
-export EDITOR="vim"
+export EDITOR="nvim"
 
 . "$HOME/.cargo/env"
