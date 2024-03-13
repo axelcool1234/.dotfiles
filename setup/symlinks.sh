@@ -1,6 +1,7 @@
 #!/bin/bash
 # symlinks.sh
 # Removes default config files/folders and sets up symlinks to replace them.
+# Only run this if you don't plan on using the Nix package manager.
 
 DIR=$HOME/.dotfiles
 CONFIG_DIR=$HOME/.config
