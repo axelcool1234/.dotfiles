@@ -4,6 +4,7 @@ let
       ls = "ls --color=auto";
       ll = "ls -l";
       grep = "grep --color=auto";
+      nvim = "steam-run nvim";
     };
 in
 {

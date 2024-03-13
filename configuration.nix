@@ -131,6 +131,8 @@
     spotify
     # Fonts
     nerdfonts
+    # Nix Workarounds
+    steam-run
   ];
 
 
