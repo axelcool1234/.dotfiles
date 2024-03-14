@@ -100,6 +100,22 @@ in
     '';
   };
 
+  # Firefox Configuration
+  /*
+  programs.firefox = {
+    enable = true;
+    languagePacks = [ "en-US" ];
+   ExtensionSettings = {
+    "*".installation_mode = "blocked"; # blocks all addons except the ones specified below
+    # uBlock Origin:
+    "uBlock0@raymondhill.net" = {
+      install_url = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi";
+      installation_mode = "force_installed";
+    };
+   };
+  };
+  */
+
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 }
