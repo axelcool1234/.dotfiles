@@ -1,12 +1,13 @@
 { config, pkgs, ... }:
 let
     aliases = {
+      cd = "z";
       ls = "ls --color=auto";
       ll = "ls -l";
       grep = "grep --color=auto";
       nvim = "steam-run nvim";
-      make-nixos = "sudo nixos-rebuild switch --flake /.dotfiles/#default";
-      make-home  = "home-manager switch --flake .#axelcool1234";
+      nixos-switch = "sudo nixos-rebuild switch --flake $HOME/.dotfiles#default";
+      home-switch = "home-manager switch --flake $HOME/.dotfiles#axelcool1234";
     };
 in
 {
@@ -45,6 +46,7 @@ in
     (pkgs.writeShellScriptBin "my-hello" ''
       echo "Hello, ${config.home.username}!"
     '')
+    pkgs.hello
     
    # # Development
    # pkgs.tmux
