@@ -62,6 +62,7 @@
         nvidiaBusId = "PCI:01:00:0";
     };
   };
+  /* END OF LAPTOP CONFIGURATION */
 
 
   # Bootloader.
@@ -176,11 +177,12 @@
     wget
     curl
     sl
-    vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
+    vim
     docker
     git
     lazygit
     zoxide
+    fzf
     # Recreational
     discord
     spotify

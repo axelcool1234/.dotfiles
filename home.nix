@@ -5,9 +5,17 @@ let
       ll = "ls -l";
       grep = "grep --color=auto";
       nvim = "steam-run nvim";
+      make-nixos = "sudo nixos-rebuild switch --flake /.dotfiles/#default";
+      make-home  = "home-manager switch --flake .#axelcool1234";
     };
 in
 {
+  nixpkgs = {
+    config = {
+      allowUnfree = true;
+      allowUnfreePredicate = (_: true);
+    };
+  };
   # Home Manager needs a bit of information about you and the paths it should
   # manage.
   home.username = "axelcool1234";
@@ -25,10 +33,6 @@ in
   # The home.packages option allows you to install Nix packages into your
   # environment.
   home.packages = [
-    # # Adds the 'hello' command to your environment. It prints a friendly
-    # # "Hello, world!" when run.
-    pkgs.hello
-
     # # It is sometimes useful to fine-tune packages, for example, by applying
     # # overrides. You can do that directly here, just don't forget the
     # # parentheses. Maybe you want to install Nerd Fonts with a limited number of
@@ -41,6 +45,32 @@ in
     (pkgs.writeShellScriptBin "my-hello" ''
       echo "Hello, ${config.home.username}!"
     '')
+    
+   # # Development
+   # pkgs.tmux
+   # pkgs.zellij
+   # pkgs.wezterm
+   # pkgs.ranger
+   # pkgs.ripgrep
+   # pkgs.zip
+   # pkgs.unzip
+   # pkgs.wget
+   # pkgs.curl
+   # pkgs.sl
+   # pkgs.vim
+   # pkgs.docker
+   # pkgs.git
+   # pkgs.lazygit
+   # pkgs.zoxide
+   # pkgs.fzf
+   # # Recreational
+   # pkgs.discord
+   # pkgs.spotify
+   # pkgs.hello
+   # # Fonts
+   # pkgs.nerdfonts
+   # # Nix Workarounds
+   # pkgs.steam-run
   ];
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
@@ -79,42 +109,35 @@ in
 
   # Non-Nix Configs
   xdg.configFile.nvim.source = ./nvim;
-
-  # Bash Configuration
-  programs.bash = {
-    enable = true;
-    shellAliases = aliases; 
-    bashrcExtra = ''
-      PS1='\[\033[1;31m\][\[\033[1;33m\]\u\[\033[1;32m\]@\[\033[1;34m\]\h:\[\033[35m\]/\w\[\033[31m\]]\[\033[00m\]'
-    '';
-  };
-
-  # Zsh Configuration
-  programs.zsh = {
-    enable = true;
-    shellAliases = aliases; 
-    initExtra = 
-    ''
-    autoload -U colors && colors
-    PS1="%{$fg[red]%}%n%{$reset_color%}@%{$fg[blue]%}%m %{$fg[yellow]%}%~ %{$reset_color%}%% "
-    '';
-  };
-
-  # Firefox Configuration
-  /*
-  programs.firefox = {
-    enable = true;
-    languagePacks = [ "en-US" ];
-   ExtensionSettings = {
-    "*".installation_mode = "blocked"; # blocks all addons except the ones specified below
-    # uBlock Origin:
-    "uBlock0@raymondhill.net" = {
-      install_url = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi";
-      installation_mode = "force_installed";
+  programs = {
+  ### SHELL CONFIGURATION ###
+    # Bash Configuration
+    bash = {
+        enable = true;
+        shellAliases = aliases; 
+        bashrcExtra = ''
+        PS1='\[\033[1;31m\][\[\033[1;33m\]\u\[\033[1;32m\]@\[\033[1;34m\]\h:\[\033[35m\]/\w\[\033[31m\]]\[\033[00m\]'
+        eval "$(zoxide init bash)"
+        '';
     };
-   };
+    # Zsh Configuration
+    zsh = {
+        enable = true;
+        shellAliases = aliases; 
+        initExtra = 
+        ''
+        autoload -U colors && colors
+        PS1="%{$fg[red]%}%n%{$reset_color%}@%{$fg[blue]%}%m %{$fg[yellow]%}%~ %{$reset_color%}%% "
+        eval "$(zoxide init zsh)"
+        '';
+    };
+  ### TOOLING CONFIGURATION ###
+    git = {
+        enable = true;
+        userName = "Axel Sorenson";
+        userEmail = "AxelPSorenson@gmail.com";
+    };
   };
-  */
 
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
