@@ -47,32 +47,6 @@ in
       echo "Hello, ${config.home.username}!"
     '')
     pkgs.hello
-    
-   # # Development
-   # pkgs.tmux
-   # pkgs.zellij
-   # pkgs.wezterm
-   # pkgs.ranger
-   # pkgs.ripgrep
-   # pkgs.zip
-   # pkgs.unzip
-   # pkgs.wget
-   # pkgs.curl
-   # pkgs.sl
-   # pkgs.vim
-   # pkgs.docker
-   # pkgs.git
-   # pkgs.lazygit
-   # pkgs.zoxide
-   # pkgs.fzf
-   # # Recreational
-   # pkgs.discord
-   # pkgs.spotify
-   # pkgs.hello
-   # # Fonts
-   # pkgs.nerdfonts
-   # # Nix Workarounds
-   # pkgs.steam-run
   ];
 
   # Home Manager is pretty good at managing dotfiles. The primary way to manage
@@ -111,8 +85,8 @@ in
 
   # Non-Nix Configs
   xdg.configFile.nvim.source = ./nvim;
+
   programs = {
-  ### SHELL CONFIGURATION ###
     # Bash Configuration
     bash = {
         enable = true;
@@ -133,11 +107,37 @@ in
         eval "$(zoxide init zsh)"
         '';
     };
-  ### TOOLING CONFIGURATION ###
+    # Git Configuration
     git = {
         enable = true;
         userName = "Axel Sorenson";
         userEmail = "AxelPSorenson@gmail.com";
+    };
+    # Firefox Configuration
+    firefox = {
+        enable = true;
+        policies = {
+            ExtensionSettings = with builtins;
+            let extension = shortId: uuid: {
+                name = uuid;
+                value = {
+                    install_url = "https://addons.mozilla.org/en-US/firefox/downloads/latest/${shortId}/latest.xpi";
+                    installation_mode = "normal_installed";
+                };
+            };
+            in listToAttrs [
+                (extension "ublock-origin" "uBlock0@raymondhill.net")
+                (extension "tridactyl-vim" "tridactyl.vim@cmcaine.co.uk")
+            ];
+            # To add additional extensions, find it on addons.mozilla.org, find
+            # the short ID in the url (like https://addons.mozilla.org/en-US/firefox/addon/!SHORT_ID!/)
+            # Then, download the XPI by filling it in to the install_url template, unzip it,
+            # run `jq .browser_specific_settings.gecko.id manifest.json` or
+            # `jq .applications.gecko.id manifest.json` to get the UUID
+            #
+            # You don’t need to get the UUID from the xpi. 
+            # You can install it then find the UUID in about:debugging#/runtime/this-firefox.
+        };
     };
   };
 

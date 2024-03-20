@@ -166,6 +166,10 @@
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
+    # Grading
+    python3
+    jetbrains.pycharm-professional
+    python311Packages.pip
     # Development
     tmux
     zellij
