@@ -159,7 +159,14 @@ in
           };
         };
       };
-   };
+    };
+    # Zellij Configuration
+    zellij = {
+      enable = true;
+      settings = {
+        theme = "catppuccin-mocha";
+      };
+    };
   };
 
   # Let Home Manager install and manage itself.
