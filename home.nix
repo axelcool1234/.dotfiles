@@ -81,7 +81,7 @@ in
   #  /etc/profiles/per-user/axelcool1234/etc/profile.d/hm-session-vars.sh
   #
   home.sessionVariables = {
-    EDITOR = "nvim";
+    EDITOR = "helix";
   };
 
   # Non-Nix Configs
@@ -152,7 +152,7 @@ in
     helix = {
       enable = true;
       settings = {
-        theme = "catppuccin_mocha";
+        theme = "tokyonight";
         editor = {
           line-number = "relative";
           bufferline = "always";
@@ -172,8 +172,18 @@ in
     zellij = {
       enable = true;
       settings = {
-        theme = "catppuccin-mocha";
+        theme = "tokyo-night";
       };
+    };
+    # Wezterm Configuration
+    wezterm = {
+      enable = true;
+      extraConfig = ''
+        local wezterm = require 'wezterm'
+        local config = wezterm.config_builder()
+        config.color_scheme = 'Tokyo Night'
+        return config
+      '';
     };
   };
 
