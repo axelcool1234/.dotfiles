@@ -19,7 +19,6 @@
   environment.shells = with pkgs; [ bash zsh fish ];
   users.defaultUserShell = pkgs.fish;
   programs.fish.enable = true;
-  # programs.zsh.enable = true;
 
   networking.hostName = "nixos"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
@@ -52,19 +51,19 @@
     LC_TIME = "en_US.UTF-8";
   };
 
-  # Enable the X11 windowing system.
-  services.xserver.enable = true;
-
-  # Enable the GNOME Desktop Environment.
-  services.xserver.displayManager.gdm.enable = true;
-  services.xserver.desktopManager.gnome.enable = true;
-
-  # Configure keymap in X11
   services.xserver = {
+    # Enable the X11 windowing system.
+    enable = true;
+
+    # Enable the GNOME Desktop Environment.
+    displayManager.gdm.enable = true;
+    desktopManager.gnome.enable = true;
+
+    # Configure keymap in X11
     layout = "us";
     xkbVariant = "";
   };
-
+  
   # Enable CUPS to print documents.
   services.printing.enable = true;
 
