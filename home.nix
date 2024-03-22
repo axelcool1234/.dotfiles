@@ -2,6 +2,7 @@
 let
     aliases = {
       cd = "z";
+      cat = "bat --color=always";
       ls = "ls --color=auto";
       ll = "ls -l";
       grep = "grep --color=auto";
@@ -80,7 +81,7 @@ in
   #  /etc/profiles/per-user/axelcool1234/etc/profile.d/hm-session-vars.sh
   #
   home.sessionVariables = {
-    # EDITOR = "nvim";
+    EDITOR = "nvim";
   };
 
   # Non-Nix Configs
@@ -139,6 +140,26 @@ in
             # You can install it then find the UUID in about:debugging#/runtime/this-firefox.
         };
     };
+    # Helix Configuration
+    helix = {
+      enable = true;
+      settings = {
+        theme = "catppuccin_mocha";
+        editor = {
+          line-number = "relative";
+          bufferline = "always";
+          lsp.display-messages = true;
+
+          mouse = false;
+          auto-pairs = false;
+          color-modes = true;
+
+          indent-guides = {
+            render = true;
+          };
+        };
+      };
+   };
   };
 
   # Let Home Manager install and manage itself.

@@ -151,8 +151,6 @@
     extraGroups = [ "networkmanager" "wheel" ];
     packages = with pkgs; [
       vim
-      neovim
-      firefox
     #  thunderbird
     ];
   };
@@ -181,15 +179,23 @@
     wget
     curl
     sl
-    vim
+    neovim
+    helix
+    firefox
     docker
     git
     lazygit
+    bat
     zoxide
     fzf
+    tldr
+    btop
+    procs
+    cloc
     # Recreational
     discord
     spotify
+    ncspot
     # Fonts
     nerdfonts
     # Nix Workarounds
