@@ -71,8 +71,9 @@
 
   # Shell
   environment.shells = with pkgs; [ bash zsh fish ];
-  users.defaultUserShell = pkgs.zsh;
-  programs.zsh.enable = true;
+  users.defaultUserShell = pkgs.fish;
+  programs.fish.enable = true;
+  # programs.zsh.enable = true;
 
   networking.hostName = "nixos"; # Define your hostname.
   # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.

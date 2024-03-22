@@ -108,6 +108,14 @@ in
         eval "$(zoxide init zsh)"
         '';
     };
+    # Fish Configuration
+    fish = {
+      enable = true;
+      shellAliases = aliases;
+      shellInit = ''
+        zoxide init fish | source
+      '';
+    };
     # Git Configuration
     git = {
         enable = true;
