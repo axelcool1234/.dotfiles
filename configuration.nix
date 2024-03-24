@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, ... }:
+{ config, pkgs, inputs, ... }:
 
 {
   imports =
@@ -63,6 +63,24 @@
     layout = "us";
     xkbVariant = "";
   };
+
+  # programs.hyprland = {
+  #   # Install the packages from nixpkgs
+  #   enable = true;
+
+  #   # Uses the flake package of hyprland
+  #   package = inputs.hyprland.packages.${pkgs.system}.hyprland;
+    
+  #   # Whether to enable XWayland
+  #   xwayland.enable = true;
+  # };
+
+  # STEAM
+  programs.steam = {
+    enable = true;
+    remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
+    dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
+  };
   
   # Enable CUPS to print documents.
   services.printing.enable = true;
@@ -86,9 +104,6 @@
     # no need to redefine it in your config for now)
     #media-session.enable = true;
   };
-
-  # Enable touchpad support (enabled default in most desktopManager).
-  # services.xserver.libinput.enable = true;
 
   # Define a user account. Don't forget to set a password with ‘passwd’.
   users.users.axelcool1234 = {
