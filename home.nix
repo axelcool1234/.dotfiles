@@ -167,8 +167,23 @@ in
           indent-guides = {
             render = true;
           };
-        };
-      };
+       };  
+       keys = {
+         normal = {
+           up = "no_op";
+           down = "no_op";
+           left = "no_op";
+           right = "no_op";
+         };
+
+         insert = {
+           up = "no_op";
+           down = "no_op";
+           left = "no_op";
+           right = "no_op";
+         };
+       };
+     };
     };
     # Zellij Configuration
     zellij = {

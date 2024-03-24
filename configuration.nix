@@ -56,7 +56,8 @@
     enable = true;
 
     # Enable the GNOME Desktop Environment.
-    displayManager.gdm.enable = true;
+    # displayManager.gdm.enable = true;
+    displayManager.sddm.enable = true;
     desktopManager.gnome.enable = true;
 
     # Configure keymap in X11
@@ -64,16 +65,17 @@
     xkbVariant = "";
   };
 
-  # programs.hyprland = {
-  #   # Install the packages from nixpkgs
-  #   enable = true;
+  # Enable the Hyprland Environment
+  programs.hyprland = {
+    # Install the packages from nixpkgs
+    enable = true;
 
-  #   # Uses the flake package of hyprland
-  #   package = inputs.hyprland.packages.${pkgs.system}.hyprland;
+    # Uses the flake package of hyprland
+    package = inputs.hyprland.packages.${pkgs.system}.hyprland;
     
-  #   # Whether to enable XWayland
-  #   xwayland.enable = true;
-  # };
+    # Whether to enable XWayland
+    xwayland.enable = true;
+  };
 
   # STEAM
   programs.steam = {
