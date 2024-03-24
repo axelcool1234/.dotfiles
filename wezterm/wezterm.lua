@@ -4,7 +4,7 @@ local wezterm = require 'wezterm'
 return {
   color_scheme = 'Tokyo Night',
   font_size = 10.0,
-  leader = { key = 'q', mods = 'CTRL'},
+  leader = { key = 'a', mods = 'CTRL'},
    -- disable_default_key_bindings = true,
   keys = {
     { key = "a", mods = "LEADER|CTRL",  action=wezterm.action{SendString="\x01"}},
