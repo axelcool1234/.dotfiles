@@ -112,10 +112,8 @@
     isNormalUser = true;
     description = "Axel Sorenson";
     extraGroups = [ "networkmanager" "wheel" ];
-    packages = with pkgs; [
-      vim
-    #  thunderbird
-    ];
+    shell = pkgs.fish;
+    packages = with pkgs; [];
   };
 
   # Enable Docker
@@ -127,42 +125,14 @@
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
-    # Grading
-    python3
-    jetbrains.pycharm-professional
-    python311Packages.pip
-    # Development
-    tmux
-    zellij
-    wezterm
-    ranger
-    ripgrep
-    zip
-    unzip
+    git
+    vim
     wget
     curl
-    sl
-    neovim
-    helix
-    firefox
-    docker
-    git
-    lazygit
-    bat
-    zoxide
-    fzf
-    tldr
-    btop
-    procs
-    cloc
-    # Recreational
-    discord
-    spotify
-    ncspot
-    # Fonts
-    nerdfonts
-    # Nix Workarounds
-    steam-run
+    # Grading
+    # python3
+    # jetbrains.pycharm-professional
+    # python311Packages.pip
   ];
 
 

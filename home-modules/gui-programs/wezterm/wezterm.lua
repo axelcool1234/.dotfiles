@@ -3,6 +3,7 @@ local wezterm = require 'wezterm'
 -- This will hold the configuration.
 return {
   color_scheme = 'Tokyo Night',
+  font = wezterm.font 'JetBrains Mono',
   font_size = 10.0,
   leader = { key = 'a', mods = 'CTRL'},
    -- disable_default_key_bindings = true,
