@@ -84,10 +84,6 @@ in
     EDITOR = "helix";
   };
 
-  # Non-Nix Configs
-  xdg.configFile.nvim.source = ./nvim;
-  xdg.configFile.wezterm.source = ./wezterm;
-
   programs = {
     # Bash Configuration
     bash = {

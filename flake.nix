@@ -24,7 +24,7 @@
                 inherit system;
                 specialArgs = { inherit inputs; };
                 modules = [
-                    ./configuration.nix
+                    ./hosts/Legion-Laptop/configuration.nix
                 ];
             };
         };
@@ -34,7 +34,10 @@
             # Main user
             axelcool1234 = home-manager.lib.homeManagerConfiguration {
                 inherit pkgs;
-                modules = [ ./home.nix ];
+                modules = [
+                 ./hosts/Legion-Laptop/home.nix 
+                 ./home-modules
+                ];
             };
         };
     };
