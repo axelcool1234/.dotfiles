@@ -41,6 +41,7 @@ in
     # Terminal
     wezterm
     helix
+    vim
     neofetch    
     lazygit
     bat
@@ -190,9 +191,17 @@ in
        };
      };
     };
+    # Vim Configuration
+    vim = {
+      enable = true;
+      extraConfig = ''
+        au BufRead,BufNewFile *.g set filetype=antlr3
+        au BufRead,BufNewFile *.g4 set filetype=antlr4
+      '';
+    };
     # Zellij Configuration
     zellij = {
-      enable = true;
+      enable = false;
       settings = {
         theme = "tokyo-night";
       };
