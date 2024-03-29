@@ -41,7 +41,6 @@ in
     # Terminal
     wezterm
     helix
-    vim
     neofetch    
     lazygit
     bat
@@ -156,101 +155,15 @@ in
             # You can install it then find the UUID in about:debugging#/runtime/this-firefox.
         };
     };
-    # Helix Configuration
-    helix = {
-      enable = true;
-      settings = {
-        theme = "tokyonight";
-        editor = {
-          line-number = "relative";
-          bufferline = "always";
-          lsp.display-messages = true;
-
-          mouse = false;
-          auto-pairs = false;
-          color-modes = true;
-
-          indent-guides = {
-            render = true;
-          };
-       };  
-       keys = {
-         normal = {
-           up = "no_op";
-           down = "no_op";
-           left = "no_op";
-           right = "no_op";
-         };
-
-         insert = {
-           up = "no_op";
-           down = "no_op";
-           left = "no_op";
-           right = "no_op";
-         };
-       };
-     };
-    };
-    # Vim Configuration
-    vim = {
-      enable = true;
-      extraConfig = ''
-        au BufRead,BufNewFile *.g set filetype=antlr3
-        au BufRead,BufNewFile *.g4 set filetype=antlr4
-      '';
-    };
     # Zellij Configuration
-    zellij = {
-      enable = false;
-      settings = {
-        theme = "tokyo-night";
-      };
-    };
+    # zellij = {
+    #   enable = false;
+    #   settings = {
+    #     theme = "tokyo-night";
+    #   };
+    # };
   };
 
-    # Wayland Configuration
-    wayland = {
-      windowManager.hyprland = {
-        enable = true;
-        settings = {
-          "$mod" = "SUPER";
-          "$terminal" = "wezterm";
-          # monitor="DP-1,2560x1600@165,0x0,1";
-          monitor=",highres,auto,1";
-          misc = {
-            disable_hyprland_logo = true;
-            disable_splash_rendering = true;
-          };
-          bind =
-            [
-              "$mod, F, exec, firefox"
-              "$mod, D, exec, discord"
-              "$mod, Q, exec, $terminal"
-              "$mod, C, killactive"
-              "$mod, M, exit"
-              "$mod, V, togglefloating"
-              "$mod, P, pseudo" # dwindle
-              "$mod, J, togglesplit" # dwindle
-            ]
-            ++ (
-              # workspaces
-              # binds $mod + [shift +] {1..10} to [move to] workspace {1..10}
-              builtins.concatLists (builtins.genList (
-                  x: let
-                    ws = let
-                      c = (x + 1) / 10;
-                    in
-                      builtins.toString (x + 1 - (c * 10));
-                  in [
-                    "$mod, ${ws}, workspace, ${toString (x + 1)}"
-                    "$mod SHIFT, ${ws}, movetoworkspace, ${toString (x + 1)}"
-                  ]
-                )
-                10)
-            );
-        };
-      };
-    };
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 }
