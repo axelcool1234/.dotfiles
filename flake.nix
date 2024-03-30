@@ -9,6 +9,7 @@
             inputs.nixpkgs.follows = "nixpkgs";
         };
         hyprland.url = "github:hyprwm/Hyprland";
+        spicetify-nix.url = "github:the-argus/spicetify-nix";
     };
 
 	outputs = { self, nixpkgs, home-manager, ... }@inputs:
@@ -34,6 +35,7 @@
             # Main user
             axelcool1234 = home-manager.lib.homeManagerConfiguration {
                 inherit pkgs;
+                extraSpecialArgs = { inherit inputs; };
                 modules = [
                  ./hosts/Legion-Laptop/home.nix 
                  ./home-modules

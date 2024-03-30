@@ -31,11 +31,9 @@
     steam-run
 
     # Gui/Programs
-    # firefox
     (discord.override {
     	withVencord = true;
     })
-    # discord
-    spotify
+    spicetify-cli
   ];
 }

@@ -20,6 +20,7 @@
         [
           "$mod, F, exec, firefox"
           "$mod, D, exec, discord"
+          "$mod, S, exec, spotify"
           "$mod, Q, exec, $terminal"
           "$mod, C, killactive"
           "$mod, M, exit"
