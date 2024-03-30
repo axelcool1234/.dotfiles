@@ -27,6 +27,24 @@
           "$mod, V, togglefloating"
           "$mod, P, pseudo" # dwindle
           "$mod, J, togglesplit" # dwindle
+
+          # Move focus with mod + arrow keys
+          "$mod, left, movefocus, l"
+          "$mod, right, movefocus, r"
+          "$mod, up, movefocus, u"
+          "$mod, down, movefocus, d"
+
+          # Move focus with mod + hjkl
+          "$mod, H, movefocus, l"
+          "$mod, L, movefocus, r"
+          "$mod, K, movefocus, u"
+          "$mod, J, movefocus, d"
+
+          # Move window with mod + shift + hjkl
+          "$mod SHIFT, H, movewindow, l"
+          "$mod SHIFT, L, movewindow, r"
+          "$mod SHIFT, K, movewindow, u"
+          "$mod SHIFT, J, movewindow, d"
         ]
         ++ (
           # workspaces
