@@ -1,16 +1,4 @@
 { config, pkgs, ... }:
-let
-    aliases = {
-      cd = "z";
-      cat = "bat --color=always";
-      ls = "ls --color=auto";
-      ll = "ls -l";
-      grep = "grep --color=auto";
-      nvim = "steam-run nvim";
-      nixos-switch = "sudo nixos-rebuild switch --flake $HOME/.dotfiles#default";
-      home-switch = "home-manager switch --flake $HOME/.dotfiles#axelcool1234";
-    };
-in
 {
   nixpkgs = {
     config = {
@@ -92,78 +80,6 @@ in
   home.sessionVariables = {
     EDITOR = "helix";
   };
-
-  programs = {
-    # Bash Configuration
-    bash = {
-        enable = true;
-        shellAliases = aliases; 
-        bashrcExtra = ''
-        PS1='\[\033[1;31m\][\[\033[1;33m\]\u\[\033[1;32m\]@\[\033[1;34m\]\h:\[\033[35m\]/\w\[\033[31m\]]\[\033[00m\]'
-        eval "$(zoxide init bash)"
-        '';
-    };
-    # Zsh Configuration
-    zsh = {
-        enable = true;
-        shellAliases = aliases; 
-        initExtra = 
-        ''
-        autoload -U colors && colors
-        PS1="%{$fg[red]%}%n%{$reset_color%}@%{$fg[blue]%}%m %{$fg[yellow]%}%~ %{$reset_color%}%% "
-        eval "$(zoxide init zsh)"
-        '';
-    };
-    # Fish Configuration
-    fish = {
-      enable = true;
-      shellAliases = aliases;
-      shellInit = ''
-        zoxide init fish | source
-      '';
-    };
-    # Git Configuration
-    git = {
-        enable = true;
-        userName = "Axel Sorenson";
-        userEmail = "AxelPSorenson@gmail.com";
-    };
-    # Firefox Configuration
-    firefox = {
-        enable = true;
-        policies = {
-            ExtensionSettings = with builtins;
-            let extension = shortId: uuid: {
-                name = uuid;
-                value = {
-                    install_url = "https://addons.mozilla.org/en-US/firefox/downloads/latest/${shortId}/latest.xpi";
-                    installation_mode = "normal_installed";
-                };
-            };
-            in listToAttrs [
-                (extension "ublock-origin" "uBlock0@raymondhill.net")
-                (extension "tridactyl-vim" "tridactyl.vim@cmcaine.co.uk")
-                (extension "tokyo-night-v3" "{6c8ef7a0-0691-4323-8bdc-af24f54985ec}")
-            ];
-            # To add additional extensions, find it on addons.mozilla.org, find
-            # the short ID in the url (like https://addons.mozilla.org/en-US/firefox/addon/!SHORT_ID!/)
-            # Then, download the XPI by filling it in to the install_url template, unzip it,
-            # run `jq .browser_specific_settings.gecko.id manifest.json` or
-            # `jq .applications.gecko.id manifest.json` to get the UUID
-            #
-            # You don’t need to get the UUID from the xpi. 
-            # You can install it then find the UUID in about:debugging#/runtime/this-firefox.
-        };
-    };
-    # Zellij Configuration
-    # zellij = {
-    #   enable = false;
-    #   settings = {
-    #     theme = "tokyo-night";
-    #   };
-    # };
-  };
-
   # Let Home Manager install and manage itself.
   programs.home-manager.enable = true;
 }
