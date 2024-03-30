@@ -32,7 +32,10 @@
 
     # Gui/Programs
     # firefox
-    discord
+    (discord.override {
+    	withVencord = true;
+    })
+    # discord
     spotify
   ];
 }

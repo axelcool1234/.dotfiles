@@ -7,6 +7,7 @@
     ./terminal/helix.nix
     ./terminal/git.nix
     ./programs/firefox.nix
+    ./programs/discord.nix
   ];
 
   hyprland.enable =

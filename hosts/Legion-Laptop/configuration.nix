@@ -136,6 +136,7 @@
     # vim
     wget
     curl
+    nix-prefetch-github
     # Grading
     # python3
     # jetbrains.pycharm-professional
