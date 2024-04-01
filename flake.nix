@@ -26,6 +26,7 @@
                 specialArgs = { inherit inputs; };
                 modules = [
                     ./hosts/Legion-Laptop/configuration.nix
+                    ./nixos-modules
                 ];
             };
         };

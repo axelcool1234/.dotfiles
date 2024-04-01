@@ -21,6 +21,8 @@ in
         enabledExtensions = with spicePkgs.extensions; [
             adblock
             shuffle
+            keyboardShortcut
+            fullAppDisplay
         ];
       	#windowManagerPatch = true;
         #spotifyPackage = (pkgs.callPackage ../../pkgs/spotify-adblock.nix { });

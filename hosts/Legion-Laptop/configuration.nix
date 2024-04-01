@@ -11,10 +11,6 @@
       ./drivers.nix
     ];
 
-  # Bootloader.
-  boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
-
   # Shell
   environment.shells = with pkgs; [ bash zsh fish ];
   users.defaultUserShell = pkgs.fish;
@@ -76,14 +72,7 @@
     # Whether to enable XWayland
     xwayland.enable = true;
   };
-
-  # STEAM
-  programs.steam = {
-    enable = true;
-    remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
-    dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
-  };
-   
+ 
   # Garbage Collection
   nix.gc = {
     automatic = true;

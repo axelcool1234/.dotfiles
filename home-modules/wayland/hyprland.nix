@@ -5,6 +5,7 @@
   };
 
   config = lib.mkIf config.hyprland.enable {
+    # Wayland Configuraton
     wayland.windowManager.hyprland = {
       enable = true;
       settings = {
@@ -64,5 +65,13 @@
         );
       };
     };
+    # Wayland packages
+    home.packages = with pkgs; [
+      (waybar.overrideAttrs (oldAttrs: {
+        mesonFlags = oldAttrs.mesonFlags ++ [ "-Dexperimental=true" ];
+       })
+      )
+      wofi      
+    ];
   };
 }
