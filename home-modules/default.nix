@@ -1,6 +1,6 @@
 { pkgs, lib, ... }: {
   imports = [
-    ./wayland/hyprland.nix
+    ./desktop/hyprland/hyprland.nix
     ./terminal/wezterm.nix
     ./terminal/shell.nix
     ./terminal/vim.nix
