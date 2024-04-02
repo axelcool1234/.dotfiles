@@ -62,16 +62,16 @@
   };
 
   # Enable the Hyprland Environment
-  programs.hyprland = {
-    # Install the packages from nixpkgs
-    enable = true;
+  # programs.hyprland = {
+  #   # Install the packages from nixpkgs
+  #   enable = true;
 
-    # Uses the flake package of hyprland
-    package = inputs.hyprland.packages.${pkgs.system}.hyprland;
+  #   # Uses the flake package of hyprland
+  #   package = inputs.hyprland.packages.${pkgs.system}.hyprland;
     
-    # Whether to enable XWayland
-    xwayland.enable = true;
-  };
+  #   # Whether to enable XWayland
+  #   xwayland.enable = true;
+  # };
  
   # Garbage Collection
   nix.gc = {

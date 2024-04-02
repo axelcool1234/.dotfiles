@@ -14,10 +14,10 @@
   ];
 
   hyprland.enable =
-    lib.mkDefault true;
-  wezterm.enable =
-    lib.mkDefault true;
+    lib.mkDefault false;
   waybar.enable =
+    lib.mkDefault false;
+  wezterm.enable =
     lib.mkDefault true;
 
   fish.enable =
