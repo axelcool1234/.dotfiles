@@ -10,9 +10,15 @@
     wayland.windowManager.hyprland = {
       enable = true;
       settings = {
-        exec-once = "hyprpaper &";
+        exec-once = 
+        [
+          "ags &"
+          "hyprpaper &"        
+          "waybar &"
+        ];
         "$mod" = "SUPER";
-        "$terminal" = "wezterm";
+        # "$terminal" = "wezterm";
+        "$termianl" = "kitty";
         # monitor="DP-1,2560x1600@165,0x0,1";
         monitor="eDP-1,highres,auto,1";
         misc = {
@@ -99,12 +105,23 @@
     };
     # Wayland packages
     home.packages = with pkgs; [
-      (waybar.overrideAttrs (oldAttrs: {
-        mesonFlags = oldAttrs.mesonFlags ++ [ "-Dexperimental=true" ];
-       })
-      )
       wofi      
       hyprpaper
+      kitty
+      ags
+      pavucontrol
+      # bluez
+      # blueman
+      # swaylock-effects
+      # dolphin
+      # brightnessctl
+      # playerctl
+      # hyprpaper
+      # grim
+      # swayidle
+      # pamixer
+      # okular
+      (callPackage ../../../pkgs/adios.nix { })
     ];
   };
 }

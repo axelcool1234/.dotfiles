@@ -15,6 +15,7 @@
     # Theme/Fonts
     (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
 
+    ags
     # Terminal
     wezterm
     helix
