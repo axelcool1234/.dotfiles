@@ -1,15 +1,37 @@
-# Edit this configuration file to define what should be installed on
-# your system.  Help is available in the configuration.nix(5) man page
-# and in the NixOS manual (accessible by running ‘nixos-help’).
-
-{ config, pkgs, inputs, ... }:
-
+{ inputs, lib, config, pkgs, ... }:
 {
   imports =
     [ # Include the results of the hardware scan.
       ./hardware-configuration.nix
       ./drivers.nix
     ];
+      
+  nix = {
+    # This will add each flake input as a registry
+    # To make nix3 commands consistent with your flake
+    registry = lib.mapAttrs (_: value: { flake = value; }) inputs;
+
+    # This will additionally add your inputs to the system's legacy channels
+    # Making legacy nix commands consistent as well, awesome!
+    nixPath = lib.mapAttrsToList (key: value: "${key}=${value.to.path}") config.nix.registry;
+
+    settings = {
+      # Enable flakes and new 'nix' command
+      experimental-features = "nix-command flakes";
+      # Deduplicate and optimize nix store
+      auto-optimise-store = true;
+    };
+
+    # Garbage Collection
+    gc = {
+      automatic = true;
+      dates = "weekly";
+      options = "--delete-older-than 1w";
+    };
+  };
+
+  # Remove if you wish to disable unfree packages for your system
+  nixpkgs.config.allowUnfree = true;
 
   # Shell
   environment.shells = with pkgs; [ bash zsh fish ];
@@ -17,19 +39,11 @@
   programs.fish.enable = true;
 
   networking.hostName = "nixos"; # Define your hostname.
-  # networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
-
-  # Configure network proxy if necessary
-  # networking.proxy.default = "http://user:password@proxy:port/";
-  # networking.proxy.noProxy = "127.0.0.1,localhost,internal.domain";
 
   # Enable networking
   networking.networkmanager.enable = true;
 
-  # Experimental Features
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
-
-  # Set your time zone.
+    # Set your time zone.
   time.timeZone = "America/Los_Angeles";
 
   # Select internationalisation properties.
@@ -52,9 +66,10 @@
     enable = true;
 
     # Enable the GNOME Desktop Environment.
-    # displayManager.gdm.enable = true;
-    displayManager.sddm.enable = true;
+    displayManager.gdm.enable = true;
     desktopManager.gnome.enable = true;
+
+    # displayManager.sddm.enable = true;
 
     # Configure keymap in X11
     layout = "us";
@@ -73,13 +88,6 @@
   #   xwayland.enable = true;
   # };
  
-  # Garbage Collection
-  nix.gc = {
-    automatic = true;
-    dates = "weekly";
-    options = "--delete-older-than 1w";
-  };
-
   # Enable CUPS to print documents.
   services.printing.enable = true;
 
@@ -115,9 +123,6 @@
   # Enable Docker
   virtualisation.docker.enable = true;
   
-  # Allow unfree packages
-  nixpkgs.config.allowUnfree = true;
-
   # List packages installed in system profile. To search, run:
   # $ nix search wget
   environment.systemPackages = with pkgs; [
