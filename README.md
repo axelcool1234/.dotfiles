@@ -19,7 +19,7 @@ Nix refers to the holy trinity: An operating system, a programming language, and
 - NixLang is a functional programming language which means it's pure and immutable. There is no state in a functional programming language.
 
 ## The Package Manager
-- By far the best of the three is the Nix the package manager. This allows declarative, rather than imperative, package management. This repoducibility among many systems, including even MacOS!
+- By far the best of the three is Nix the package manager. It allows declarative, rather than imperative, package management. This provides repoducibility among many systems, including even MacOS!
 - An interesting (although not very useful for many) result that comes from this declarative structure is the fact that a system configured in this declarative way can survive bit rot. 
 - Nix shells allow you to temporarily download packages for one time uses. The package manager will then garbage collect (at your discretion) and remove these packages. No longer do you have to worry about bloat accumulating from packages you forgot to remove!
 
