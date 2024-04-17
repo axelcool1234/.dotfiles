@@ -24,12 +24,14 @@
     bat
     zoxide
     fzf
+    ranger
     tldr
     btop
     procs
     cloc
     ncspot
     steam-run
+    wl-clipboard
 
     # Gui/Programs
     (discord.override {

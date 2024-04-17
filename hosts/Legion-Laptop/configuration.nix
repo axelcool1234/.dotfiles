@@ -131,10 +131,6 @@
     wget
     curl
     nix-prefetch-github
-    # Grading
-    # python3
-    # jetbrains.pycharm-professional
-    # python311Packages.pip
   ];
 
 
