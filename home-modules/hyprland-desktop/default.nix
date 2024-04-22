@@ -6,9 +6,15 @@
   config = lib.mkIf config.hyprland.enable {
     xdg.configFile.hypr.source = ./hyprland;
     xdg.configFile.waybar.source = ./waybar;
+    xdg.configFile.dunst.source = ./dunst;
+    xdg.configFile.mpv.source = ./mpv;
+    xdg.configFile.rofi.source = ./rofi;
+    xdg.configFile.wlogout.source = ./wlogout;
+    xdg.configFile.swayidle.source = ./swayidle;
+    xdg.configFile.avizo.source = ./avizo;
     # Wayland packages
     home.packages = with pkgs; [
-      hyprland     # Compositor
+      # hyprland     # Compositor
 
       kitty        # Terminal WARNING: Temporary until Wezterm works.
       bottom       # See System Health

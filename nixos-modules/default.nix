@@ -35,5 +35,5 @@
   gnome.enable =
     lib.mkDefault true;
   hyprland.enable =
-    lib.mkDefault false;
+    lib.mkDefault true;
 }

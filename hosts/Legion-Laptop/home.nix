@@ -25,7 +25,7 @@
     zoxide
     fzf
     ranger
-    tldr
+    tealdeer
     btop
     procs
     cloc
