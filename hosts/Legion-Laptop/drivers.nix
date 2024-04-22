@@ -1,7 +1,47 @@
-{ config, pkgs, ... }:
+{ lib, config, pkgs, ... }:
 
 {
+  /* from lenovo legion configurations in nixos-hardware */
+  # Cooling management
+  # I have this commented out because I'm not sure if I need it. I'll leave it here in case I figure it out at some point.
+  # services.thermald.enable = lib.mkDefault true;
+  # √(2560² + 1600²) px / 16 in ≃ 189 dpi
+  services.xserver.dpi = 189;
+  /* from nixos-hardware/common/cpu/intel/cpu-only.nix */
+    hardware.cpu.intel.updateMicrocode =
+    lib.mkDefault config.hardware.enableRedistributableFirmware;
+    /* The above is already enabled in hardware-configuration.nix actually. */
+  /* from nixos-hardware/common/gpu/intel/default.nix */
+  boot.initrd.kernelModules = [ "i915" ];
+
+  environment.variables = {
+    VDPAU_DRIVER = lib.mkIf config.hardware.opengl.enable (lib.mkDefault "va_gl");
+  };
+
+  hardware.opengl.extraPackages = with pkgs; [
+    (if (lib.versionOlder (lib.versions.majorMinor lib.version) "23.11") then vaapiIntel else intel-vaapi-driver)
+    libvdpau-va-gl
+    intel-media-driver
+    vaapiVdpau /* from nixos-hardware/common/gpu/nvidia/default.nix */
+  ];
+
+  /* from nixos-hardware/common/pc/default.nix */
+  boot.blacklistedKernelModules = lib.optionals (!config.hardware.enableRedistributableFirmware) [
+    "ath3k"
+  ];
+
+  /* from nixos-hardware/common/pc/laptop/default.nix */
+  services.tlp.enable = lib.mkDefault ((lib.versionOlder (lib.versions.majorMinor lib.version) "21.05")
+                                     || !config.services.power-profiles-daemon.enable);
+
+  /* from nixos-hardware/common/pc/ssd/default.nix */
+  services.fstrim.enable = lib.mkDefault true;
+
   /* LAPTOP CONFIGURATION */
+  boot.kernelParams = [
+    "reboot=acpi" /* I believe this has lowered the chance of hanging on shutdown. */
+  ];
+  /* Everything below is from NixOS guide */
   # Enable OpenGL
   hardware.opengl = {
     enable = true;
@@ -43,7 +83,7 @@
     package = config.boot.kernelPackages.nvidiaPackages.stable;
 
     # Offload Mode
-    prime = {
+    prime = { /* also from nixos-hardware/common/gpu/nvidia/prime.nix */
         offload = {
             enable = true;
             enableOffloadCmd = true;

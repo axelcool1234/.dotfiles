@@ -1,0 +1,29 @@
+theme = "tokyonight"
+
+[editor]
+auto-pairs = false
+bufferline = "always"
+color-modes = true
+line-number = "relative"
+mouse = false
+
+[editor.indent-guides]
+render = true
+
+[editor.lsp]
+display-messages = true
+display-inlay-hints = true
+
+[keys]
+[keys.insert]
+down = "no_op"
+left = "no_op"
+right = "no_op"
+up = "no_op"
+
+[keys.normal]
+down = "no_op"
+left = "no_op"
+right = "no_op"
+up = "no_op"
+

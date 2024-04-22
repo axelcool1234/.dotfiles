@@ -46,6 +46,7 @@ in
       enable = true;
       shellAliases = aliases;
       shellInit = ''
+        starship init fish | source
         zoxide init fish | source
       '';
     };

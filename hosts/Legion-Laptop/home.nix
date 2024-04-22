@@ -32,6 +32,7 @@
     ncspot
     steam-run
     wl-clipboard
+    starship
 
     # Gui/Programs
     (discord.override {
