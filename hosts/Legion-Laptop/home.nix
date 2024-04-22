@@ -32,7 +32,12 @@
     ncspot
     steam-run
     wl-clipboard
+    fish
     starship
+    git
+    wget
+    curl
+    nix-prefetch-github
 
     # Gui/Programs
     (discord.override {
