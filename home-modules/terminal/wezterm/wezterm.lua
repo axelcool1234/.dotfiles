@@ -1,7 +1,9 @@
 -- Pull in the wezterm API
 local wezterm = require 'wezterm'
+local act = wezterm.action
 -- This will hold the configuration.
 return {
+  -- enable_wayland = false,
   color_scheme = 'Tokyo Night',
   font = wezterm.font 'JetBrains Mono',
   font_size = 10.0,

@@ -36,6 +36,7 @@
     git
     wget
     curl
+    ripgrep
     nix-prefetch-github
 
     # Clipboard

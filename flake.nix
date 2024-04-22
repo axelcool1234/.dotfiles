@@ -8,7 +8,9 @@
         url = "github:nix-community/home-manager/master";
         inputs.nixpkgs.follows = "nixpkgs";
       };
-      hyprland.url = "github:hyprwm/Hyprland";
+      # hyprland.url = "github:hyprwm/Hyprland";
+      # See: https://github.com/wez/wezterm/issues/5255
+      hyprland.url = "github:hyprwm/Hyprland/c198d744b77f272c2fc187eb6d431580a99ab6c3";
       spicetify-nix.url = "github:the-argus/spicetify-nix";
     };
 

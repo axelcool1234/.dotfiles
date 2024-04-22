@@ -4,7 +4,7 @@
     ./gc.nix
     ./auto-upgrade.nix
     ./gnome.nix
-    ./hyprland.nix
+    ./hyprland
     ./sound.nix                /* only parts of it are under .enable */
     ./users.nix                /* no need for .enable option */
     ./internationalisation.nix /* no need for .enable option */
