@@ -13,8 +13,6 @@ let
 in
 {
   options = {
-    fish.enable =
-      lib.mkEnableOption "enables fish config";
     zsh.enable = 
       lib.mkEnableOption "enables zsh config";
     bash.enable =
@@ -40,15 +38,6 @@ in
         PS1="%{$fg[red]%}%n%{$reset_color%}@%{$fg[blue]%}%m %{$fg[yellow]%}%~ %{$reset_color%}%% "
         eval "$(zoxide init zsh)"
         '';
-    };
-    # Fish Configuration
-    programs.fish = lib.mkIf config.fish.enable {
-      enable = true;
-      shellAliases = aliases;
-      shellInit = ''
-        starship init fish | source
-        zoxide init fish | source
-      '';
     };
   };
 }

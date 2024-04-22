@@ -31,13 +31,17 @@
     cloc
     ncspot
     steam-run
-    wl-clipboard
     fish
     starship
     git
     wget
     curl
     nix-prefetch-github
+
+    # Clipboard
+    wl-clipboard
+    cliphist
+    clipboard-jh
 
     # Gui/Programs
     (discord.override {

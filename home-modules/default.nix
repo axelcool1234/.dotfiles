@@ -1,8 +1,9 @@
 { pkgs, lib, ... }: {
   imports = [
-    ./desktop/hyprland/hyprland.nix
+    ./hyprland-desktop
     ./terminal/wezterm.nix
     ./terminal/shell.nix
+    ./terminal/fish.nix
     ./terminal/vim.nix
     ./terminal/helix.nix
     ./terminal/git.nix
