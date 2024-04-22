@@ -1,8 +1,6 @@
 { pkgs, lib, ... }: {
   imports = [
     ./desktop/hyprland/hyprland.nix
-    ./desktop/waybar
-    ./desktop/ags
     ./terminal/wezterm.nix
     ./terminal/shell.nix
     ./terminal/vim.nix
@@ -14,8 +12,6 @@
   ];
 
   hyprland.enable =
-    lib.mkDefault false;
-  waybar.enable =
     lib.mkDefault false;
   wezterm.enable =
     lib.mkDefault true;
