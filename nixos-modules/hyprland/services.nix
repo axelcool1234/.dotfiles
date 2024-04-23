@@ -27,12 +27,8 @@
     # services.udev.packages = with pkgs; [ gnome.gnome-settings-daemon ];
 
     environment.systemPackages = with pkgs; [
-      # hyprland     # Compositor
-
-      kitty        # Terminal WARNING: Temporary until Wezterm works.
       bottom       # See System Health
       btop         # See System Health
-
       tre-command  # Tree Command
       lsof         # Lists Open Files
       psi-notify   # System Resource Alerter

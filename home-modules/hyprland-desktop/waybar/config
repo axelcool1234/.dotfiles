@@ -259,7 +259,7 @@
 
     // Modules Config
     "hyprland/window": {
-        "format": "👼 {title} 😈",
+        "format": " {title}  ",
         "max-length": 50,
     },
 

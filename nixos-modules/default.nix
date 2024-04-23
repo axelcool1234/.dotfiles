@@ -33,7 +33,7 @@
 
   # Desktop Environment
   gnome.enable =
-    lib.mkDefault true;
+    lib.mkDefault false;
   hyprland.enable =
     lib.mkDefault true;
 }

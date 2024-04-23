@@ -24,18 +24,12 @@
     bat
     zoxide
     fzf
-    ranger
     tealdeer
-    btop
-    procs
     cloc
-    ncspot
     steam-run
     fish
     starship
     git
-    wget
-    curl
     ripgrep
     nix-prefetch-github
 

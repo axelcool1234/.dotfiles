@@ -3,5 +3,6 @@
     ./hyprland.nix
     ./screen.nix
     ./services.nix
+    ./display-manager.nix
   ];
 }
