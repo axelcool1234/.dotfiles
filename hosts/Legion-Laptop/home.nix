@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 {
   nixpkgs = {
     config = {
@@ -21,6 +21,7 @@
     lazygit
     zoxide
     fzf
+    nil
 
     # Terminal Utils
     neofetch    
