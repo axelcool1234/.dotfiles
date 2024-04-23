@@ -12,24 +12,21 @@
   programs.home-manager.enable = true;
 
   home.packages = with pkgs; [
-    # Theme/Fonts
-    (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
-
-    # ags
-    # Terminal
+    # Development Essentials
     wezterm
-    helix
-    neofetch    
-    lazygit
-    bat
-    zoxide
-    fzf
-    tealdeer
-    cloc
-    steam-run
     fish
     starship
+    helix
     git
+    lazygit
+    zoxide
+    fzf
+
+    # Terminal Utils
+    neofetch    
+    bat
+    cloc
+    tealdeer
     ripgrep
     nix-prefetch-github
 
@@ -37,6 +34,9 @@
     wl-clipboard
     cliphist
     clipboard-jh
+
+    # Theme/Fonts
+    (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
 
     # Gui/Programs
     (discord.override {
