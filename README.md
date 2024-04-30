@@ -31,13 +31,36 @@ Nix refers to the holy trinity: An operating system, a programming language, and
 # Rollback Command
 - sudo nixos-rebuild switch --flake .#default --rollback
 
-
 # Fresh Install
-https://nix-community.github.io/home-manager/index.xhtml#sec-install-standalone
-- Go to Standalone installation
-- Copy the commands for the unstable channel
-- To ensure it has been installed correctly, try "man home-configuration.nix"
+Firstly... DON'T PANIC! This will be an easy transition - even if we only have the terminal!
+1. Execute `sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos`
+2. Execute `sudo nix-channel --list` and ensure you only have the unstable branch as a channel. Call `sudo nix-channel --remove [name]` if that's not the case.
+3. Execute `sudo nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager`
+4. Execute `sudo nix-channel --update`
+- This website has more information about installing home-manager (you shouldn't need this, but just in case!): 
+  https://nix-community.github.io/home-manager/index.xhtml#sec-install-standalone
+- To ensure it has been installed correctly, try "man home-configuration.nix" - this might only work after step 5.
+5. Execute `nix-shell -p home-manager git`
+6. Clone this repository
+7. Execute `cp /etc/nixos/hardware-configuration.nix .dotfiles/hosts/Legion-Laptop/hardware-configuration.nix`
+7. Execute `cd .dotfiles`
+8. Execute `nix flake update` (you may need to temporarily enable experimental features for the command)
+9. Execute `sudo nixos-rebuild switch --flake .#default`
+10. Execute `home-manager switch --flake .#axelcool1234`
+
+If home-manager fails to install due to a mismatch in a hash, that means we need to update that hash. If you don't know where the mismatched hash is, I recommend:
+1. Execute `nix-shell -p ripgrep`
+2. Execute `rg` and then part of the name of the derivation with the mismatched hash. You should be able to find where it's located. 
+3. Change the `sha256` of the derivation with the `sha256` the home-manager error outputted.
+4. Try to execute `home-manager switch --flake .#axelcool1234` again.
+
+Once this is all done, we can execute `reboot` and get into our system. It should be just as how you remembered it! Remember to commit and push these .dotfiles,
+since you called `nix flake update`!
 
 # Useful NixOS Resources:
 - https://mynixos.com/
+  - Great for browsing options from NixOS and Home-manager
 - https://search.nixos.org/packages
+  - Great for searching for available packages
+- https://noogle.dev/
+  - Great for searching the NixLang library
