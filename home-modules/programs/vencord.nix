@@ -8,7 +8,7 @@
     home.file.".config/Vencord/themes/catppuccin-mocha.theme.css" = {
       source = pkgs.fetchurl {
         url = "https://catppuccin.github.io/discord/dist/catppuccin-mocha.theme.css";
-        sha256 = "1xfi3pqkwvwr4sjxdrz07d7pvmpxnc71xk43xv10pxcficb5rgs4";
+        sha256 = "SXkH6M6PJzVhB9asXkd9bcsllkp5HygXmzogLu2eaNE=";
       };
     };
   };
