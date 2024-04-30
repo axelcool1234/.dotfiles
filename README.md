@@ -6,6 +6,7 @@
 - [Update Commands](#update-commands)
 - [Rollback Command](#rollback-command)
 - [Fresh Install](#fresh-install)
+  - [Post-Setup](#Post-Setup)
 - [Useful NixOS Resources:](#useful-nixos-resources)
 <!--toc:end-->
 
@@ -32,7 +33,7 @@ Nix refers to the holy trinity: An operating system, a programming language, and
 - sudo nixos-rebuild switch --flake .#default --rollback
 
 # Fresh Install
-Firstly... DON'T PANIC! This will be an easy transition - even if we only have the terminal!
+Firstly... DON'T PANIC! This will be an easy transition - even if we only have the terminal (I'm assuming we start in the base home directory).
 1. Execute `sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos`
 2. Execute `sudo nix-channel --list` and ensure you only have the unstable branch as a channel. Call `sudo nix-channel --remove [name]` if that's not the case.
 3. Execute `sudo nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager`
@@ -41,7 +42,7 @@ Firstly... DON'T PANIC! This will be an easy transition - even if we only have t
   https://nix-community.github.io/home-manager/index.xhtml#sec-install-standalone
 - To ensure it has been installed correctly, try "man home-configuration.nix" - this might only work after step 5.
 5. Execute `nix-shell -p home-manager git`
-6. Clone this repository
+6. Clone this repository - `git clone https://github.com/axelcool1234/.dotfiles.git`
 7. Execute `cp /etc/nixos/hardware-configuration.nix .dotfiles/hosts/Legion-Laptop/hardware-configuration.nix`
 7. Execute `cd .dotfiles`
 8. Execute `nix flake update` (you may need to temporarily enable experimental features for the command)
@@ -55,7 +56,19 @@ If home-manager fails to install due to a mismatch in a hash, that means we need
 4. Try to execute `home-manager switch --flake .#axelcool1234` again.
 
 Once this is all done, we can execute `reboot` and get into our system. It should be just as how you remembered it! Remember to commit and push these .dotfiles,
-since you called `nix flake update`!
+since you called `nix flake update`! You may need to do the post-setup steps to be able to properly commit and push these changes.
+
+## Post-Setup:
+We need to make sure our github is configured with an SSH key so we can actually develop! Arguably, this step should be set up using something like sops Nix. At some point
+I'll have to learn how to use that - or some other secret management system for Nix.
+1. Execute `ssh-keygen`
+2. Execute `cat` and wherever the result of the `ssh-keygen` was stored. We want the `.pub` file to be outputted, so we can copy it.
+3. Paste the copied SSH key on github by going to Settings -> "SSH and GPG Keys" -> "New SSH Key" and then save the new SSH key
+4. Execute `cd .dotfiles`
+5. Execute `git remote set-url origin git@github.com:axelcool1234/.dotfiles.git`
+6. Execute `git fetch`
+
+You can now commit and push changes to the .dotfiles to GitHub!
 
 # Useful NixOS Resources:
 - https://mynixos.com/
