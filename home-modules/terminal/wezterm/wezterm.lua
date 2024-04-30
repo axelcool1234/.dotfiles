@@ -2,8 +2,8 @@
 local wezterm = require 'wezterm'
 local act = wezterm.action
 -- This will hold the configuration.
-return {
-  -- enable_wayland = false,
+return { 
+  -- max_fps = 165, 
   color_scheme = 'Tokyo Night',
   font = wezterm.font 'JetBrains Mono',
   font_size = 10.0,

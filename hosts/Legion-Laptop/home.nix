@@ -20,6 +20,7 @@
     git
     lazygit
     zoxide
+    fd
     fzf
     nil
 
@@ -44,5 +45,6 @@
     	withVencord = true;
     })
     spicetify-cli
+    slack
   ];
 }
