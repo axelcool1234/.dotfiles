@@ -6,6 +6,7 @@
 - [Update Commands](#update-commands)
 - [Rollback Command](#rollback-command)
 - [Fresh Install](#fresh-install)
+  - [Mismatched-Hash](#Mismatched-Hash)
   - [Post-Setup](#Post-Setup)
 - [Useful NixOS Resources:](#useful-nixos-resources)
 <!--toc:end-->
@@ -49,6 +50,7 @@ Firstly... DON'T PANIC! This will be an easy transition - even if we only have t
 9. Execute `sudo nixos-rebuild switch --flake .#default`
 10. Execute `home-manager switch --flake .#axelcool1234`
 
+## Mistmatched Hash
 If home-manager fails to install due to a mismatch in a hash, that means we need to update that hash. If you don't know where the mismatched hash is, I recommend:
 1. Execute `nix-shell -p ripgrep`
 2. Execute `rg` and then part of the name of the derivation with the mismatched hash. You should be able to find where it's located. 
@@ -58,7 +60,7 @@ If home-manager fails to install due to a mismatch in a hash, that means we need
 Once this is all done, we can execute `reboot` and get into our system. It should be just as how you remembered it! Remember to commit and push these .dotfiles,
 since you called `nix flake update`! You may need to do the post-setup steps to be able to properly commit and push these changes.
 
-## Post-Setup:
+## Post-Setup
 We need to make sure our github is configured with an SSH key so we can actually develop! Arguably, this step should be set up using something like sops Nix. At some point
 I'll have to learn how to use that - or some other secret management system for Nix.
 1. Execute `ssh-keygen`
