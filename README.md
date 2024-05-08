@@ -8,6 +8,7 @@
 - [Fresh Install](#fresh-install)
   - [Mismatched-Hash](#Mismatched-Hash)
   - [Post-Setup](#Post-Setup)
+- [Lost Bootloader](#Lost-Bootloader)
 - [Useful NixOS Resources:](#useful-nixos-resources)
 <!--toc:end-->
 
