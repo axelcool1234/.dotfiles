@@ -72,6 +72,19 @@ I'll have to learn how to use that - or some other secret management system for 
 
 You can now commit and push changes to the .dotfiles to GitHub!
 
+# Lost Bootloader
+Has your bootloader been wiped? Try this:
+1. Boot up a live installation USB (as long as it's Linux this solution should work)
+2. Execute `lsblk -o +LABEL` and identify your Linux root partition (the one with the most space) and the boot partition (should be something like 512 MB)
+2. Execute `sudo mount [linux root partition] /mnt` 
+3. Execute `sudo mount [linux boot partition] /mnt/boot`
+4. `cd` to `/mnt`
+5. Execute `cd /home/axelcool1234/.dotfiles`
+6. Execute `sudo nixos-install --flake .#default`
+
+Your bootloader should've been reinstalled. Now, when you reboot, GRUB (or whatever bootloader being used at the time) should start up.
+Make sure to execute `nixos-switch` once you've booted into NixOS so that GRUB can be reconfigured.
+
 # Useful NixOS Resources:
 - https://mynixos.com/
   - Great for browsing options from NixOS and Home-manager
