@@ -85,6 +85,8 @@ Has your bootloader been wiped? Try this:
 Your bootloader should've been reinstalled. Now, when you reboot, GRUB (or whatever bootloader being used at the time) should start up.
 Make sure to execute `nixos-switch` once you've booted into NixOS so that GRUB can be reconfigured.
 
+For more information, I learned how to do this from this [discussion](https://www.reddit.com/r/NixOS/comments/183jlh5/comment/kapafke/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button).
+
 # Useful NixOS Resources:
 - https://mynixos.com/
   - Great for browsing options from NixOS and Home-manager
