@@ -7,10 +7,10 @@ return {
   color_scheme = 'Tokyo Night',
   font = wezterm.font 'JetBrains Mono',
   font_size = 10.0,
-  leader = { key = 'a', mods = 'CTRL'},
+  leader = { key = 'b', mods = 'CTRL'},
    -- disable_default_key_bindings = true,
   keys = {
-    { key = "a", mods = "LEADER|CTRL",  action=wezterm.action{SendString="\x01"}},
+    { key = "b", mods = "LEADER|CTRL",  action=wezterm.action{SendString="\x01"}},
     { key = "-", mods = "LEADER",       action=wezterm.action{SplitVertical={domain="CurrentPaneDomain"}}},
     { key = "\\",mods = "LEADER",       action=wezterm.action{SplitHorizontal={domain="CurrentPaneDomain"}}},
     { key = "s", mods = "LEADER",       action=wezterm.action{SplitVertical={domain="CurrentPaneDomain"}}},
