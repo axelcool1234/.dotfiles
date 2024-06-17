@@ -6,7 +6,6 @@ let
       ls = "ls --color=auto";
       ll = "ls -l";
       grep = "grep --color=auto";
-      nvim = "steam-run nvim";
       nixos-switch = "sudo nixos-rebuild switch --flake $HOME/.dotfiles#default";
       home-switch = "home-manager switch --flake $HOME/.dotfiles#axelcool1234";
     };
