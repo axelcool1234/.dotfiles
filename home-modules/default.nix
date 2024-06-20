@@ -10,6 +10,7 @@
     ./terminal/tealdeer.nix
     ./terminal/fish.nix
     ./terminal/vim.nix
+    ./terminal/nvim.nix
     ./terminal/helix.nix
     ./terminal/git.nix
     ./terminal/lazygit.nix
@@ -32,6 +33,8 @@
     lib.mkDefault true;
     
   vim.enable =
+    lib.mkDefault true;
+  nvim.enable =
     lib.mkDefault true;
   helix.enable =
     lib.mkDefault true;
