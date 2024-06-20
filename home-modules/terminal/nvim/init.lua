@@ -1,1 +1,1 @@
-print("hello world")
+require("axelcool1234")

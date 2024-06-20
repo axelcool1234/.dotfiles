@@ -17,7 +17,6 @@
     fish
     starship
     helix
-    neovim
     git
     lazygit
     zoxide
