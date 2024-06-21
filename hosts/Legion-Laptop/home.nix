@@ -22,7 +22,10 @@
     zoxide
     fd
     fzf
+
+    # Nix LSP
     nil
+    nixpkgs-fmt
 
     # Terminal Utils
     neofetch    

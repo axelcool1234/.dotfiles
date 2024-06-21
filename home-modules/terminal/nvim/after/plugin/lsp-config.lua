@@ -11,11 +11,11 @@ cmp.setup({
   },
 
   mapping = cmp.mapping.preset.insert({
-    ['<C-b>'] = cmp.mapping.scroll_docs(-4),
-    ['<C-f>'] = cmp.mapping.scroll_docs(4),
-    ['<C-Space>'] = cmp.mapping.complete(),
-    ['<C-e>'] = cmp.mapping.abort(),
-    ['<CR>'] = cmp.mapping.confirm({ select = true }),
+    ['<C-p>'] = cmp.mapping.select_prev_item(),
+    ['<C-n>'] = cmp.mapping.select_next_item(),
+    ['<C-space>'] = cmp.mapping.complete(),
+    ['<C-e>'] = cmp.mapping.close(),
+    ['<tab>'] = cmp.mapping.confirm { select = true },  
   }),  
 
   -- Sources
@@ -50,6 +50,21 @@ cmp.setup.cmdline(':', {
 local capabilities = require('cmp_nvim_lsp').default_capabilities()
 
 -- Configure language servers
+-- Nix
+lspconfig.nil_ls.setup {
+  autostart = true,
+  capabilities = caps,
+  cmd = { 'nil' },
+  settings = {
+    ['nil'] = {
+      testSetting = 42,
+      formatting = {
+        command = { "nixpkgs-fmt" },
+      },
+    },
+  },
+}
+
 -- Python
 lspconfig.pyright.setup {
   capabilities = capabilities
