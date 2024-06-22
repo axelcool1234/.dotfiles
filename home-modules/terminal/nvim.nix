@@ -15,6 +15,7 @@
 
       plugins = with pkgs.vimPlugins; [
         # Essentials
+        plenary-nvim
         nvim-treesitter
         nvim-treesitter-parsers.nix
       	nvim-treesitter-parsers.vim
@@ -28,6 +29,7 @@
 
         # LSP
         nvim-lspconfig
+        nvim-lint
         nvim-cmp
         cmp-nvim-lsp       # Completion source for nvim builtin lsp
         cmp-buffer         # Completion source for nvim-cmp
