@@ -8,6 +8,10 @@ vim.api.nvim_set_keymap('v', '<leader>p', '"+p', { noremap = true, silent = true
 vim.api.nvim_set_keymap('n', '<leader>y', '"+y', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('v', '<leader>y', '"+y', { noremap = true, silent = true })
 
+-- CTRL+D / CTRL+U keeps cursor in the middle
+vim.api.nvim_set_keymap('n', '<C-d>', '<C-d>zz', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<C-u>', '<C-u>zz', { noremap = true, silent = true })
+
 -- Replace symbol
 vim.api.nvim_set_keymap('n', '<leader>r', '<cmd>lua vim.lsp.buf.rename()<CR>', { noremap = true, silent = true })
 
@@ -43,5 +47,23 @@ vim.g.UltiSnipsJumpForwardTrigger = "<c-j>"
 vim.g.UltiSnipsJumpBackwardTrigger = "<c-k>"
 
 -- Telescope keymappings
-vim.api.nvim_set_keymap('n', '<leader>f', '<cmd>lua require("telescope.builtin").find_files()<CR>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<leader>/', '<cmd>lua require("telescope.builtin").grep_string({ search = vim.fn.input("Grep > ") })<CR>', { noremap = true, silent = true })
+_G.find_files_in_git_root = function()
+    local root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
+    if vim.v.shell_error == 0 then
+        require("telescope.builtin").find_files({ cwd = root })
+    else
+        require("telescope.builtin").find_files()
+    end
+end
+
+_G.live_grep_in_git_root = function()
+    local root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
+    if vim.v.shell_error == 0 then
+        require("telescope.builtin").live_grep({ cwd = root })
+    else
+        require("telescope.builtin").live_grep()
+    end
+end
+
+vim.api.nvim_set_keymap('n', '<leader>f', '<cmd>lua find_files_in_git_root()<CR>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<leader>/', '<cmd>lua live_grep_in_git_root()<CR>', { noremap = true, silent = true })
