@@ -39,6 +39,8 @@
 
         # Editor
         which-key-nvim
+        todo-comments-nvim
+        gitsigns-nvim
 
         # Themes
         catppuccin-nvim
