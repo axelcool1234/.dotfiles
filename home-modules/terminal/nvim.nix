@@ -49,6 +49,7 @@
         bufferline-nvim
         indent-blankline-nvim
         vim-illuminate
+        # precognition-nvim (not in the Nix package manager yet!)
 
         # Power user
         flash-nvim
