@@ -41,6 +41,11 @@
         which-key-nvim
         todo-comments-nvim
         gitsigns-nvim
+        lualine-nvim
+        lualine-lsp-progress
+        # git-prompt-string-lualine-nvim
+        bufferline-nvim
+        indent-blankline-nvim
 
         # Power user
         flash-nvim

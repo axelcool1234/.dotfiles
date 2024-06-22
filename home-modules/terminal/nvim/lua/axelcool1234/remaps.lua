@@ -78,12 +78,18 @@ local mappings = {
     { "UltiSnips: Jump Forward", '<c-j>', "<cmd>lua UltiSnips#JumpForwards()<CR>", 'n' },
     { "UltiSnips: Jump Backward", '<c-k>', "<cmd>lua UltiSnips#JumpBackwards()<CR>", 'n' },
 
-    -- Flash plugin mappings
+    -- Flash plugin keymappings
     { "Flash", 's', "<cmd>lua require('flash').jump()<CR>", {'n', 'x', 'o'} },
     { "Flash Treesitter", 'S', "<cmd>lua require('flash').treesitter()<CR>", {'n', 'x', 'o'} },
     { "Remote Flash", 'r', "<cmd>lua require('flash').remote()<CR>", 'o' },
     { "Treesitter Search", 'R', "<cmd>lua require('flash').treesitter_search()<CR>", {'o', 'x'} },
     { "Toggle Flash Search", '<c-s>', "<cmd>lua require('flash').toggle()<CR>", 'c' },
+
+    -- Bufferline keymappings
+    { "Prev Buffer", 'H', "<cmd>BufferLineCyclePrev<cr>", 'n' },
+    { "Next Buffer", 'L', "<cmd>BufferLineCycleNext<cr>", 'n' },
+    { "Close Buffer", 'gq', "<cmd>bdelete<CR>", 'n' },
+
 }
 
 for _, mapping in ipairs(mappings) do
