@@ -20,57 +20,72 @@ _G.live_grep_in_git_root = function()
     end
 end
 
--- Which-Key labels
-require("which-key").register({
+-- Mappings
+local keymap = vim.api.nvim_set_keymap
+local default_opts = { noremap = true, silent = true }
+local mappings = {
     -- Telescope keymappings
-    ["<leader>f"] = { "<cmd>lua find_files_in_git_root()<CR>", "Find Files", mode = "n", noremap = true, silent = true },
-    ["<leader>/"] = { "<cmd>lua live_grep_in_git_root()<CR>", "Live Grep", mode = "n", noremap = true, silent = true },
+    { "Find Files", '<leader>f', "<cmd>lua find_files_in_git_root()<CR>", 'n' },
+    { "Live Grep", '<leader>/', "<cmd>lua live_grep_in_git_root()<CR>", 'n' },
 
     -- Paste from system clipboard
-    ["<leader>p"] = { '"+p', "Paste from system clipboard", noremap = true, silent = true },
-    ["v<leader>p"] = { '"+p', "Paste from system clipboard", noremap = true, silent = true },
+    { "Clipboard Paste", '<leader>p', '"+p', {'n', 'v'} },
 
     -- Yank to system clipboard
-    ["<leader>y"] = { '"+y', "Yank to system clipboard", noremap = true, silent = true },
-    ["v<leader>y"] = { '"+y', "Yank to system clipboard", noremap = true, silent = true },
-    
+    { "Clipboard Yank", '<leader>y', '"+y', {'n', 'v'} },
+
     -- CTRL+D / CTRL+U keeps cursor in the middle
-    ["<C-d>"] = { "<C-d>zz", "CTRL+D keeps cursor in the middle", mode = "n", noremap = true, silent = true },
-    ["<C-u>"] = { "<C-u>zz", "CTRL+U keeps cursor in the middle", mode = "n", noremap = true, silent = true },
+    { "CTRL+D", '<C-d>', '<C-d>zz', 'n' },
+    { "CTRL+U", '<C-u>', '<C-u>zz', 'n' },
+
+    -- Alternatives to ^/$/G (Helix-like bindings)
+    { "Goto line end", 'gl', '$', 'n' },
+    { "Goto line start", 'gh', '^', 'n' },
+    { "Goto last line", 'ge', 'G', 'n' },
 
     -- Replace symbol
-    ["<leader>r"] = { "<cmd>lua vim.lsp.buf.rename()<CR>", "Replace symbol", mode = "n", noremap = true, silent = true },
+    { "Replace symbol", '<leader>r', "<cmd>lua vim.lsp.buf.rename()<CR>", 'n' },
 
     -- Code Action
-    ["<leader>a"] = { "<cmd>lua vim.lsp.buf.code_action()<CR>", "Code Action", mode = "n", noremap = true, silent = true },
+    { "Code Action", '<leader>a', "<cmd>lua vim.lsp.buf.code_action()<CR>", 'n' },
 
     -- Move through diagnostic
-    ["[d"] = { "<cmd>lua vim.lsp.diagnostic.goto_prev()<CR>", "Move through diagnostic (prev)", noremap = true, silent = true, mode = "n" },
-    ["]d"] = { "<cmd>lua vim.lsp.diagnostic.goto_next()<CR>", "Move through diagnostic (next)", noremap = true, silent = true },
+    { "Move through diagnostic (prev)", '[d', "<cmd>lua vim.lsp.diagnostic.goto_prev()<CR>", 'n' },
+    { "Move through diagnostic (next)", ']d', "<cmd>lua vim.lsp.diagnostic.goto_next()<CR>", 'n' },
 
     -- Goto declaration/definition/implementation/references
-    ["gD"] = { "<cmd>lua vim.lsp.buf.declaration()<CR>", "Goto declaration", noremap = true, silent = true },
-    ["gd"] = { "<cmd>lua vim.lsp.buf.definition()<CR>", "Goto definition", noremap = true, silent = true },
-    ["gi"] = { "<cmd>lua vim.lsp.buf.implementation()<CR>", "Goto implementation", noremap = true, silent = true },
-    ["gr"] = { "<cmd>lua vim.lsp.buf.references()<CR>", "Goto references", noremap = true, silent = true },
+    { "Goto declaration", 'gD', "<cmd>lua vim.lsp.buf.declaration()<CR>", 'n' },
+    { "Goto definition", 'gd', "<cmd>lua vim.lsp.buf.definition()<CR>", 'n' },
+    { "Goto implementation", 'gi', "<cmd>lua vim.lsp.buf.implementation()<CR>", 'n' },
+    { "Goto references", 'gr', "<cmd>lua vim.lsp.buf.references()<CR>", 'n' },
 
-    -- Diagnostics 
-    ["<leader> "] = { "<cmd>lua vim.lsp.buf.hover()<CR>", "Hover", noremap = true, silent = true },
-    ["<leader>s"] = { "<cmd>lua vim.lsp.buf.signature_help()<CR>", "Signature Help", noremap = true, silent = true },
-    ["<leader>d"] = { "<cmd>lua vim.diagnostic.open_float()<CR>", "Open Diagnostic float", noremap = true, silent = true },
-    ["<leader>q"] = { "<cmd>lua vim.diagnostic.setloclist()<CR>", "Set Diagnostic loclist", noremap = true, silent = true },
+    -- Diagnostics
+    { "Hover", '<leader> ', "<cmd>lua vim.lsp.buf.hover()<CR>", 'n' },
+    { "Signature Help", '<leader>s', "<cmd>lua vim.lsp.buf.signature_help()<CR>", 'n' },
+    { "Open Diagnostic float", '<leader>d', "<cmd>lua vim.diagnostic.open_float()<CR>", 'n' },
+    { "Set Diagnostic loclist", '<leader>q', "<cmd>lua vim.diagnostic.setloclist()<CR>", 'n' },
 
     -- Key mappings for nvim-cmp (completion-nvim)
-    ["<C-p>"] = { "<cmd>lua require('cmp').select_prev_item()<CR>", "Completion: Previous item", mode = "i", noremap = true, silent = true },
-    ["<C-n>"] = { "<cmd>lua require('cmp').select_next_item()<CR>", "Completion: Next item", mode = "i", noremap = true, silent = true },
-    ["<C-e>"] = { "<cmd>lua require('cmp').close()<CR>", "Completion: Close", mode = "i", noremap = true, silent = true },
+    { "Completion: Previous item", '<C-p>', "<cmd>lua require('cmp').select_prev_item()<CR>", 'i' },
+    { "Completion: Next item", '<C-n>', "<cmd>lua require('cmp').select_next_item()<CR>", 'i' },
+    { "Completion: Close", '<C-e>', "<cmd>lua require('cmp').close()<CR>", 'i' },
 
     -- Key mappings for undotree
-    ["<leader>u"] = { "<cmd>lua vim.cmd.UndotreeToggle()<CR>", "Toggle Undotree", mode = "n", noremap = true, silent = true },
+    { "Toggle Undotree", '<leader>u', "<cmd>lua vim.cmd.UndotreeToggle()<CR>", 'n' },
 
     -- Ultisnips keymappings
-    ["<tab>"] = { "<cmd>lua UltiSnips#ExpandSnippet()<CR>", "UltiSnips: Expand Trigger", noremap = true, silent = true },
-    ["<c-j>"] = { "<cmd>lua UltiSnips#JumpForwards()<CR>", "UltiSnips: Jump Forward", noremap = true, silent = true },
-    ["<c-k>"] = { "<cmd>lua UltiSnips#JumpBackwards()<CR>", "UltiSnips: Jump Backward", noremap = true, silent = true },
-})
- 
+    { "UltiSnips: Expand Trigger", '<tab>', "<cmd>lua UltiSnips#ExpandSnippet()<CR>", 'n' },
+    { "UltiSnips: Jump Forward", '<c-j>', "<cmd>lua UltiSnips#JumpForwards()<CR>", 'n' },
+    { "UltiSnips: Jump Backward", '<c-k>', "<cmd>lua UltiSnips#JumpBackwards()<CR>", 'n' },
+}
+
+for _, mapping in ipairs(mappings) do
+    local desc, lhs, rhs, modes, opts = unpack(mapping)
+    opts = opts or {}
+    modes = type(modes) == "table" and modes or {modes}
+
+    for _, mode in ipairs(modes) do
+        local final_opts = vim.tbl_extend("force", default_opts, opts, { desc = desc })
+        keymap(mode, lhs, rhs, final_opts)
+    end
+end
