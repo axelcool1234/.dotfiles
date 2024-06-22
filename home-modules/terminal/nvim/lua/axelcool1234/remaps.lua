@@ -20,6 +20,18 @@ _G.live_grep_in_git_root = function()
     end
 end
 
+_G.open_lazygit_in_wezterm = function()
+  local current_cwd = vim.fn.getcwd()
+  local wezterm_command = string.format("wezterm cli split-pane --right --cwd '%s' lazygit", current_cwd)
+  vim.fn.system(wezterm_command)
+end
+
+_G.open_terminal_in_wezterm = function()
+  local current_cwd = vim.fn.getcwd()
+  local wezterm_command = string.format("wezterm cli split-pane --right --cwd '%s'", current_cwd)
+  vim.fn.system(wezterm_command)
+end
+
 -- Mappings
 local keymap = vim.api.nvim_set_keymap
 local default_opts = { noremap = true, silent = true }
@@ -90,6 +102,9 @@ local mappings = {
     { "Next Buffer", 'L', "<cmd>BufferLineCycleNext<cr>", 'n' },
     { "Close Buffer", 'gq', "<cmd>bdelete<CR>", 'n' },
 
+    -- Terminal-based keymappings
+    { "Lazygit", "<leader>gg", "<cmd>lua open_lazygit_in_wezterm()<CR>", 'n' },
+    { "Terminal", "<leader>gt", "<cmd>lua open_terminal_in_wezterm()<CR>", 'n' },
 }
 
 for _, mapping in ipairs(mappings) do
