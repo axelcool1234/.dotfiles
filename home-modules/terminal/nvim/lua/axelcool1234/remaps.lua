@@ -42,7 +42,6 @@ local mappings = {
     { "Goto line end", 'gl', '$', { 'n', 'v' } },
     { "Goto line start", 'gh', '^', { 'n', 'v' } },
     { "Goto last line", 'ge', 'G', { 'n', 'v' } },
-    { "Unselect", ';', '<esc>v', 'v' },
 
     -- Replace symbol
     { "Replace symbol", '<leader>r', "<cmd>lua vim.lsp.buf.rename()<CR>", 'n' },
@@ -78,6 +77,13 @@ local mappings = {
     { "UltiSnips: Expand Trigger", '<tab>', "<cmd>lua UltiSnips#ExpandSnippet()<CR>", 'n' },
     { "UltiSnips: Jump Forward", '<c-j>', "<cmd>lua UltiSnips#JumpForwards()<CR>", 'n' },
     { "UltiSnips: Jump Backward", '<c-k>', "<cmd>lua UltiSnips#JumpBackwards()<CR>", 'n' },
+
+    -- Flash plugin mappings
+    { "Flash", 's', "<cmd>lua require('flash').jump()<CR>", {'n', 'x', 'o'} },
+    { "Flash Treesitter", 'S', "<cmd>lua require('flash').treesitter()<CR>", {'n', 'x', 'o'} },
+    { "Remote Flash", 'r', "<cmd>lua require('flash').remote()<CR>", 'o' },
+    { "Treesitter Search", 'R', "<cmd>lua require('flash').treesitter_search()<CR>", {'o', 'x'} },
+    { "Toggle Flash Search", '<c-s>', "<cmd>lua require('flash').toggle()<CR>", 'c' },
 }
 
 for _, mapping in ipairs(mappings) do

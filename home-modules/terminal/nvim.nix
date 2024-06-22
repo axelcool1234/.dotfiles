@@ -42,6 +42,9 @@
         todo-comments-nvim
         gitsigns-nvim
 
+        # Power user
+        flash-nvim
+
         # Themes
         catppuccin-nvim
         tokyonight-nvim      
