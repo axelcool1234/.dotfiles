@@ -3,6 +3,7 @@ local lspconfig = require('lspconfig')
 
 -- Set up lspconfig
 local capabilities = require('cmp_nvim_lsp').default_capabilities()
+
 local on_attach = function(client, bufnr)
 	vim.bo[bufnr].omnifunc = "v:lua.vim.lsp.omnifunc"
 
@@ -27,6 +28,7 @@ lspconfig.nil_ls.setup {
       },
     },
   },
+  document_highlight = { enabled = false }
 }
 
 -- Python
@@ -36,6 +38,7 @@ lspconfig.pyright.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- TypeScript/JavaScript
@@ -45,6 +48,7 @@ lspconfig.tsserver.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- Rust
@@ -54,6 +58,7 @@ lspconfig.rust_analyzer.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- C/C++
@@ -63,6 +68,7 @@ lspconfig.clangd.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- Go
@@ -72,6 +78,7 @@ lspconfig.gopls.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- Ruby
@@ -81,6 +88,7 @@ lspconfig.solargraph.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- Java
@@ -90,6 +98,7 @@ lspconfig.jdtls.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- PHP
@@ -99,6 +108,7 @@ lspconfig.intelephense.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- Lua
@@ -108,6 +118,7 @@ lspconfig.lua_ls.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- HTML, CSS, JavaScript (web development)
@@ -117,6 +128,7 @@ lspconfig.html.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 lspconfig.cssls.setup {
   capabilities = capabilities,
@@ -124,6 +136,7 @@ lspconfig.cssls.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- Vue.js
@@ -133,6 +146,7 @@ lspconfig.volar.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- C#
@@ -142,6 +156,7 @@ lspconfig.omnisharp.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- Kotlin
@@ -151,6 +166,7 @@ lspconfig.kotlin_language_server.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }
 
 -- Swift
@@ -160,4 +176,5 @@ lspconfig.sourcekit.setup {
   settings = {
     hint = true,
   },
+  document_highlight = { enabled = false }
 }

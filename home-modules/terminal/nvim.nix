@@ -48,6 +48,7 @@
         # git-prompt-string-lualine-nvim
         bufferline-nvim
         indent-blankline-nvim
+        vim-illuminate
 
         # Power user
         flash-nvim
