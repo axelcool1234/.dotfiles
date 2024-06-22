@@ -46,6 +46,10 @@ local mappings = {
     -- Yank to system clipboard
     { "Clipboard Yank", '<leader>y', '"+y', {'n', 'v'} },
 
+    -- Replace
+    { "Replace", 'gR', '<cmd>normal! "_d0P"<CR>', {'n', 'v'} },
+    { "Clipboard Replace ", '<leader>gR', '<cmd>normal! "_d"+P<CR>', {'n', 'v'} },
+
     -- CTRL+D / CTRL+U keeps cursor in the middle
     { "CTRL+D", '<C-d>', '<C-d>zz', 'n' },
     { "CTRL+U", '<C-u>', '<C-u>zz', 'n' },
