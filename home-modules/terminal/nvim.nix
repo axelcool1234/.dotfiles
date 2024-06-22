@@ -37,6 +37,9 @@
         ultisnips
         friendly-snippets
 
+        # Editor
+        which-key-nvim
+
         # Themes
         catppuccin-nvim
         tokyonight-nvim      
