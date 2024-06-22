@@ -54,6 +54,9 @@
         flash-nvim
         oil-nvim
 
+        # Fun
+        presence-nvim
+
         # Themes
         catppuccin-nvim
         tokyonight-nvim      
