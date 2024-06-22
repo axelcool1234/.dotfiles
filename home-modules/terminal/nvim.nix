@@ -52,6 +52,7 @@
 
         # Power user
         flash-nvim
+        oil-nvim
 
         # Themes
         catppuccin-nvim

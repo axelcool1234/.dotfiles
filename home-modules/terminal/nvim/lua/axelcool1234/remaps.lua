@@ -105,6 +105,9 @@ local mappings = {
     -- Terminal-based keymappings
     { "Lazygit", "<leader>gg", "<cmd>lua open_lazygit_in_wezterm()<CR>", 'n' },
     { "Terminal", "<leader>gt", "<cmd>lua open_terminal_in_wezterm()<CR>", 'n' },
+
+    -- Oil keymappings
+    { "Oil", "<leader>-", "<cmd>lua require('oil').toggle_float()<CR>", 'n' },
 }
 
 for _, mapping in ipairs(mappings) do
