@@ -32,6 +32,10 @@ _G.open_terminal_in_wezterm = function()
   vim.fn.system(wezterm_command)
 end
 
+_G.wezterm_pane_move = function(direction)
+  vim.fn.system('wezterm cli activate-pane-direction ' .. direction)
+end
+
 -- Mappings
 local keymap = vim.api.nvim_set_keymap
 local default_opts = { noremap = true, silent = true }
@@ -109,6 +113,10 @@ local mappings = {
     -- Terminal-based keymappings
     { "Lazygit", "<leader>gg", "<cmd>lua open_lazygit_in_wezterm()<CR>", 'n' },
     { "Terminal", "<leader>gt", "<cmd>lua open_terminal_in_wezterm()<CR>", 'n' },
+    { "Left Pane", '<C-h>', '<cmd>lua wezterm_pane_move("Left")<CR>', 'n' },
+    { "Right Pane", '<C-l>', '<cmd>lua wezterm_pane_move("Right")<CR>', 'n' },
+    { "Above Pane", '<C-k>', '<cmd>lua wezterm_pane_move("Right")<CR>', 'n' },
+    { "Below Pane", '<C-j>', '<cmd>lua wezterm_pane_move("Down")<CR>', 'n' },
 
     -- Oil keymappings
     { "Open Parent Directory", "-", "<cmd>Oil<CR>", 'n' },
