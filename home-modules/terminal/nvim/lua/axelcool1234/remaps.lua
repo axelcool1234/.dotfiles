@@ -89,14 +89,15 @@ local mappings = {
     { "Completion: Previous item", '<C-p>', "<cmd>lua require('cmp').select_prev_item()<CR>", 'i' },
     { "Completion: Next item", '<C-n>', "<cmd>lua require('cmp').select_next_item()<CR>", 'i' },
     { "Completion: Close", '<C-e>', "<cmd>lua require('cmp').close()<CR>", 'i' },
+    { "Completion: Accept", '<C-Space>', "<cmd>lua require('cmp').confirm({ select = true })<CR>", 'i' },
 
     -- Key mappings for undotree
     { "Toggle Undotree", '<leader>u', "<cmd>lua vim.cmd.UndotreeToggle()<CR>", 'n' },
 
-    -- Ultisnips keymappings
-    { "UltiSnips: Expand Trigger", '<tab>', "<cmd>lua UltiSnips#ExpandSnippet()<CR>", 'n' },
-    { "UltiSnips: Jump Forward", '<c-j>', "<cmd>lua UltiSnips#JumpForwards()<CR>", 'n' },
-    { "UltiSnips: Jump Backward", '<c-k>', "<cmd>lua UltiSnips#JumpBackwards()<CR>", 'n' },
+    -- UltiSnips key mappings
+    { "UltiSnips: Expand Trigger", '<tab>', "<cmd>call UltiSnips#ExpandSnippet()<CR>", { "i", "s" } },
+    { "UltiSnips: Jump Forward", '<C-;>', "<cmd>call UltiSnips#JumpForwards()<CR>", { "i", "s" } },
+    { "UltiSnips: Jump Backward", '<C-:>', "<cmd>call UltiSnips#JumpBackwards()<CR>", { "i", "s" } },
 
     -- Flash plugin keymappings
     { "Flash", 's', "<cmd>lua require('flash').jump()<CR>", {'n', 'x', 'o'} },
