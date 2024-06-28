@@ -5,7 +5,7 @@
   
   services.foundryvtt = {
     enable = false;
-    hostName = "<hostname goes here>";
+    hostName = "ec2-54-153-117-235.us-west-1.compute.amazonaws.com";
     minifyStaticFiles = true;
     package = inputs.foundryvtt.packages.${pkgs.system}.foundryvtt_12; # Sets the version to the latest FoundryVTT v12.
     proxyPort = 443;
