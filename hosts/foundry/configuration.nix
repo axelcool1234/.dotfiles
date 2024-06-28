@@ -1,9 +1,7 @@
-{ inputs, pkgs, ... }:
+{ inputs, pkgs, modulesPath, ... }:
 {
   imports =
-  [ # Include the results of the hardware scan.
-    ./hardware-configuration.nix
-  ];
+  [ "${modulesPath}/virtualisation/amazon-image.nix"  ];
   
   services.foundryvtt = {
     enable = false;
