@@ -26,7 +26,7 @@
     nixosConfigurations = {
       # Default config
       default = nixpkgs.lib.nixosSystem {
-        system = "aarch64-linux";
+        inherit system;
         specialArgs = { inherit inputs; };
         modules = [
           ./hosts/Legion-Laptop/configuration.nix
