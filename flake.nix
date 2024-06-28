@@ -3,7 +3,8 @@
 	description = "Flake Config";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+      nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+      nixpkgs-24-05.url = "github:NixOS/nixpkgs/nixos-24.05";
       home-manager = {
         url = "github:nix-community/home-manager/master";
         inputs.nixpkgs.follows = "nixpkgs";
@@ -15,7 +16,7 @@
       foundryvtt.url = "github:reckenrode/nix-foundryvtt";
     };
 
-	outputs = { self, nixpkgs, home-manager, ... }@inputs:
+	outputs = { self, nixpkgs, nixpkgs-24-05, home-manager, ... }@inputs:
 	let
 	  system = "x86_64-linux";
 	  pkgs = nixpkgs.legacyPackages.${system};
@@ -35,7 +36,7 @@
       };
 
       # Foundry VTT Server
-      foundry = nixpkgs.lib.nixosSystem {
+      foundry = nixpkgs-24-05.lib.nixosSystem {
           inherit system;
           specialArgs = { inherit inputs; };
           modules = [
