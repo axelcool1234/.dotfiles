@@ -34,16 +34,6 @@
           ./nixos-modules
         ];
       };
-
-      # Foundry VTT Server
-      foundry = nixpkgs-24-05.lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs; };
-          modules = [
-            ./hosts/foundry/configuration.nix
-            inputs.foundryvtt.nixosModules.foundryvtt
-          ];
-      };
     };
 
     # List of user configurations
