@@ -42,5 +42,7 @@ return {
     { key = "&", mods = "LEADER|SHIFT", action=wezterm.action{CloseCurrentTab={confirm=true}}},
     { key = "d", mods = "LEADER",       action=wezterm.action{CloseCurrentPane={confirm=true}}},
     { key = "x", mods = "LEADER",       action=wezterm.action{CloseCurrentPane={confirm=true}}},
+    { key = ";", mods = "CTRL",         action=act.SendKey{key="UpArrow"}},
+    { key = "'", mods = "CTRL",         action=act.SendKey{key="DownArrow"}},
   },
 }

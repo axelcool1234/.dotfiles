@@ -94,10 +94,14 @@ local mappings = {
     -- Key mappings for undotree
     { "Toggle Undotree", '<leader>u', "<cmd>lua vim.cmd.UndotreeToggle()<CR>", 'n' },
 
-    -- UltiSnips key mappings
+    -- UltiSnips keymappings
+    -- Note: Due to my Wezterm keybindings making <C-;> be the up arrow and <C-;> be the down arrow, I have 
+    -- rebound the UltiSnips keymappings accordingly
     { "UltiSnips: Expand Trigger", '<tab>', "<cmd>call UltiSnips#ExpandSnippet()<CR>", { "i", "s" } },
-    { "UltiSnips: Jump Forward", '<C-;>', "<cmd>call UltiSnips#JumpForwards()<CR>", { "i", "s" } },
-    { "UltiSnips: Jump Backward", '<C-:>', "<cmd>call UltiSnips#JumpBackwards()<CR>", { "i", "s" } },
+    -- { "UltiSnips: Jump Forward", '<C-;>', "<cmd>call UltiSnips#JumpForwards()<CR>", { "i", "s" } },
+    { "UltiSnips: Jump Forward", '<Up>', "<cmd>call UltiSnips#JumpForwards()<CR>", { "i", "s" } },
+    -- { "UltiSnips: Jump Backward", '<C-:>', "<cmd>call UltiSnips#JumpBackwards()<CR>", { "i", "s" } },
+    { "UltiSnips: Jump Backward", '<Down>', "<cmd>call UltiSnips#JumpBackwards()<CR>", { "i", "s" } },
 
     -- Flash plugin keymappings
     { "Flash", 's', "<cmd>lua require('flash').jump()<CR>", {'n', 'x', 'o'} },

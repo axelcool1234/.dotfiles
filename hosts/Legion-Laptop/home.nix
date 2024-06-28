@@ -22,6 +22,8 @@
     zoxide
     fd
     fzf
+    zip
+    unzip
 
     # Nix LSP
     nil
