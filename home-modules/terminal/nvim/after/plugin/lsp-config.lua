@@ -48,10 +48,12 @@ lspconfig.texlab.setup {
     settings = {
         texlab = {
             build = {
-                onSave = true,
+                onSave = false,
                 forwardSearchAfter = true,
                 executable = "tectonic",
                 args = { "-X", "compile", "%f", "--synctex", "-Zshell-escape", "--keep-logs", "--keep-intermediates" },
+                -- executable = "latexmk",
+                -- args = { "-pdf", "-interaction=nonstopmode", "-synctex=1", "%f" },
             },
             forwardSearch = {
                 executable = "zathura",
