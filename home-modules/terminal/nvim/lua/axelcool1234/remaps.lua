@@ -38,7 +38,7 @@ end
 
 -- Texlab variables
 _G.is_compiling = false
-_G.autocmd_added = false
+_G.compilation_buffer = nil
 _G.compilation_timer = nil
 
 -- Function to start compilation
@@ -46,45 +46,54 @@ _G.texlab_build_and_search = function()
     -- Set flag to indicate compilation is active
     _G.is_compiling = true
 
-    -- Trigger build
-    vim.cmd('TexlabBuild')
-
-    -- Wait for build to complete (adjust delay as needed)
-    _G.compilation_timer = vim.loop.new_timer()
-    _G.compilation_timer:start(1000, 0, vim.schedule_wrap(function()
-        -- Check if still compiling (flag could be cleared if compilation is stopped)
-        if _G.is_compiling then
-            -- Trigger forward search
-            vim.cmd('TexlabForward')
-        end
-    end))
-
-    -- Add autocmd to call texlab_build_and_search() after writing to the buffer
-    if not _G.autocmd_added then
-        vim.cmd('autocmd BufWritePost * lua if _G.is_compiling then _G.texlab_build_and_search() end')
-        _G.autocmd_added = true
-    end
-end
-
--- Function to stop compilation
-_G.stop_compilation = function()
-    if _G.is_compiling then
-        -- Clear flag to stop compilation
+    -- Trigger build in the designated compilation buffer
+    if _G.compilation_buffer then
+        vim.api.nvim_buf_call(_G.compilation_buffer, function()
+            vim.cmd('TexlabBuild')
+        end)
+    else
         _G.is_compiling = false
-
         -- Stop any running timer
         if _G.compilation_timer then
             _G.compilation_timer:stop()
             _G.compilation_timer:close()
             _G.compilation_timer = nil
         end
+        print("Compilation buffer not set")
+        return
+    end
 
-        -- Remove autocmd
-        if _G.autocmd_added then
-            vim.cmd('autocmd! BufWritePost *')
-            _G.autocmd_added = false
+    -- Wait for build to complete (adjust delay as needed)
+    _G.compilation_timer = vim.loop.new_timer()
+    _G.compilation_timer:start(1000, 0, vim.schedule_wrap(function()
+        -- Check if still compiling (flag could be cleared if compilation is stopped)
+        if _G.is_compiling then
+            vim.api.nvim_buf_call(_G.compilation_buffer, function()
+                vim.cmd('TexlabForward')
+            end)
         end
+    end))
+end
 
+_G.start_compilation = function()
+    if not _G.is_compiling then
+        _G.compilation_buffer = vim.api.nvim_get_current_buf()
+        vim.cmd('autocmd BufWritePost * lua if _G.is_compiling then _G.texlab_build_and_search() end')
+        _G.is_compiling = true
+    end
+end
+
+_G.stop_compilation = function()
+    if _G.is_compiling then
+        vim.cmd('autocmd! BufWritePost *')
+        _G.is_compiling = false
+        _G.compilation_buffer = nil
+        -- Stop any running timer
+        if _G.compilation_timer then
+            _G.compilation_timer:stop()
+            _G.compilation_timer:close()
+            _G.compilation_timer = nil
+        end
         print("Compilation stopped")
     else
         print("No active compilation to stop")
@@ -100,8 +109,8 @@ local mappings = {
     { "Live Grep", '<leader>/', "<cmd>lua live_grep_in_git_root()<CR>", 'n' },
 
     -- LaTeX Build Command
-    { "Build LaTeX", '<leader>\\ll', "<cmd>lua texlab_build_and_search()<CR>", 'n' }, 
-    { "End LaTeX Building", '<leader>\\lk', "<cmd>lua _G.stop_compilation()<CR>", 'n' }, 
+    { "Build LaTeX", '<leader>\\ll', "<cmd>lua start_compilation()<CR><cmd>lua texlab_build_and_search()<CR>", 'n' }, 
+    { "End LaTeX Building", '<leader>\\lk', "<cmd>lua stop_compilation()<CR>", 'n' }, 
 
     -- Paste from system clipboard
     { "Clipboard Paste", '<leader>p', '"+p', {'n', 'v'} },
