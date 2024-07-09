@@ -58,10 +58,11 @@ local mappings = {
     { "CTRL+D", '<C-d>', '<C-d>zz', 'n' },
     { "CTRL+U", '<C-u>', '<C-u>zz', 'n' },
 
-    -- Alternatives to ^/$/G (Helix-like bindings)
+    -- Alternatives to ^/$/G/CTRL+R (Helix-like bindings)
     { "Goto line end", 'gl', '$', { 'n', 'v' } },
     { "Goto line start", 'gh', '^', { 'n', 'v' } },
     { "Goto last line", 'ge', 'G', { 'n', 'v' } },
+    { "Redo", 'U', '<C-R>', { 'n' , 'v' } },
 
     -- Replace symbol
     { "Replace symbol", '<leader>r', "<cmd>lua vim.lsp.buf.rename()<CR>", 'n' },
