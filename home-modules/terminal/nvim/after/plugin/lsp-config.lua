@@ -41,6 +41,38 @@ lspconfig.pyright.setup {
   document_highlight = { enabled = false }
 }
 
+-- LaTeX (texlab)
+lspconfig.texlab.setup {
+    capabilities = capabilities,
+    on_attach = on_attach,
+    settings = {
+        texlab = {
+            build = {
+                onSave = true,
+                forwardSearchAfter = true,
+                executable = "tectonic",
+                args = { "-X", "compile", "%f", "--synctex", "-Zshell-escape", "--keep-logs", "--keep-intermediates" },
+            },
+            forwardSearch = {
+                executable = "zathura",
+                args = { "--synctex-forward", "%l:1:%f", "%p" },
+            },
+            chktex = {
+                onEdit = true,
+            },
+            auxDirectory = ".",
+            bibtexFormatter = "texlab",
+            diagnosticsDelay = 300,
+            formatterLineLength = 80,
+            latexFormatter = "latexindent",
+            latexindent = {
+                modifyLineBreaks = true,
+            },
+        },
+    },
+    document_highlight = { enabled = false }
+}
+
 -- TypeScript/JavaScript
 lspconfig.tsserver.setup {
   capabilities = capabilities,
