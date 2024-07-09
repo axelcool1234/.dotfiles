@@ -51,6 +51,9 @@
         vim-illuminate
         # precognition-nvim (not in the Nix package manager yet!)
 
+        # LaTeX
+        vimtex
+
         # Power user
         flash-nvim
         oil-nvim
