@@ -52,7 +52,7 @@
         # precognition-nvim (not in the Nix package manager yet!)
 
         # LaTeX
-        # vimtex (replaced with texlab LSP's build command)
+        vimtex # (could be replaced with texlab LSP's build command, but as of now this is fine)
 
         # Power user
         flash-nvim

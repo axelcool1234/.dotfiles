@@ -27,3 +27,13 @@ vim.opt.scrolloff = 8
 vim.opt.updatetime = 50
 
 -- vim.opt.colorcolumn = "80"
+
+-- Vimtex
+-- Disable opening the quickfix window for warnings
+vim.g.vimtex_quickfix_mode = 0
+
+-- Set Zathura as the viewer
+vim.g.vimtex_view_method = 'zathura'
+
+-- Configure forward search
+vim.g.vimtex_view_general_options = '--synctex-forward @line:@col:@pdf %p'

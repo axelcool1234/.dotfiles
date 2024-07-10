@@ -47,18 +47,18 @@ lspconfig.texlab.setup {
     on_attach = on_attach,
     settings = {
         texlab = {
-            build = {
-                onSave = false,
-                forwardSearchAfter = true,
-                executable = "tectonic",
-                args = { "-X", "compile", "%f", "--synctex", "-Zshell-escape", "--keep-logs", "--keep-intermediates" },
-                -- executable = "latexmk",
-                -- args = { "-pdf", "-interaction=nonstopmode", "-synctex=1", "%f" },
-            },
-            forwardSearch = {
-                executable = "zathura",
-                args = { "--synctex-forward", "%l:1:%f", "%p" },
-            },
+            -- build = {
+            --     onSave = false,
+            --     forwardSearchAfter = false,
+            --     -- executable = "tectonic",
+            --     -- args = { "-X", "compile", "%f", "--synctex", "-Zshell-escape", "--keep-logs", "--keep-intermediates" },
+            --     executable = "latexmk",
+            --     args = { "-pdf", "-interaction=nonstopmode", "-synctex=1", "%f" },
+            -- },
+            -- forwardSearch = {
+            --     executable = "zathura",
+            --     args = { "--synctex-forward", "%l:1:%f", "%p" },
+            -- },
             chktex = {
                 onEdit = true,
             },
