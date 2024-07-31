@@ -46,9 +46,11 @@
     (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
 
     # Gui/Programs
-    (discord.override {
-    	withVencord = true;
-    })
+    # (discord.override {
+    # 	withVencord = true;
+    #     # withOpenASAR = true;
+    # })
+    discord
     spicetify-cli
     slack
   ];
