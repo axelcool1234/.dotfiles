@@ -75,6 +75,16 @@ lspconfig.texlab.setup {
     document_highlight = { enabled = false }
 }
 
+-- Haskell
+lspconfig.hls.setup {
+  capabilities = capabilities,
+  on_attach = on_attach,
+  settings = {
+    hint = true,
+  },
+  document_highlight = { enabled = false }
+}
+
 -- TypeScript/JavaScript
 lspconfig.tsserver.setup {
   capabilities = capabilities,
