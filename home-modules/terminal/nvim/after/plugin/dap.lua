@@ -2,7 +2,7 @@ local dap = require('dap')
 local dapui = require('dapui')
 
 local function get_lldb_path()
-  return vim.fn.system('which lldb'):gsub('%s+$', '') -- Remove trailing whitespace
+  return vim.fn.system('which lldb-dap'):gsub('%s+$', '') -- Remove trailing whitespace
 end
 
 dapui.setup()
@@ -11,6 +11,18 @@ dap.adapters.lldb = {
   type = 'executable',
   command = get_lldb_path(),
   name = 'lldb'
+}
+
+dap.configurations.rust = {
+  {
+    name = "Debug",
+    type = "lldb",
+    request = "launch",
+    program = "${workspaceFolder}/target/debug/${workspaceFolderBasename}",
+    cwd = "${workspaceFolder}",
+    stopAtEntry = false,
+    args = {},
+  },
 }
 
 dap.listeners.before.attach.dapui_config = function()
