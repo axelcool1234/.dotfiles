@@ -151,7 +151,7 @@ local mappings = {
     -- Diagnostics
     { "Hover", '<leader> ', "<cmd>lua vim.lsp.buf.hover()<CR>", 'n' },
     { "Signature Help", '<leader>s', "<cmd>lua vim.lsp.buf.signature_help()<CR>", 'n' },
-    { "Open Diagnostic float", '<leader>df', "<cmd>lua vim.diagnostic.open_float()<CR>", 'n' },
+    { "Open Diagnostic float", '<leader>dd', "<cmd>lua vim.diagnostic.open_float()<CR>", 'n' },
     { "Set Diagnostic loclist", '<leader>q', "<cmd>lua vim.diagnostic.setloclist()<CR>", 'n' },
 
     -- Key mappings for nvim-cmp (completion-nvim)
@@ -161,18 +161,17 @@ local mappings = {
     { "Completion: Accept", '<C-Space>', "<cmd>lua require('cmp').confirm({ select = true })<CR>", 'i' },
 
     -- Key mappings for nvim-dap (debug adapter)
-    { "Debug", "<leader>d", "", { 'n', 'v' } },
+    { "Debug", "<leader>d", "", { "n", "v" } },
+    { "Breakpoint Condition", "<leader>dB", "<cmd>lua require('dap').set_breakpoint(vim.fn.input('Breakpoint condition: '))<CR>", 'n' },
     { "Toggle Breakpoint", "<leader>db", "<cmd>lua require('dap').toggle_breakpoint()<CR>", 'n' },
-    { "Run with Args", "<leader>da", "<cmd>lua require('dap').run()<CR>", 'n' },
-    { "Toggle Breakpoint", "<leader>db", "<cmd>lua require('dap').toggle_breakpoint()<CR>", 'n' },
-    { "Breakpoint Condition", "<leader>dB", "<cmd>lua require('dap').set_breakpoint(vim.fn.input('Breakpoint Condition: '))<CR>", 'n' },
     { "Continue", "<leader>dc", "<cmd>lua require('dap').continue()<CR>", 'n' },
+    { "Run with Args", "<leader>da", "<cmd>lua require('dap').continue({ before = get_args })<CR>", 'n' },
     { "Run to Cursor", "<leader>dC", "<cmd>lua require('dap').run_to_cursor()<CR>", 'n' },
-    { "Go to Line (No Execute)", "<leader>dg", "<cmd>lua require('dap').goto_() -- not actually executing<CR>", 'n' },
+    { "Go to Line (No Execute)", "<leader>dg", "<cmd>lua require('dap').goto_()<CR>", 'n' },
     { "Step Into", "<leader>di", "<cmd>lua require('dap').step_into()<CR>", 'n' },
-    { "Step Down", "<leader>dj", "<cmd>lua require('dap').down()<CR>", 'n' },
-    { "Step Up", "<leader>dk", "<cmd>lua require('dap').up()<CR>", 'n' },
-    { "Run Last", "<leader>dl", "<cmd>lua require('dap').repl.run_last()<CR>", 'n' },
+    { "Down", "<leader>dj", "<cmd>lua require('dap').down()<CR>", 'n' },
+    { "Up", "<leader>dk", "<cmd>lua require('dap').up()<CR>", 'n' },
+    { "Run Last", "<leader>dl", "<cmd>lua require('dap').run_last()<CR>", 'n' },
     { "Step Out", "<leader>do", "<cmd>lua require('dap').step_out()<CR>", 'n' },
     { "Step Over", "<leader>dO", "<cmd>lua require('dap').step_over()<CR>", 'n' },
     { "Pause", "<leader>dp", "<cmd>lua require('dap').pause()<CR>", 'n' },
@@ -182,6 +181,18 @@ local mappings = {
     { "Widgets", "<leader>dw", "<cmd>lua require('dap.ui.widgets').hover()<CR>", 'n' },
     { "Eval", "<leader>de", "<cmd>lua require('dapui').eval()<CR>", { 'n', 'v' } },
     { "Dap UI", "<leader>du", "<cmd>lua require('dapui').toggle()<CR>", 'n' },
+
+    -- Testing (with Neotest)
+    { "+Test", "<leader>t", "", 'n' },
+    { "Run File", "<leader>tt", "<cmd>lua require('neotest').run.run(vim.fn.expand('%'))<CR>", 'n' },
+    { "Run All Test Files", "<leader>tT", "<cmd>lua require('neotest').run.run(vim.uv.cwd())<CR>", 'n' },
+    { "Run Nearest", "<leader>tr", "<cmd>lua require('neotest').run.run()<CR>", 'n' },
+    { "Run Last", "<leader>tl", "<cmd>lua require('neotest').run.run_last()<CR>", 'n' },
+    { "Toggle Summary", "<leader>ts", "<cmd>lua require('neotest').summary.toggle()<CR>", 'n' },
+    { "Show Output", "<leader>to", "<cmd>lua require('neotest').output.open({ enter = true, auto_close = true })<CR>", 'n' },
+    { "Toggle Output Panel", "<leader>tO", "<cmd>lua require('neotest').output_panel.toggle()<CR>", 'n' },
+    { "Stop", "<leader>tS", "<cmd>lua require('neotest').run.stop()<CR>", 'n' },
+    { "Toggle Watch", "<leader>tw", "<cmd>lua require('neotest').watch.toggle(vim.fn.expand('%'))<CR>", 'n' },
 
     -- Key mappings for undotree
     { "Toggle Undotree", '<leader>u', "<cmd>lua vim.cmd.UndotreeToggle()<CR>", 'n' },
