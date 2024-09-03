@@ -43,6 +43,7 @@
         nvim-dap
         nvim-dap-ui
         nvim-dap-virtual-text
+        neotest
 
         # Editor
         which-key-nvim
