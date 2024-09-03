@@ -39,6 +39,11 @@
         ultisnips
         friendly-snippets
 
+        # Debugging
+        nvim-dap
+        nvim-dap-ui
+        nvim-dap-virtual-text
+
         # Editor
         which-key-nvim
         todo-comments-nvim
@@ -53,6 +58,9 @@
 
         # LaTeX
         vimtex # (could be replaced with texlab LSP's build command, but as of now this is fine)
+
+        # Rust
+        rustaceanvim
 
         # Power user
         flash-nvim

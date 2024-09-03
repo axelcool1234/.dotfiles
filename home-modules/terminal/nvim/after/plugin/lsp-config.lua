@@ -95,20 +95,23 @@ lspconfig.tsserver.setup {
   document_highlight = { enabled = false }
 }
 
--- Rust
-lspconfig.rust_analyzer.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
-  settings = {
-    hint = true,
-    ['rust-analyzer'] = {
-      cargo = {
-        allFeatures = true,
-      }
-    }
-  },
-  document_highlight = { enabled = false }
-}
+-- Rust (using rustaceanvim instead!)
+-- lspconfig.rust_analyzer.setup {
+--   capabilities = capabilities,
+--   on_attach = on_attach,
+--   settings = {
+--     hint = true,
+--     ['rust-analyzer'] = {
+--       cargo = {
+--         allFeatures = true,
+--       },      
+--       checkOnSave = {
+--         command = "clippy",
+--       },
+--     }
+--   },
+--   document_highlight = { enabled = false }
+-- }
 
 -- C/C++
 lspconfig.clangd.setup {
