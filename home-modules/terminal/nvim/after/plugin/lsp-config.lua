@@ -101,6 +101,11 @@ lspconfig.rust_analyzer.setup {
   on_attach = on_attach,
   settings = {
     hint = true,
+    ['rust-analyzer'] = {
+      cargo = {
+        allFeatures = true,
+      }
+    }
   },
   document_highlight = { enabled = false }
 }
