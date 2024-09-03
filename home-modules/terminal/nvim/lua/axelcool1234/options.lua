@@ -44,3 +44,6 @@ vim.g.vimtex_view_general_options = '--synctex-forward @line:@col:@pdf %p'
 --     test_executor = 'background',
 --   },
 -- }
+
+-- RustFmt
+vim.g.rustfmt_autosave = 1
