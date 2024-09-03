@@ -37,3 +37,6 @@ vim.g.vimtex_view_method = 'zathura'
 
 -- Configure forward search
 vim.g.vimtex_view_general_options = '--synctex-forward @line:@col:@pdf %p'
+
+-- Rustaceanvim
+vim.g.rustaceanvim.tools.test_executor = 'background'
