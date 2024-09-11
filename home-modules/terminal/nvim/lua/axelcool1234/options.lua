@@ -28,6 +28,9 @@ vim.opt.updatetime = 50
 
 -- vim.opt.colorcolumn = "80"
 
+vim.opt.grepprg = "rg --vimgrep --smart-case --hidden"
+vim.opt.grepformat = "%f:%l:%c:%m"
+
 -- Vimtex
 -- Disable opening the quickfix window for warnings
 -- vim.g.vimtex_quickfix_mode = 0
