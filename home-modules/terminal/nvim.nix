@@ -93,6 +93,7 @@ in
         harpoon2
         overseer-nvim
         mini-move # (not in the Nix package manager yet!)
+        firenvim
 
         # Fun
         presence-nvim

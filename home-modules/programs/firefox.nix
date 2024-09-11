@@ -19,6 +19,7 @@
             (extension "ublock-origin" "uBlock0@raymondhill.net")
             (extension "tridactyl-vim" "tridactyl.vim@cmcaine.co.uk")
             (extension "tokyo-night-v3" "{6c8ef7a0-0691-4323-8bdc-af24f54985ec}")
+            (extension "firenvim" "firenvim@lacamb.re")
         ];
         # To add additional extensions, find it on addons.mozilla.org, find
         # the short ID in the url (like https://addons.mozilla.org/en-US/firefox/addon/!SHORT_ID!/)

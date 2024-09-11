@@ -41,6 +41,20 @@ vim.g.vimtex_view_method = 'zathura'
 -- Configure forward search
 vim.g.vimtex_view_general_options = '--synctex-forward @line:@col:@pdf %p'
 
+-- Firenvim
+vim.g.firenvim_config = {
+    globalSettings = { alt = "all" },
+    localSettings = {
+        [".*"] = {
+            cmdline  = "neovim",
+            content  = "text",
+            priority = 0,
+            selector = "textarea",
+            takeover = "never"
+        }
+    }
+}
+
 -- Rustaceanvim
 -- vim.g.rustaceanvim = {
 --   tools = {
