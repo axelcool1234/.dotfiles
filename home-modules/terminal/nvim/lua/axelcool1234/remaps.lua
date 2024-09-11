@@ -161,7 +161,7 @@ local mappings = {
     { "Completion: Accept", '<C-Space>', "<cmd>lua require('cmp').confirm({ select = true })<CR>", 'i' },
 
     -- Key mappings for nvim-dap (debug adapter)
-    { "Debug", "<leader>d", "", { "n", "v" } },
+    { "+Debug", "<leader>d", "", { "n", "v" } },
     { "Breakpoint Condition", "<leader>dB", "<cmd>lua require('dap').set_breakpoint(vim.fn.input('Breakpoint condition: '))<CR>", 'n' },
     { "Toggle Breakpoint", "<leader>db", "<cmd>lua require('dap').toggle_breakpoint()<CR>", 'n' },
     { "Continue", "<leader>dc", "<cmd>lua require('dap').continue()<CR>", 'n' },
@@ -193,6 +193,7 @@ local mappings = {
     { "Toggle Output Panel", "<leader>tO", "<cmd>lua require('neotest').output_panel.toggle()<CR>", 'n' },
     { "Stop", "<leader>tS", "<cmd>lua require('neotest').run.stop()<CR>", 'n' },
     { "Toggle Watch", "<leader>tw", "<cmd>lua require('neotest').watch.toggle(vim.fn.expand('%'))<CR>", 'n' },
+    -- { "Debug Nearest", '<leader>td', "<cmd>lua require('neotest').run.run({ strategy = 'dap' })<CR>", 'n' },
 
     -- Key mappings for undotree
     { "Toggle Undotree", '<leader>u', "<cmd>lua vim.cmd.UndotreeToggle()<CR>", 'n' },
@@ -239,6 +240,19 @@ local mappings = {
     { "Harpoon File 5", '<leader>h5', "<cmd>lua require('harpoon'):list():select(5) <CR>", 'n' },
     { "Harpoon Add File", '<leader>ha', "<cmd>lua require('harpoon'):list():add() <CR>", 'n' },
     { "Harpoon Quick Menu", '<leader>hh', "<cmd>lua require('harpoon').ui:toggle_quick_menu(require('harpoon'):list()) <CR>", 'n' },
+
+    -- Overseer keymappings
+    { "+Overseer", '<leader>o', "", 'n' },
+    { "Task list", "<leader>ow", "<cmd>OverseerToggle<cr>", 'n' },
+    { "Run task", "<leader>oo", "<cmd>OverseerRun<cr>", 'n' },
+    { "Action recent task", "<leader>oq", "<cmd>OverseerQuickAction<cr>", 'n' },
+    { "Overseer Info", "<leader>oi", "<cmd>OverseerInfo<cr>", 'n' },
+    { "Task builder", "<leader>ob", "<cmd>OverseerBuild<cr>", 'n' },
+    { "Task action", "<leader>ot", "<cmd>OverseerTaskAction<cr>", 'n' },
+    { "Clear cache", "<leader>oc", "<cmd>OverseerClearCache<cr>", 'n' },
+
+    -- Precognition keymappings
+    { "Precognition toggle", '<leader>gp', "<cmd>lua require('precognition').toggle() <CR>", 'n' },
 }
 
 

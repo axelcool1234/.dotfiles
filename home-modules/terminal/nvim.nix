@@ -57,6 +57,12 @@
         indent-blankline-nvim
         vim-illuminate
         # precognition-nvim (not in the Nix package manager yet!)
+        (pkgs.fetchFromGitHub {
+          owner = "tris203";
+          repo = "precognition.nvim";
+          rev = "v1.0.0";  # Update this to the latest tag or commit hash
+          sha256 = "0csph3ww7vhrsxybzabvnv8ncrbif8kkh2v076r05fkxzrbri982";  # Obtain this hash from an error message or use `nix-prefetch-url`
+        })
 
         # LaTeX
         vimtex # (could be replaced with texlab LSP's build command, but as of now this is fine)
@@ -68,6 +74,7 @@
         flash-nvim
         oil-nvim
         harpoon2
+        overseer-nvim
 
         # Fun
         presence-nvim
