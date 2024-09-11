@@ -1,1 +1,1 @@
-require("precognition").toggle()
+require("precognition")
