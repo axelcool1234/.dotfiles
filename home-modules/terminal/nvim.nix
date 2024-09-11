@@ -1,4 +1,26 @@
-{ pkgs, lib, config, ... }: {  
+{ pkgs, lib, config, ... }: 
+
+let
+  precognition-nvim = pkgs.vimUtils.buildVimPlugin {
+    name = "precognition-nvim";
+    src = pkgs.fetchFromGitHub {
+      owner = "tris203";
+      repo = "precognition.nvim";
+      rev = "v1.0.0"; # Update this to the latest tag or commit hash
+      sha256 = "0csph3ww7vhrsxybzabvnv8ncrbif8kkh2v076r05fkxzrbri982"; # Obtain this hash from an error message or use `nix-prefetch-url`
+    };
+  };
+  mini-move = pkgs.vimUtils.buildVimPlugin {
+    name = "mini-move";
+    src = pkgs.fetchFromGitHub {
+      owner = "echasnovski";
+      repo = "mini.move";
+      rev = "v0.13.0";
+      sha256 = "11yqz3w5bbddgx59dvrg3vglidymdqy6zc2bjcqkjl7g54ng5f9c";   
+    };
+  };
+in
+{  
   options = {
     nvim.enable = 
       lib.mkEnableOption "enables nvim config";
@@ -56,13 +78,7 @@
         bufferline-nvim
         indent-blankline-nvim
         vim-illuminate
-        # precognition-nvim (not in the Nix package manager yet!)
-        (pkgs.fetchFromGitHub {
-          owner = "tris203";
-          repo = "precognition.nvim";
-          rev = "v1.0.0";  # Update this to the latest tag or commit hash
-          sha256 = "0csph3ww7vhrsxybzabvnv8ncrbif8kkh2v076r05fkxzrbri982";  # Obtain this hash from an error message or use `nix-prefetch-url`
-        })
+        precognition-nvim # (not in the Nix package manager yet!)
 
         # LaTeX
         vimtex # (could be replaced with texlab LSP's build command, but as of now this is fine)
@@ -75,6 +91,7 @@
         oil-nvim
         harpoon2
         overseer-nvim
+        mini-move # (not in the Nix package manager yet!)
 
         # Fun
         presence-nvim
