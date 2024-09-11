@@ -25,6 +25,7 @@
       	nvim-treesitter-parsers.cpp
       	nvim-treesitter-parsers.python
       	telescope-nvim
+        telescope-fzf-native-nvim
       	undotree
 
         # LSP
