@@ -62,6 +62,10 @@ vim.g.firenvim_config = {
         }
     }
 }
+-- Leetcode text fitting
+if vim.g.started_by_firenvim == true then
+  vim.o.guifont = "Monospace:h20"  -- Adjust the font size
+end
 
 -- Rustaceanvim
 -- vim.g.rustaceanvim = {
