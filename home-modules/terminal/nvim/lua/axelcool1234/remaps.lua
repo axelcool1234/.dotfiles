@@ -157,15 +157,14 @@ local mappings = {
 
     -- Goto declaration/definition/implementation/references
     { "Goto declaration", 'gD', "<cmd>lua vim.lsp.buf.declaration()<CR>", 'n' },
-    { "Goto definition", 'gd', "<cmd>lua vim.lsp.buf.definition()<CR>", 'n' },
-    { "Goto implementation", 'gI', "<cmd>lua vim.lsp.buf.implementation()<CR>", 'n' },
-    { "Goto type definition", 'gy', "<cmd>lua vim.lsp.buf.type_definition()<CR>", 'n' },
-    { "Goto references", 'gr', "<cmd>lua vim.lsp.buf.references()<CR>", 'n' },
-    -- { "Goto Declaration", "gD", '<cmd>lua require("telescope.builtin").lsp_definitions({ reuse_win = true })<CR>', 'n' },
-    -- { "Goto Definition", "gd", '<cmd>lua require("telescope.builtin").lsp_definitions({ reuse_win = true })<CR>', 'n' },
-    -- { "Goto Implementation", "gI", '<cmd>lua require("telescope.builtin").lsp_implementations({ reuse_win = true })<CR>', 'n' },
-    -- { "Goto Type Definition", "gy", '<cmd>lua require("telescope.builtin").lsp_type_definitions({ reuse_win = true })<CR>', 'n' },
-    -- { "References", "gr", "<cmd>lua Telescope lsp_references<CR>", 'n', { nowait = true } },
+    -- { "Goto Definition", 'gd', "<cmd>lua vim.lsp.buf.definition()<CR>", 'n' },
+    -- { "Goto Implementation", 'gI', "<cmd>lua vim.lsp.buf.implementation()<CR>", 'n' },
+    -- { "Goto Type Definition", 'gy', "<cmd>lua vim.lsp.buf.type_definition()<CR>", 'n' },
+    -- { "Goto References", 'gr', "<cmd>lua vim.lsp.buf.references()<CR>", 'n' },
+    { "Goto Definition", "gd", '<cmd>lua require("telescope.builtin").lsp_definitions({ reuse_win = true })<CR>', 'n' },
+    { "Goto Implementation", "gI", '<cmd>lua require("telescope.builtin").lsp_implementations({ reuse_win = true })<CR>', 'n' },
+    { "Goto Type Definition", "gy", '<cmd>lua require("telescope.builtin").lsp_type_definitions({ reuse_win = true })<CR>', 'n' },
+    { "References", "gr", "<cmd>Telescope lsp_references<CR>", 'n', { nowait = true } },
 
     -- Diagnostics
     { "Hover", '<leader> ', "<cmd>lua vim.lsp.buf.hover()<CR>", 'n' },
