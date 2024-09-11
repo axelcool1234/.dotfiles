@@ -29,6 +29,9 @@
     nil
     nixpkgs-fmt
 
+    # Lua LSP
+    lua-language-server
+
     # Terminal Utils
     neofetch    
     bat

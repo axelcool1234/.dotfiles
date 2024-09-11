@@ -67,6 +67,7 @@
         # Power user
         flash-nvim
         oil-nvim
+        harpoon2
 
         # Fun
         presence-nvim

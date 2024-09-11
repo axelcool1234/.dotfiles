@@ -229,7 +229,18 @@ local mappings = {
     -- Oil keymappings
     { "Open Parent Directory", "-", "<cmd>Oil<CR>", 'n' },
     { "Open Parent Directory (Float)", "<leader>-", "<cmd>lua require('oil').toggle_float()<CR>", 'n' },
+
+    -- Harpoon keymappings
+    { "+Harpoon", "<leader>h", "", 'n' },
+    { "Harpoon File 1", '<leader>h1', "<cmd>lua require('harpoon'):list():select(1) <CR>", 'n' },
+    { "Harpoon File 2", '<leader>h2', "<cmd>lua require('harpoon'):list():select(2) <CR>", 'n' },
+    { "Harpoon File 3", '<leader>h3', "<cmd>lua require('harpoon'):list():select(3) <CR>", 'n' },
+    { "Harpoon File 4", '<leader>h4', "<cmd>lua require('harpoon'):list():select(4) <CR>", 'n' },
+    { "Harpoon File 5", '<leader>h5', "<cmd>lua require('harpoon'):list():select(5) <CR>", 'n' },
+    { "Harpoon Add File", '<leader>ha', "<cmd>lua require('harpoon'):list():add() <CR>", 'n' },
+    { "Harpoon Quick Menu", '<leader>hh', "<cmd>lua require('harpoon').ui:toggle_quick_menu(require('harpoon'):list()) <CR>", 'n' },
 }
+
 
 for _, mapping in ipairs(mappings) do
     local desc, lhs, rhs, modes, opts = unpack(mapping)
