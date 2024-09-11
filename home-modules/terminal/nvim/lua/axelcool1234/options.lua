@@ -51,6 +51,14 @@ vim.g.firenvim_config = {
             priority = 0,
             selector = "textarea",
             takeover = "never"
+        },
+        ["https?://leetcode.com/.*"] = {
+            cmdline  = "neovim",
+            content  = "text",
+            priority = 1,
+            selector = "textarea",
+            takeover = "never",
+            filename = "leetcode.rs",  -- Set a filename pattern for the buffer
         }
     }
 }
