@@ -101,7 +101,20 @@ end
 -- end
 
 -- Mappings
-local keymap = vim.api.nvim_set_keymap
+function set_mappings(mappings, default_opts)
+  local keymap = vim.api.nvim_set_keymap
+  for _, mapping in ipairs(mappings) do
+      local desc, lhs, rhs, modes, opts = unpack(mapping)
+      opts = opts or {}
+      modes = type(modes) == "table" and modes or {modes}
+
+      for _, mode in ipairs(modes) do
+          local final_opts = vim.tbl_extend("force", default_opts, opts, { desc = desc })
+          keymap(mode, lhs, rhs, final_opts)
+      end
+  end
+end
+
 local default_opts = { noremap = true, silent = true }
 local mappings = {
     -- Telescope keymappings
@@ -254,15 +267,18 @@ local mappings = {
     -- Precognition keymappings
     { "Precognition toggle", '<leader>gp', "<cmd>lua require('precognition').toggle() <CR>", 'n' },
 }
+set_mappings(mappings, default_opts)
 
 
-for _, mapping in ipairs(mappings) do
-    local desc, lhs, rhs, modes, opts = unpack(mapping)
-    opts = opts or {}
-    modes = type(modes) == "table" and modes or {modes}
-
-    for _, mode in ipairs(modes) do
-        local final_opts = vim.tbl_extend("force", default_opts, opts, { desc = desc })
-        keymap(mode, lhs, rhs, final_opts)
-    end
-end
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "rust",
+  callback = function()
+    -- For Rust files, override <leader>a for RustLsp codeAction
+    vim.keymap.set('n', '<leader>a', function() vim.cmd('RustLsp codeAction') end, 
+      { buffer = true, desc = "Rust LSP Code Action" })
+    
+    -- Set <leader>m for RustLsp expandMacro
+    vim.keymap.set('n', '<leader>m', function() vim.cmd('RustLsp expandMacro') end, 
+      { buffer = true, desc = "Expand Macro in Rust" })
+  end,
+})
