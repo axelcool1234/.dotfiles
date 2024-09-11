@@ -78,6 +78,7 @@ in
         bufferline-nvim
         indent-blankline-nvim
         vim-illuminate
+        dressing-nvim
         precognition-nvim # (not in the Nix package manager yet!)
 
         # LaTeX
