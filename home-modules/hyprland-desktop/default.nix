@@ -10,8 +10,8 @@
     xdg.configFile.mpv.source = ./mpv;
     xdg.configFile.rofi.source = ./rofi;
     xdg.configFile.wlogout.source = ./wlogout;
-    xdg.configFile.swayidle.source = ./swayidle;
-    xdg.configFile.swaylock.source = ./swaylock;
+    xdg.configFile.hypridle.source = ./hypridle;
+    xdg.configFile.hyprlock.source = ./hyprlock;
     xdg.configFile.avizo.source = ./avizo;
     xdg.configFile.xsettingsd.source = ./xsettingsd;
     xdg.configFile.xfce4.source = ./xfce4;

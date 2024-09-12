@@ -4,6 +4,7 @@ local act = wezterm.action
 -- This will hold the configuration.
 return { 
   -- max_fps = 165, 
+  enable_wayland = true;
   color_scheme = 'Tokyo Night',
   font = wezterm.font 'JetBrains Mono',
   font_size = 10.0,

@@ -17,22 +17,23 @@
         "on-click": "activate",  
         "format": "{icon}",
         "format-icons": {
-            // "1": "󰲠",
-            // "2": "󰲢",
-            // "3": "󰲤",
-            // "4": "󰲦",
-            // "5": "󰲨",
-            // "6": "󰲪",
-            // "7": "󰲬",
-            // "8": "󰲮",
-            // "9": "󰲰",
-            // "10": "󰿬",
+            "1": "󰲠",
+            "2": "󰲢",
+            "3": "󰲤",
+            "4": "󰲦",
+            "5": "󰲨",
+            "6": "󰲪",
+            "7": "󰲬",
+            "8": "󰲮",
+            "9": "󰲰",
+            "10": "󰿬",
 
-            "active": "",
-            "default": "",
-            "empty": ""
+            // "active": "",
+            // "default": "",
+            // "empty": ""
         },
-        "persistent_workspaces": {
+        "show-special": true,
+        "persistent-workspaces": {
             "*": 10,  
         },
     },
@@ -49,11 +50,13 @@
     },
 
     "custom/separator": {
-        "format": "|",  
+        "format": "|",
+        "tooltip": false,
     },
 
     "custom/separator_dot": {
-        "format": "•",  
+        "format": "•",
+        "tooltip": false,
     },
 
     "clock#week": {
@@ -164,8 +167,8 @@
     "group/misc": {
         "orientation": "horizontal",
         "modules": [
-            "pulseaudio#microphone_indicator",
             "custom/webcam",
+            "privacy",
             "custom/recording",
             "custom/geo",
             "custom/media",
@@ -176,22 +179,29 @@
         ],
     },
 
-    "pulseaudio#microphone_indicator": {
-        "format": "{format_source}",
-        "format-source": "󰍬",
-        "format-source-muted": "",
-        "tooltip-format": "microphone on",
-    },
-
     "custom/webcam": {
         "interval": 1,
         "exec": "fish -c check_webcam",
         "return-type": "json",
     },
 
+    "privacy": {
+        "icon-spacing": 1,
+        "icon-size": 12,
+        "transition-duration": 250,
+        "modules": [
+            {
+                "type": "audio-in",
+            },
+            {
+                "type": "screenshare",
+            },
+        ]
+    },
+
     "custom/recording": {
         "interval": 1,
-        "exec-if": "pgrep wf-recorder",
+        "exec-if": "pgrep wl-screenrec",
         "exec": "fish -c check_recording",
         "return-type": "json",
     },
@@ -265,6 +275,7 @@
 
     "hyprland/language": {
         "format-en": "🇺🇸 ENG (US)",
+        "keyboard-name": "at-translated-set-2-keyboard",
         "on-click": "hyprctl switchxkblayout at-translated-set-2-keyboard next",
     },
 
@@ -296,7 +307,7 @@
     "margin-top": 10,
     "margin-bottom": 10,
     "modules-left": ["wlr/taskbar"],
-    "modules-center": ["cpu", "memory", "disk", "temperature", "battery", "backlight", "pulseaudio"],
+    "modules-center": ["cpu", "memory", "disk", "temperature", "battery", "backlight", "pulseaudio", "systemd-failed-units"],
     "modules-right": ["tray"],
 
     // Modules Config
@@ -442,6 +453,10 @@
         "reverse-scrolling": true,
         "reverse-mouse-scrolling": true,
         "on-click": "pavucontrol",
+    },
+
+    "systemd-failed-units": {
+        "format": "✗ {nr_failed}",
     },
 },
 ]

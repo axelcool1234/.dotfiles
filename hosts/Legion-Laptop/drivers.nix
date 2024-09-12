@@ -43,9 +43,9 @@
   ];
   /* Everything below is from NixOS guide */
   # Enable OpenGL
-  hardware.opengl = {
+  hardware.graphics = {
     enable = true;
-    driSupport32Bit = true;
+    enable32Bit = true;
   };
 
   # Enable NVIDIA Driver

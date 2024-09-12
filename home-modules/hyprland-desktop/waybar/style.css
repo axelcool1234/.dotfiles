@@ -70,12 +70,17 @@ window.bottom_bar .modules-right {
   margin-left: 10;
 }
 
-#workspaces button.active {
-  color: @peach;
-}
-
 #workspaces button {
   color: @text;
+  font-size: 1.25rem;
+}
+
+#workspaces button.empty {
+  color: @overlay0;
+}
+
+#workspaces button.active {
+  color: @peach;
 }
 
 #submap {
@@ -202,19 +207,22 @@ window.top_bar .modules-center {
   margin-right: 2;
 }
 
-#custom-media {}
-
 #custom-media.Paused {
   color: @subtext0;
 }
 
-#pulseaudio.microphone_indicator {
-  color: @pink;
-  margin-right: 4;
-}
-
 #custom-webcam {
   color: @maroon;
+  margin-right: 3;
+}
+
+#privacy-item.screenshare {
+  color: @peach;
+  margin-right: 5;
+}
+
+#privacy-item.audio-in {
+  color: @pink;
   margin-right: 4;
 }
 
@@ -428,4 +436,8 @@ window.left_bar .modules-center {
 
 #pulseaudio.high {
   color: @subtext1;
+}
+
+#systemd-failed-units {
+  color: @red;
 }
