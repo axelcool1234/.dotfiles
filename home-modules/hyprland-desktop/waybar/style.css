@@ -176,7 +176,9 @@ window.top_bar .modules-center {
 }
 
 #idle_inhibitor {
-  margin-right: 2;
+  margin-right: 8;
+  padding-left: 4;
+  padding-right: 4;
 }
 
 #idle_inhibitor.deactivated {
@@ -188,7 +190,9 @@ window.top_bar .modules-center {
 }
 
 #custom-airplane_mode {
-  margin-right: 2;
+  margin-right: 8;
+  padding-left: 4;
+  padding-right: 4;
 }
 
 #custom-airplane_mode.off {
@@ -196,7 +200,9 @@ window.top_bar .modules-center {
 }
 
 #custom-night_mode {
-  margin-right: 2;
+  margin-right: 8;
+  padding-left: 4;
+  padding-right: 4;
 }
 
 #custom-night_mode.off {
@@ -204,7 +210,9 @@ window.top_bar .modules-center {
 }
 
 #custom-dunst {
-  margin-right: 2;
+  margin-right: 8;
+  padding-left: 4;
+  padding-right: 4;
 }
 
 #custom-media.Paused {
@@ -228,12 +236,16 @@ window.top_bar .modules-center {
 
 #custom-recording {
   color: @red;
-  margin-right: 4;
+  margin-right: 8;
+  padding-left: 4;
+  padding-right: 4;
 }
 
 #custom-geo {
   color: @yellow;
-  margin-right: 4;
+  margin-right: 8;
+  padding-left: 4;
+  padding-right: 4;
 }
 
 #custom-logout_menu {

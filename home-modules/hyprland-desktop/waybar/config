@@ -161,7 +161,7 @@
         // "tooltip-format-ethernet":"Interface: {ifname}\nIP: {ipaddr}\nGW: {gwaddr}\nNetmask: {netmask}\nCIDR: {cidr}\n\n<span color='#a6da95'>{bandwidthUpBits}</span>\t<span color='#ee99a0'>{bandwidthDownBits}</span>\t<span color='#c6a0f6'>󰹹{bandwidthTotalBits}</span>",
         "max-length": 35,
         "on-click": "fish -c wifi_toggle",
-        "on-click-right": "wezterm start nmtui",
+        "on-click-right": "steam-run wezterm start nmtui",
     },
 
     "group/misc": {
@@ -327,7 +327,7 @@
     },
 
     "cpu": {
-        "format": "󰻠{usage}%",
+        "format": "󰻠 {usage}%",
         "states": {
             "high": 90,
             "upper-medium": 70,
@@ -335,12 +335,12 @@
             "lower-medium": 30,
             "low": 10,
         },
-        "on-click": "wezterm start btop",
-        "on-click-right": "wezterm start btm",
+        "on-click": "steam-run wezterm start btop",
+        "on-click-right": "steam-run wezterm start btm",
     },
     
     "memory": {
-        "format": "{percentage}%",
+        "format": " {percentage}%",
         "tooltip-format": "Main: ({used} GiB/{total} GiB)({percentage}%), available {avail} GiB\nSwap: ({swapUsed} GiB/{swapTotal} GiB)({swapPercentage}%), available {swapAvail} GiB",
         "states": {
             "high": 90,
@@ -349,12 +349,12 @@
             "lower-medium": 30,
             "low": 10,
         },
-        "on-click": "wezterm start btop",
-        "on-click-right": "wezterm start btm",
+        "on-click": "steam-run wezterm start btop",
+        "on-click-right": "steam-run wezterm start btm",
     },
 
     "disk": {
-        "format": "󰋊{percentage_used}%",  
+        "format": "󰋊 {percentage_used}%",  
         "tooltip-format": "({used}/{total})({percentage_used}%) in '{path}', available {free}({percentage_free}%)",
         "states": {
             "high": 90,
@@ -363,16 +363,16 @@
             "lower-medium": 30,
             "low": 10,
         },
-        "on-click": "wezterm start btop",
-        "on-click-right": "wezterm start btm",
+        "on-click": "steam-run wezterm start btop",
+        "on-click-right": "steam-run wezterm start btm",
     },
 
     "temperature": {
         "tooltip": false,
         "thermal-zone": 8,
         "critical-threshold": 80,
-        "format": "{icon}{temperatureC}󰔄",
-        "format-critical": "🔥{icon}{temperatureC}󰔄",
+        "format": "{icon} {temperatureC}󰔄",
+        "format-critical": "🔥{icon} {temperatureC}󰔄",
         "format-icons": [ "", "", "", "", "" ],
     },
 
@@ -384,16 +384,16 @@
             "lower-medium": 30,
             "low": 10,
         },
-        "format": "{icon}{capacity}%",
-        "format-charging": "󱐋{icon}{capacity}%",
-        "format-plugged": "󰚥{icon}{capacity}%",
+        "format": "{icon} {capacity}%",
+        "format-charging": "󱐋{icon} {capacity}%",
+        "format-plugged": "󰚥{icon} {capacity}%",
         "format-time": "{H} h {M} min",
         "format-icons": [ "󱃍", "󰁺", "󰁻", "󰁼", "󰁽", "󰁾", "󰁿", "󰂀", "󰂁", "󰂂", "󰁹" ],
         "tooltip-format": "{timeTo}",
     },
     
     "backlight": {
-        "format": "{icon}{percent}%",
+        "format": "{icon} {percent}%",
         "format-icons": [
             "󰌶",
             "󱩎",
@@ -428,12 +428,12 @@
             "low": 10,
         },
         "tooltip-format": "{desc}",
-        "format": "{icon}{volume}%\n{format_source}",  
-        "format-bluetooth": "󰂱{icon}{volume}%\n{format_source}",
-        "format-bluetooth-muted": "󰂱󰝟{volume}%\n{format_source}",
+        "format": "{icon} {volume}%\n{format_source}",  
+        "format-bluetooth": "󰂱{icon} {volume}%\n{format_source}",
+        "format-bluetooth-muted": "󰂱󰝟 {volume}%\n{format_source}",
         "format-muted": "󰝟{volume}%\n{format_source}",
-        "format-source": "󰍬{volume}%",
-        "format-source-muted": "󰍭{volume}%",
+        "format-source": "󰍬 {volume}%",
+        "format-source-muted": "󰍭 {volume}%",
         "format-icons": {
             "headphone": "󰋋",
             "hands-free": "",
