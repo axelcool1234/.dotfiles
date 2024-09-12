@@ -1,10 +1,10 @@
 { pkgs, inputs, lib, config, ... }:
 let
-    spicePkgs = inputs.spicetify-nix.packages.x86_64-linux.default;
+    spicePkgs = inputs.spicetify-nix.legacyPackages.x86_64-linux;
 in 
 {    
   imports = [
-      inputs.spicetify-nix.homeManagerModule
+      inputs.spicetify-nix.homeManagerModules.default
   ];
   options = {
     spicetify.enable =

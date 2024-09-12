@@ -9,11 +9,23 @@
         url = "github:nix-community/home-manager/master";
         inputs.nixpkgs.follows = "nixpkgs";
       };
-      # hyprland.url = "github:hyprwm/Hyprland";
-      # See: https://github.com/wez/wezterm/issues/5255
-      hyprland.url = "github:hyprwm/Hyprland/c198d744b77f272c2fc187eb6d431580a99ab6c3";
-      spicetify-nix.url = "github:the-argus/spicetify-nix";
-      foundryvtt.url = "github:reckenrode/nix-foundryvtt";
+      # See: https://github.com/hyprwm/Hyprland/issues/5891
+      hyprland = {
+        type = "git";
+        url = "https://github.com/hyprwm/Hyprland";
+        submodules = true;
+      };
+      # See: https://github.com/wez/wezterm/issues/5103#issuecomment-1915820504
+      wezterm.url = "github:wez/wezterm?dir=nix";
+
+      # New Fork:
+      spicetify-nix = {
+        url = "github:Gerg-L/spicetify-nix";
+        inputs.nixpkgs.follows = "nixpkgs";
+      };
+
+      # Outdated:
+      # spicetify-nix.url = "github:the-argus/spicetify-nix";
     };
 
 	outputs = { self, nixpkgs, nixpkgs-24-05, home-manager, ... }@inputs:
