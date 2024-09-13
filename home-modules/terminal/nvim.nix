@@ -19,6 +19,15 @@ let
       sha256 = "11yqz3w5bbddgx59dvrg3vglidymdqy6zc2bjcqkjl7g54ng5f9c";   
     };
   };
+  mini-icons = pkgs.vimUtils.buildVimPlugin {
+    name = "mini-icons";
+    src = pkgs.fetchFromGitHub {
+      owner = "echasnovski";
+      repo = "mini.icons";
+      rev = "2d89252993fec829b24720097a687412d10f6c85";
+      sha256 = "1qg06xia1sm67b10sf6vdhmma9xmwkj7hzlk5dyfg25a7xmf2107";
+    };
+  };
 in
 {  
   options = {
@@ -70,6 +79,7 @@ in
 
         # Editor
         which-key-nvim
+        mini-icons # (gives icons for which-key)
         todo-comments-nvim
         gitsigns-nvim
         lualine-nvim
