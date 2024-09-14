@@ -279,11 +279,15 @@ vim.api.nvim_create_autocmd("FileType", {
   pattern = "rust",
   callback = function()
     -- For Rust files, override <leader>a for RustLsp codeAction
-    vim.keymap.set('n', '<leader>a', function() vim.cmd('RustLsp codeAction') end, 
+    vim.keymap.set('n', '<leader>a', function() vim.cmd('RustLsp codeAction') end,
       { buffer = true, desc = "Rust LSP Code Action" })
-    
+
+    -- For Rust files, special render diagnostic
+    vim.keymap.set('n', '<leader>D', function() vim.cmd('RustLsp renderDiagnostic') end,
+      { buffer = true, desc = "Rust LSP Render Diagnostic" })
+
     -- Set <leader>m for RustLsp expandMacro
-    vim.keymap.set('n', '<leader>m', function() vim.cmd('RustLsp expandMacro') end, 
+    vim.keymap.set('n', '<leader>m', function() vim.cmd('RustLsp expandMacro') end,
       { buffer = true, desc = "Expand Macro in Rust" })
   end,
 })
