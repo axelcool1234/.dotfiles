@@ -167,7 +167,7 @@ local mappings = {
     { "References", "gr", "<cmd>Telescope lsp_references<CR>", 'n', { nowait = true } },
 
     -- Diagnostics
-    { "Hover", '<leader> ', "<cmd>lua vim.lsp.buf.hover()<CR>", 'n' },
+    { "Hover", '<leader> ', "<cmd>lua vim.lsp.buf.hover()<CR>", { 'n', 'v' } },
     { "Signature Help", '<leader>s', "<cmd>lua vim.lsp.buf.signature_help()<CR>", 'n' },
     { "Open Diagnostic float", '<leader>dd', "<cmd>lua vim.diagnostic.open_float()<CR>", 'n' },
     { "Set Diagnostic loclist", '<leader>q', "<cmd>lua vim.diagnostic.setloclist()<CR>", 'n' },
@@ -286,7 +286,11 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.keymap.set('n', '<leader>D', function() vim.cmd('RustLsp renderDiagnostic') end,
       { buffer = true, desc = "Rust LSP Render Diagnostic" })
 
-    -- Set <leader>m for RustLsp expandMacro
+    -- For Rust files, hover range
+    vim.keymap.set('v', '<leader> ', function() vim.cmd('RustLsp hover range') end,
+      { buffer = true, desc = "Rust LSP Hover Range" })
+
+    -- For Rust files, Set <leader>m for RustLsp expandMacro
     vim.keymap.set('n', '<leader>m', function() vim.cmd('RustLsp expandMacro') end,
       { buffer = true, desc = "Expand Macro in Rust" })
   end,
