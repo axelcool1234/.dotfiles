@@ -52,7 +52,7 @@
     # Gui/Programs
     (discord.override {
     	withVencord = true;
-      withOpenASAR = true;
+      # withOpenASAR = true;
     })
     spicetify-cli
     slack
