@@ -5,9 +5,9 @@ vim.opt.guicursor = ""
 vim.opt.nu = true
 vim.opt.relativenumber = true
 
-vim.opt.tabstop = 2
-vim.opt.softtabstop = 2
-vim.opt.shiftwidth = 2
+vim.opt.tabstop = 4
+vim.opt.softtabstop = 4
+vim.opt.shiftwidth = 4
 vim.opt.expandtab = true
 vim.opt.smartindent = true 
 
@@ -68,11 +68,62 @@ if vim.g.started_by_firenvim == true then
 end
 
 -- Rustaceanvim
--- vim.g.rustaceanvim = {
---   tools = {
---     test_executor = 'background',
---   },
--- }
+vim.g.rustaceanvim = {
+  -- tools = {
+  --   test_executor = 'background',
+  -- },
+  server = {
+    on_attach = function(client, bufnr)
+      vim.bo[bufnr].omnifunc = "v:lua.vim.lsp.omnifunc"
+      vim.lsp.inlay_hint.enable(true)
+      vim.api.nvim_set_keymap('n', '<leader>i', "<cmd>lua require('vim.lsp.inlay_hint').enable(not require('vim.lsp.inlay_hint').is_enabled())<CR>", { noremap = true, silent = true })
+    end,
+    default_settings = {
+      -- rust-analyzer language server configuration
+      ['rust-analyzer'] = {
+        inlayHints = {
+          -- maxLength = 25,
+          bindingModeHints = {
+            enable = true
+          },
+          closureCaptureHints = {
+            enable = true
+          },
+          closureReturnTypeHints = {
+            enable = "always"
+          },
+          closureStyle = "impl_fn",
+          -- closureStyle = "rust",
+          discriminantHints = {
+            enable = "always"
+          },
+          expressionAdjustmentHints = {
+            enable = "always"
+          },
+          genericParameterHints = {
+            lifetime = {
+              enable = true
+            },
+            type = {
+              enable = true
+            },
+          },
+          implicitDrops = {
+            enable = true
+          },
+          lifetimeElisionHints = {
+            enable = "always",
+            -- useParameterNames = true
+          },
+          rangeExclusiveHints = {
+            enable = true
+          },
+          tests = true,
+        },
+      },
+    },
+  },
+}
 
 -- RustFmt
 vim.g.rustfmt_autosave = 1

@@ -222,11 +222,11 @@ lspconfig.kotlin_language_server.setup {
 }
 
 -- Swift
-lspconfig.sourcekit.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
-  settings = {
-    hint = true,
-  },
-  document_highlight = { enabled = false }
-}
+-- lspconfig.sourcekit.setup {
+--   capabilities = capabilities,
+--   on_attach = on_attach,
+--   settings = {
+--     hint = true,
+--   },
+--   document_highlight = { enabled = false }
+-- }

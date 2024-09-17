@@ -151,6 +151,9 @@ local mappings = {
     -- Code Action
     { "Code Action", '<leader>a', "<cmd>lua vim.lsp.buf.code_action()<CR>", 'n' },
 
+    -- Inlay hints
+    -- { "Toggle Inlay Hints", '<leader>i', "<cmd> vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled()) <CR>", 'n' },
+
     -- Move through diagnostic
     { "Move through diagnostic (prev)", '[d', "<cmd>lua vim.lsp.diagnostic.goto_prev()<CR>", 'n' },
     { "Move through diagnostic (next)", ']d', "<cmd>lua vim.lsp.diagnostic.goto_next()<CR>", 'n' },
