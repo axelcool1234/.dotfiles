@@ -6,5 +6,5 @@ debug
 foo.*
 *.log
 data
-./misc/envs/rust/Cargo.toml
-./misc/envs/rust/src/
+misc/envs/rust/Cargo.toml
+misc/envs/rust/src/
