@@ -5,6 +5,7 @@
     ./auto-upgrade.nix
     ./gnome.nix
     ./hyprland
+    ./docker.nix
     ./sound.nix                /* only parts of it are under .enable */
     ./users.nix                /* no need for .enable option */
     ./internationalisation.nix /* no need for .enable option */
@@ -29,6 +30,10 @@
 
   # System-level sound packages
   sound-control.enable = 
+    lib.mkDefault true;
+
+  # Docker service
+  docker.enable = 
     lib.mkDefault true;
 
   # Desktop Environment

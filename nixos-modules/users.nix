@@ -6,7 +6,7 @@
   users.users.axelcool1234 = {
     isNormalUser = true;
     description = "Axel Sorenson";
-    extraGroups = [ "networkmanager" "input" "wheel" "video" "audio" "tss" "dialout" ];
+    extraGroups = [ "networkmanager" "input" "wheel" "video" "audio" "tss" "dialout" "docker" ];
     shell = pkgs.fish;
     packages = with pkgs; [];
   };
