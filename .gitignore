@@ -7,5 +7,5 @@ foo.*
 *.log
 data
 misc/envs/rust/Cargo.*
-misc/envs/rust/src/
-misc/envs/rust/target/
+misc/envs/*/src/
+misc/envs/*/target/
