@@ -14,6 +14,7 @@
     devShells.x86_64-linux.default = pkgs.mkShell {
       nativeBuildInputs = with pkgs; [
         python3
+        pyright
       ];
       propagatedBuildInputs = with pkgs.python311Packages; [
         pip
