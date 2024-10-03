@@ -46,6 +46,14 @@
           ./nixos-modules
         ];
       };
+      lab = nixpkgs.lib.nixosSystem {
+        inherit system;
+        specialArgs = { inherit inputs; };
+        modules = [
+          ./hosts/lab/configuration.nix
+          ./nixos-modules
+        ];
+      };
     };
 
     # List of user configurations
