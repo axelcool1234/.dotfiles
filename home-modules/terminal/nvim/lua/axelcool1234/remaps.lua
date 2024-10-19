@@ -36,6 +36,24 @@ _G.wezterm_pane_move = function(direction)
   vim.fn.system('wezterm cli activate-pane-direction ' .. direction)
 end
 
+_G.open_submissions = function()
+  -- Get the number under the cursor
+  local number = vim.fn.expand("<cword>")
+
+  -- Define the directory to search
+  local search_dir = "submissions"
+  -- Use fd with the number to find matching files
+  local handle = io.popen("fd " .. number .. " " .. search_dir)
+  local result = handle:read("*a")
+  handle:close()
+
+  -- Split result by lines (each file is a line)
+  for file in result:gmatch("[^\r\n]+") do
+    -- Open each file in a new tab
+    vim.cmd("tabnew " .. file)
+  end
+end
+
 -- Texlab variables
 -- _G.is_compiling = false
 -- _G.compilation_buffer = nil
@@ -274,6 +292,9 @@ local mappings = {
 
     -- Precognition keymappings
     { "Precognition toggle", '<leader>gp', "<cmd>lua require('precognition').toggle() <CR>", 'n' },
+
+    -- Grading
+    { "Open Submission By ID", '<leader>z', "<cmd>lua open_submissions()<CR>", 'n'},
 }
 set_mappings(mappings, default_opts)
 
