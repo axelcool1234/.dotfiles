@@ -11,3 +11,4 @@ misc/envs/*/src/
 misc/envs/*/target/
 misc/envs/*/build/
 misc/envs/*/tmp/
+misc/envs/*/.cache/
