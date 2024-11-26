@@ -38,7 +38,8 @@
             NIX_LDFLAGS="-L${gccForLibs}/lib/gcc/${targetPlatform.config}/${gccForLibs.version}";
             # teach clang about C startup file locations
             CFLAGS="-B${gccForLibs}/lib/gcc/${targetPlatform.config}/${gccForLibs.version} -B ${stdenv.cc.libc}/lib";
-
+            
+            # To run this script in the terminal, type '$buildScript/bin/build-llvm <path_to_llvm_source>'
             buildScript = pkgs.writeShellScriptBin "build-llvm" ''
               #!/bin/bash
               set -e  # Exit on error
