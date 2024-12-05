@@ -51,6 +51,7 @@ in
         nvim-treesitter-parsers.nix
       	nvim-treesitter-parsers.vim
       	nvim-treesitter-parsers.vimdoc
+        nvim-treesitter-parsers.typst
       	nvim-treesitter-parsers.toml
       	nvim-treesitter-parsers.rust
       	nvim-treesitter-parsers.cpp
