@@ -76,20 +76,15 @@ lspconfig.texlab.setup {
 }
 
 -- Typst
-lspconfig.ltex.setup {
-    capabilities = capabilities,
-    on_attach = function(client, bufnr)
-        vim.bo[bufnr].omnifunc = "v:lua.vim.lsp.omnifunc"
-
-        require("ltex_extra").setup()
-    end,
-    settings = {
-        ltex = { },
-        hint = true,
-    },
-    document_highlight = { enabled = false },
-    filetypes = { "typst" },
+lspconfig.tinymist.setup {
+  capabilities = capabilities,
+  on_attach = on_attach,
+  settings = {
+    hint = true,
+  },
+  document_highlight = { enabled = false }
 }
+
 
 -- Haskell
 lspconfig.hls.setup {
