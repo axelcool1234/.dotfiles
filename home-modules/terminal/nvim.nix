@@ -97,6 +97,9 @@ in
         # Rust
         rustaceanvim
 
+        # Typst
+        ltex_extra-nvim
+
         # Power user
         flash-nvim
         oil-nvim
