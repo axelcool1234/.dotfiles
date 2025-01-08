@@ -36,6 +36,7 @@
     # Terminal Utils
     neofetch    
     bat
+    bat-extras.batman
     cloc
     tealdeer
     ripgrep
