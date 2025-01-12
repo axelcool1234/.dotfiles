@@ -90,6 +90,8 @@ For more information, I learned how to do this from this [discussion](https://ww
 
 # Useful NixOS Resources:
 - https://mynixos.com/
+  - Search for NixOS options, packages, categories (plus the website has some videos and tutorials)
+- https://search.nixos.org/options
   - Search for NixOS options
 - https://search.nixos.org/packages
   - Search for Nix packages
