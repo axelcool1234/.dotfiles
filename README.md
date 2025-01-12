@@ -90,8 +90,12 @@ For more information, I learned how to do this from this [discussion](https://ww
 
 # Useful NixOS Resources:
 - https://mynixos.com/
-  - Great for browsing options from NixOS and Home-manager
+  - Search for NixOS options
 - https://search.nixos.org/packages
-  - Great for searching for available packages
+  - Search for Nix packages
+- https://www.nixhub.io/
+  - Search for granular versions of Nix packages
+- https://lazamar.co.uk/nix-versions/
+  - Search for ALL versions of a Nix package and the revision you can download it from
 - https://noogle.dev/
-  - Great for searching the NixLang library
+  - Search the NixLang library
