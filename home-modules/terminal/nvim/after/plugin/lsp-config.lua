@@ -96,16 +96,6 @@ lspconfig.hls.setup {
   document_highlight = { enabled = false }
 }
 
--- TypeScript/JavaScript
-lspconfig.tsserver.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
-  settings = {
-    hint = true,
-  },
-  document_highlight = { enabled = false }
-}
-
 -- Rust (using rustaceanvim instead!)
 -- lspconfig.rust_analyzer.setup {
 --   capabilities = capabilities,
