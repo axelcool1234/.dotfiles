@@ -79,6 +79,7 @@
               cmake "''${cmakeFlags[@]}" "$llvmSourceDir" 
             '';
             shellHook = ''
+              export PATH=$PWD/llvm-project/clang/tools/clang-format:$PATH
               export HELIX_RUNTIME="$PWD/runtime"
             '';
           };
