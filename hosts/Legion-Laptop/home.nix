@@ -47,9 +47,6 @@
     cliphist
     clipboard-jh
 
-    # Theme/Fonts
-    (nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
-
     # Gui/Programs
     (discord.override {
     	withVencord = true;

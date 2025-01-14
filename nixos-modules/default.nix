@@ -16,6 +16,7 @@
     ./firewall.nix             /* no need for .enable option */
     ./open-ssh.nix             /* no need for .enable option */
     ./nix-settings.nix         /* no need for .enable option */
+    ./fonts.nix                /* no need for .enable option */
   ];
 
   # Bootloader
