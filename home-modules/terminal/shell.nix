@@ -1,8 +1,8 @@
 { pkgs, lib, config, ... }: 
 let
     aliases = {
-      cd = "z";
-      cat = "bat --color=always";
+      # cd = "z";
+      # cat = "bat --color=always";
       ls = "ls --color=auto";
       ll = "ls -l";
       grep = "grep --color=auto";
