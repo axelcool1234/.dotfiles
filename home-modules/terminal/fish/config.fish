@@ -10,10 +10,10 @@ alias nsgc="sudo nix-store --gc"
 alias ngc="sudo nix-collect-garbage -d"
 alias ngc7="sudo nix-collect-garbage --delete-older-than 7d"
 alias ngc14="sudo nix-collect-garbage --delete-older-than 14d"
-alias goto="cd (dirname (fzf))"
+alias goto="z (dirname (fzf))"
 alias govi="vim (fzf)"
 
-set -gx EDITOR hx
+set -gx EDITOR nvim 
 set -gx VOLUME_STEP 5
 set -gx BRIGHTNESS_STEP 5
 
