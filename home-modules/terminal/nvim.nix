@@ -50,15 +50,16 @@ in
         nvim-treesitter
         nvim-treesitter-parsers.nix
       	nvim-treesitter-parsers.vim
-      	nvim-treesitter-parsers.vimdoc
+        nvim-treesitter-parsers.vimdoc
         nvim-treesitter-parsers.typst
-      	nvim-treesitter-parsers.toml
-      	nvim-treesitter-parsers.rust
-      	nvim-treesitter-parsers.cpp
-      	nvim-treesitter-parsers.python
-      	telescope-nvim
+        nvim-treesitter-parsers.toml
+        nvim-treesitter-parsers.rust
+        nvim-treesitter-parsers.cpp
+        nvim-treesitter-parsers.python
+        nvim-treesitter-parsers.tablegen
+        telescope-nvim
         telescope-fzf-native-nvim
-      	undotree
+        undotree
 
         # LSP
         nvim-lspconfig
