@@ -29,7 +29,8 @@
               python3         # Python 3.x
               bashInteractive # Linux shell
               zlib            # zlib for compression support
-              llvmPackages_latest.llvm  # LLVM packages
+              #llvmPackages_latest.llvm  # LLVM packages
+              #llvmPackages.mlir # For TableGen LSP
               mold            # Faster linker
               clang-tools     # LSP
               clang
@@ -40,6 +41,7 @@
             CFLAGS="-B${gccForLibs}/lib/gcc/${targetPlatform.config}/${gccForLibs.version} -B ${stdenv.cc.libc}/lib";
             
             # To run this script in the terminal, type '$buildScript/bin/build-llvm <path_to_llvm_source>'
+            # Example (if we're in the build folder): $buildScript/bin/build-llvm ../llvm-project/llvm
             buildScript = pkgs.writeShellScriptBin "build-llvm" ''
               #!/bin/bash
               set -e  # Exit on error
@@ -62,6 +64,8 @@
                   "-DCMAKE_INSTALL_PREFIX=../inst"
                   # this makes llvm only to produce code for the current platform, this saves CPU time, change it to what you need
                   "-DLLVM_TARGETS_TO_BUILD=host"
+                  # Projects to build
+                  "-DLLVM_ENABLE_PROJECTS=llvm;mlir"
                   # Faster linker
                   "-DLLVM_USE_LINKER=mold"
                   # Dynamic Linking
@@ -80,6 +84,8 @@
             '';
             shellHook = ''
               export PATH=$PWD/llvm-project/clang/tools/clang-format:$PATH
+              export PATH=$PWD/build:$PATH
+              export PATH=$PWD/build/bin:$PATH
               export HELIX_RUNTIME="$PWD/runtime"
             '';
           };
