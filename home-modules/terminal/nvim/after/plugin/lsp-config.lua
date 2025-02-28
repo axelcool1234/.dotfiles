@@ -31,6 +31,17 @@ lspconfig.nil_ls.setup {
   document_highlight = { enabled = false }
 }
 
+-- TableGen
+lspconfig.tblgen_lsp_server.setup {
+  capabilities = capabilities,
+  on_attach = on_attach,
+  settings = {
+    hint = true,
+  },
+  document_highlight = { enabled = false }
+}
+
+
 -- Python
 lspconfig.pyright.setup {
   capabilities = capabilities,
