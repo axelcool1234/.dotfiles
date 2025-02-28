@@ -35,6 +35,7 @@ lspconfig.nil_ls.setup {
 lspconfig.tblgen_lsp_server.setup {
   capabilities = capabilities,
   on_attach = on_attach,
+  cmd = { 'tblgen-lsp-server', '--tablegen-compilation-database=/home/axelcool1234/.dotfiles/misc/envs/llvm/build/tablegen_compile_commands.yml'},
   settings = {
     hint = true,
   },
