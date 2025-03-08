@@ -7,6 +7,7 @@ foo.*
 *.log
 data
 misc/envs/rust/Cargo.*
+misc/envs/haskell/.curry
 misc/envs/*/src/
 misc/envs/*/target/
 misc/envs/*/build/
