@@ -36,7 +36,9 @@ Nix refers to the holy trinity: An operating system, a programming language, and
 - sudo nixos-rebuild switch --flake .#default --rollback
 
 # Delete Generations
-WARNING: This may not work, still figuring this out...
+https://discourse.nixos.org/t/why-doesnt-nix-collect-garbage-remove-old-generations-from-efi-menu/17592/2
+
+The following doens't work (or it kind of does). Keeping it here just in case.
 - List generations: `sudo nix-env --list-generations --profile /nix/var/nix/profiles/system`
 - Switch to working generation: `sudo nix-env --profile /nix/var/nix/profiles/system --switch-generation [generation number]`
 - Delete generation(s): `sudo nix-env --profile /nix/var/nix/profiles/system --delete-generations [generation number(s)]`
