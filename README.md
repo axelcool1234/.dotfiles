@@ -40,7 +40,7 @@ WARNING: This may not work, still figuring this out...
 - List generations: `sudo nix-env --list-generations --profile /nix/var/nix/profiles/system`
 - Switch to working generation: `sudo nix-env --profile /nix/var/nix/profiles/system --switch-generation [generation number]`
 - Delete generation(s): `sudo nix-env --profile /nix/var/nix/profiles/system --delete-generations [generation number(s)]`
-- Cleanup: `nix store gc`
+- Cleanup: `nix-collect-garbage -d`
 
 # Fresh Install
 Firstly... DON'T PANIC! This will be an easy transition - even if we only have the terminal (I'm assuming we start in the base home directory).
