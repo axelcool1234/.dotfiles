@@ -5,7 +5,7 @@
   - [The Package Manager](#the-package-manager)
 - [Update Commands](#update-commands)
 - [Rollback Command](#rollback-command)
-- [Delete Broken Generations)(#delete-generations)
+- [Delete Broken Generations](#delete-generations)
 - [Fresh Install](#fresh-install)
   - [Mismatched-Hash](#Mismatched-Hash)
   - [Post-Setup](#Post-Setup)
