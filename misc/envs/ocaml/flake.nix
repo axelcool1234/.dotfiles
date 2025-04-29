@@ -17,6 +17,9 @@
             ocaml
             dune_3
             ocamlPackages.utop
+            ocamlPackages.ocaml-lsp
+
+            ocamlPackages.zarith
           ];
           shellHook = ''
             export HELIX_RUNTIME="$PWD/runtime"
