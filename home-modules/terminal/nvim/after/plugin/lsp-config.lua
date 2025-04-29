@@ -146,6 +146,16 @@ lspconfig.gopls.setup {
   document_highlight = { enabled = false }
 }
 
+-- OCaml 
+lspconfig.ocamllsp.setup {
+  capabilities = capabilities,
+  on_attach = on_attach,
+  settings = {
+    hint = true,
+  },
+  document_highlight = { enabled = false }
+}
+
 -- Ruby
 lspconfig.solargraph.setup {
   capabilities = capabilities,
