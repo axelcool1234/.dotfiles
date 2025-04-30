@@ -18,6 +18,7 @@
             dune_3
             ocamlPackages.utop
             ocamlPackages.ocaml-lsp
+            ocamlPackages.ocamlformat
 
             ocamlPackages.zarith
           ];
