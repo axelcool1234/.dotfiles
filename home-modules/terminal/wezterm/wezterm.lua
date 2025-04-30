@@ -1,6 +1,47 @@
 -- Pull in the wezterm API
 local wezterm = require 'wezterm'
 local act = wezterm.action
+
+-- Custom Actions
+-- Track if our helper pane is open
+local helper_pane_created = false
+local helper_pane_open = false
+
+wezterm.on('minimize-toggle', function(window, pane)
+    if helper_pane_open then
+      -- Minimize the helper pane
+      window:perform_action(
+        wezterm.action.ActivatePaneDirection 'Up',
+        pane
+      )
+      window:perform_action(
+        wezterm.action.TogglePaneZoomState,
+        pane
+      )
+      helper_pane_open = false
+    else
+      -- Open a new pane at the bottom
+      if helper_pane_created then
+          window:perform_action(
+            wezterm.action.TogglePaneZoomState,
+            pane
+          )
+      else
+          pane:split {
+            direction = 'Bottom',
+            size = 0.3,  -- Takes 30% of the window height
+          }
+          helper_pane_created = true
+      end
+      -- Focus the new pane
+      window:perform_action(
+        wezterm.action.ActivatePaneDirection 'Down',
+        pane
+      )
+      helper_pane_open = true
+    end
+end)
+
 -- This will hold the configuration.
 return {
   -- max_fps = 165, 
@@ -15,6 +56,9 @@ return {
 
     -- Toggle Pane Fullscreen
     { key = "b", mods = "LEADER",      action="TogglePaneZoomState" },
+
+    -- Toggle minimized pane
+    { key = "t", mods = "CTRL", action = wezterm.action.EmitEvent "minimize-toggle" },
 
     -- New Panes
     { key = "h", mods = "CTRL",        action = wezterm.action.SplitPane { direction = "Left", size = { Percent = 50 } } },

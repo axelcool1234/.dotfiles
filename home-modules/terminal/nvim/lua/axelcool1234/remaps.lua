@@ -28,7 +28,8 @@ end
 
 _G.open_terminal_in_wezterm = function()
   local current_cwd = vim.fn.getcwd()
-  local wezterm_command = string.format("wezterm cli split-pane --right --cwd '%s'", current_cwd)
+  -- local wezterm_command = string.format("wezterm cli split-pane --right --cwd '%s'", current_cwd)
+  local wezterm_command = string.format("wezterm cli split-pane --percent 30 --cwd '%s'", current_cwd)
   vim.fn.system(wezterm_command)
 end
 
@@ -295,9 +296,11 @@ local mappings = {
 
     -- Grading
     { "Open Submission By ID", '<leader>z', "<cmd>lua open_submissions()<CR>", 'n'},
+
+    -- Remove keymappings (probably not the correct way to do this)
+    { "None", '<C-t>', "", 'n'},
 }
 set_mappings(mappings, default_opts)
-
 
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "rust",
