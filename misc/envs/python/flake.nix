@@ -18,6 +18,8 @@
       ];
       propagatedBuildInputs = with pkgs.python311Packages; [
         pip
+        z3-solver
+        setuptools
       ];
       shellHook = ''
         export HELIX_RUNTIME="$PWD/runtime"

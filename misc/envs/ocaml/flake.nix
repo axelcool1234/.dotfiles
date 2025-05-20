@@ -16,11 +16,14 @@
           buildInputs = [
             ocaml
             dune_3
+            z3
             ocamlPackages.utop
             ocamlPackages.ocaml-lsp
             ocamlPackages.ocamlformat
 
             ocamlPackages.zarith
+            ocamlPackages.ounit
+            ocamlPackages.z3
           ];
           shellHook = ''
             export HELIX_RUNTIME="$PWD/runtime"
