@@ -8,8 +8,7 @@ plugins = [
 ]
 
 [scratchpads.term]
-# I'm using steam-run due to: https://github.com/wez/wezterm/issues/5879 
-command = "steam-run wezterm start --always-new-process --class wezterm_dropdown"
+command = "wezterm start --always-new-process --class wezterm_dropdown"
 animation = "fromTop"
 unfocus = "hide"
 excludes = "*"

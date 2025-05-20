@@ -13,8 +13,6 @@
 
   home.packages = with pkgs; [
     # Development Essentials
-    steam-run # See: https://github.com/wez/wezterm/issues/5879
-    alacritty
     fish
     starship
     helix
