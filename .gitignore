@@ -13,7 +13,6 @@ misc/envs/*/target/
 misc/envs/*/build/
 misc/envs/*/tmp/
 misc/envs/*/.cache/
-misc/envs/llvm/
 misc/envs/haskell/*.curry
 misc/envs/haskell/random/*
 misc/envs/ocaml/_build/*

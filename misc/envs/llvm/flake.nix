@@ -63,7 +63,7 @@
                   # inst will be our installation prefix
                   "-DCMAKE_INSTALL_PREFIX=../inst"
                   # this makes llvm only to produce code for the current platform, this saves CPU time, change it to what you need
-                  "-DLLVM_TARGETS_TO_BUILD=host"
+                  "-DLLVM_TARGETS_TO_BUILD=host;RISCV;AArch64"
                   # Projects to build
                   "-DLLVM_ENABLE_PROJECTS=llvm;mlir"
                   # Faster linker
@@ -87,6 +87,8 @@
               export PATH=$PWD/build:$PATH
               export PATH=$PWD/build/bin:$PATH
               export HELIX_RUNTIME="$PWD/runtime"
+              export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [zlib]}:$LD_LIBRARY_PATH"
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib.outPath}/lib:$LD_LIBRARY_PATH"
             '';
           };
         }
