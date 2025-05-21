@@ -103,6 +103,8 @@ For more information, I learned how to do this from this [discussion](https://ww
   - Search for NixOS options, packages, categories (plus the website has some videos and tutorials)
 - https://search.nixos.org/options
   - Search for NixOS options
+- https://home-manager-options.extranix.com/
+  - Search for NixOS Home Manager options
 - https://search.nixos.org/packages
   - Search for Nix packages
 - https://www.nixhub.io/
