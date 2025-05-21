@@ -5,6 +5,9 @@
       lib.mkEnableOption "enables fish config";
   };
   config = lib.mkIf config.fish.enable {
-    xdg.configFile.fish.source = ./fish;
+    xdg.configFile.fish = {
+        source = ./fish;
+        recursive = true;
+    };
   };
 }
