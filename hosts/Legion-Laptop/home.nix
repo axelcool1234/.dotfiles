@@ -46,11 +46,13 @@
     clipboard-jh
 
     # Gui/Programs
-    (discord.override {
-    	withVencord = true;
-      # withOpenASAR = true;
-    })
+    # (discord.override {
+    # 	withVencord = true;
+    #   # withOpenASAR = true;
+    # })
+    vesktop
     spicetify-cli
+    stremio
     slack
   ];
 }
