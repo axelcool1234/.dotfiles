@@ -18,6 +18,8 @@
     helix
     git
     lazygit
+    yazi
+    scooter
     zoxide
     fd
     fzf

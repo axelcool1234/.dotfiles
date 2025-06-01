@@ -61,7 +61,7 @@ wezterm.on("trigger-editor-with-scrollback", function(window, pane)
   -- Use $EDITOR or default to 'vim' if $EDITOR is not set
   -- FIXME: Should be dynamic, but it seems to open in Nano despite EDITOR being set to something else.
   -- local editor = os.getenv("EDITOR") or "vim"
-  local editor = "nvim"
+  local editor = "hx"
 
 
   -- Open a new tab running vim and tell it to open the file

@@ -13,7 +13,7 @@ alias ngc14="sudo nix-collect-garbage --delete-older-than 14d"
 alias goto="z (dirname (fzf))"
 alias govi="vim (fzf)"
 
-set -gx EDITOR nvim 
+set -gx EDITOR hx
 set -gx VOLUME_STEP 5
 set -gx BRIGHTNESS_STEP 5
 
