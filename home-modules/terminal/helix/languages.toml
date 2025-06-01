@@ -22,3 +22,17 @@ args = [ "--synctex-forward", "%l:1:%f", "%p" ]
 
 [language-server.texlab.config.texlab.chktex]
 onEdit = true
+
+[[language]]
+name = "python"
+
+[language-server.pyright]
+command = "pyright-langserver"
+args = ["--stdio"]
+
+[language-server.pyright.config]
+reportMissingTypeStubs = false
+
+[language-server.pyright.config.python.analysis]
+typeCheckingMode = "basic"
+autoImportCompletions = true
