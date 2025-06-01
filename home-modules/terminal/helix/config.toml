@@ -37,44 +37,44 @@ right = "no_op"
 up = "no_op"
 
 # Splits and Buffers
-C-v = "vsplit"
-C-h = "jump_view_left"
-C-j = "jump_view_down"
-C-k = "jump_view_up"
-C-l = "jump_view_right"
-C-q = "wclose"
+# C-v = "vsplit"
+# C-h = "jump_view_left"
+# C-j = "jump_view_down"
+# C-k = "jump_view_up"
+# C-l = "jump_view_right"
+# C-q = "wclose"
 
 # Motions
-"A-k" = [ # Move line up
-  "extend_to_line_bounds",
-  "delete_selection",
-  "move_line_up",
-  "paste_before"
-]
-"A-j" = [ # Move line down
-  "extend_to_line_bounds",
-  "delete_selection",
-  "paste_after"
-]
-A-h = [ # Move selection right
-  "delete_selection",
-  "move_char_left",
-  "paste_before"
-]
-A-l = [ # Move selection left
-  "delete_selection",
-  "paste_after"
-] 
-"A-J" = [ # Copy and paste line down 
-  "extend_to_line_bounds", 
-  "yank", 
-  "paste_after" 
-]
-"A-K" = [ # Copy and paste line up
-  "extend_to_line_bounds",
-  "yank",
-  "paste_before"
-]
+# "A-k" = [ # Move line up
+#   "extend_to_line_bounds",
+#   "delete_selection",
+#   "move_line_up",
+#   "paste_before"
+# ]
+# "A-j" = [ # Move line down
+#   "extend_to_line_bounds",
+#   "delete_selection",
+#   "paste_after"
+# ]
+# A-h = [ # Move selection right
+#   "delete_selection",
+#   "move_char_left",
+#   "paste_before"
+# ]
+# A-l = [ # Move selection left
+#   "delete_selection",
+#   "paste_after"
+# ] 
+# "A-J" = [ # Copy and paste line down 
+#   "extend_to_line_bounds", 
+#   "yank", 
+#   "paste_after" 
+# ]
+# "A-K" = [ # Copy and paste line up
+#   "extend_to_line_bounds",
+#   "yank",
+#   "paste_before"
+# ]
 
 H = "goto_previous_buffer" # Move to left buffer
 L = "goto_next_buffer" # Move to right buffer
