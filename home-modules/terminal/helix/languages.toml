@@ -1,6 +1,6 @@
 [[language]]
-auto-format = false
 name = "cpp"
+auto-format = false
 
 [language.indent]
 tab-width = 4
@@ -36,3 +36,13 @@ reportMissingTypeStubs = false
 [language-server.pyright.config.python.analysis]
 typeCheckingMode = "basic"
 autoImportCompletions = true
+
+[[language]]
+name = "nix"
+auto-format = true
+formatter = { command = "nixfmt" }
+language-servers = ["nil"]
+
+[language.indent]
+tab-width = 2
+unit = "  "

@@ -43,7 +43,7 @@ C-r = [
     ":reload-all"
 ]
 
-# Yazi integration
+# Yazi integration (FIXME: Broken, should be fixed in next Helix update)
 - = [
   ':sh rm -f /tmp/unique-file',
   ':insert-output yazi %{buffer_name} --chooser-file=/tmp/unique-file',
@@ -51,3 +51,10 @@ C-r = [
   ':open %sh{cat /tmp/unique-file}',
   ':redraw',
 ]
+
+# Remaps
+x = "extend_line" # Now extends based off where head is 
+ 
+[keys.select]
+# Remaps
+x = "extend_line" # Now extends based off where head is 
