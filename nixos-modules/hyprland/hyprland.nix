@@ -10,6 +10,9 @@
       # Install the packages from nixpkgs
       enable = true;
 
+      # Better Systemd integration
+      withUWSM = true;
+
       # Uses the flake package of hyprland
       package = inputs.hyprland.packages.${pkgs.system}.hyprland;
   
@@ -18,5 +21,8 @@
     };
     environment.sessionVariables.NIXOS_OZONE_WL = "1";
     environment.sessionVariables.WLR_NO_HARDWARE_CURSORS = "1";
+
+    programs.hyprlock.enable = true;
+    services.hypridle.enable = true;
   };
 }
