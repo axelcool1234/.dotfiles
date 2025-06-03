@@ -1,43 +1,33 @@
 { lib, config, pkgs, ... }:
 
 {
-  /* from lenovo legion configurations in nixos-hardware */
-  # Cooling management
-  # I have this commented out because I'm not sure if I need it. I'll leave it here in case I figure it out at some point.
-  # services.thermald.enable = lib.mkDefault true;
-  # √(2560² + 1600²) px / 16 in ≃ 189 dpi
-  services.xserver.dpi = 189;
-  /* from nixos-hardware/common/cpu/intel/cpu-only.nix */
-    hardware.cpu.intel.updateMicrocode =
-    lib.mkDefault config.hardware.enableRedistributableFirmware;
-    /* The above is already enabled in hardware-configuration.nix actually. */
-  /* from nixos-hardware/common/gpu/intel/default.nix */
-  boot.initrd.kernelModules = [ "i915" ];
+  # --- i915 CPU Driver --- #
+  boot.initrd.availableKernelModules = [ "i915" ];
+  boot.initrd.kernelModules          = [ "i915" ];
 
-  environment.variables = {
-    VDPAU_DRIVER = lib.mkIf config.hardware.graphics.enable (lib.mkDefault "va_gl");
-  };
-
-  hardware.graphics.extraPackages = with pkgs; [
-    (if (lib.versionOlder (lib.versions.majorMinor lib.version) "23.11") then vaapiIntel else intel-vaapi-driver)
-    libvdpau-va-gl
-    intel-media-driver
-    vaapiVdpau /* from nixos-hardware/common/gpu/nvidia/default.nix */
-  ];
-
-  /* from nixos-hardware/common/pc/default.nix */
-  boot.blacklistedKernelModules = lib.optionals (!config.hardware.enableRedistributableFirmware) [
-    "ath3k"
-  ];
-
-  /* from nixos-hardware/common/pc/laptop/default.nix */
-  services.tlp.enable = lib.mkDefault ((lib.versionOlder (lib.versions.majorMinor lib.version) "21.05")
-                                     || !config.services.power-profiles-daemon.enable);
-
-  /* from nixos-hardware/common/pc/ssd/default.nix */
+  # --- SSD Settings --- #
   services.fstrim.enable = lib.mkDefault true;
 
-  /* LAPTOP CONFIGURATION */
+  # --- Disable NVidia dGPU Settings --- #
+  # boot.extraModprobeConfig = ''
+  #   blacklist nouveau
+  #   options nouveau modeset=0
+  # '';
+
+  # services.udev.extraRules = ''
+  #   # Remove NVIDIA USB xHCI Host Controller devices, if present
+  #   ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c0330", ATTR{power/control}="auto", ATTR{remove}="1"
+  #   # Remove NVIDIA USB Type-C UCSI devices, if present
+  #   ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c8000", ATTR{power/control}="auto", ATTR{remove}="1"
+  #   # Remove NVIDIA Audio devices, if present
+  #   ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x040300", ATTR{power/control}="auto", ATTR{remove}="1"
+  #   # Remove NVIDIA VGA/3D controller devices
+  #   ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", ATTR{power/control}="auto", ATTR{remove}="1"
+  # '';
+
+  # boot.blacklistedKernelModules = [ "nouveau" "nvidia" "nvidia_drm" "nvidia_modeset" ];
+
+  # --- Boot Settings --- #
   boot.kernelPackages = pkgs.linuxKernel.packages.linux_zen;
   boot.kernelParams = [ 
     "quiet"
@@ -53,17 +43,46 @@
     "reboot=acpi" /* I believe this has lowered the chance of hanging on shutdown. */
   ];
 
-   /* Everything below is from NixOS guide */
+  # --- OpenGL/Graphics Settings --- #
+  # environment.variables = {
+  #   VDPAU_DRIVER = lib.mkIf config.hardware.graphics.enable (lib.mkDefault "va_gl");
+  # };
+
+  nixpkgs.config.packageOverrides = pkgs: {
+    intel-vaapi-driver = pkgs.intel-vaapi-driver.override { enableHybridCodec = true; };
+  };
+
   # Enable OpenGL
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
+    extraPackages = with pkgs; [
+      intel-compute-runtime
+      intel-media-driver    # LIBVA_DRIVER_NAME=iHD
+      intel-vaapi-driver    # LIBVA_DRIVER_NAME=i965 (older but works better for Firefox/Chromium)
+      vaapiVdpau
+      libvdpau-va-gl
+      mesa
+      nvidia-vaapi-driver
+      nv-codec-headers-12
+    ];
+    extraPackages32 = with pkgs.pkgsi686Linux; [
+      intel-media-driver
+      intel-vaapi-driver
+      vaapiVdpau
+      mesa
+      libvdpau-va-gl
+    ];
   };
 
-  # Enable NVIDIA Driver
+  # --- Nvidia Settings --- #
+  # Load nvidia driver for Xorg and Wayland
   services.xserver.videoDrivers = ["nvidia"];
-  hardware.nvidia = {
 
+  # Enable access to nvidia from containers (Docker, Podman)
+  # hardware.nvidia-container-toolkit.enable = true;
+
+  hardware.nvidia = {
     # Modesetting is required.
     modesetting.enable = true;
 
@@ -76,6 +95,11 @@
     # Fine-grained power management. Turns off GPU when not in use.
     # Experimental and only works on modern Nvidia GPUs (Turing or newer).
     powerManagement.finegrained = false;
+
+    # Dynamic Boost. It is a technology found in NVIDIA Max-Q design laptops with RTX GPUs.
+    # It intelligently and automatically shifts power between
+    # the CPU and GPU in real-time based on the workload of your game or application.
+    # dynamicBoost.enable = lib.mkForce true;
 
     # Use the NVidia open source kernel module (not to be confused with the
     # independent third-party "nouveau" open source driver).
@@ -91,7 +115,7 @@
     nvidiaSettings = true;
 
     # Optionally, you may need to select the appropriate driver version for your specific GPU.
-    package = config.boot.kernelPackages.nvidiaPackages.stable;
+    package = config.boot.kernelPackages.nvidiaPackages.production;
 
     # Offload Mode
     prime = { /* also from nixos-hardware/common/gpu/nvidia/prime.nix */
@@ -104,4 +128,21 @@
         nvidiaBusId = "PCI:01:00:0";
     };
   };
+
+  # NixOS specialization named 'nvidia-sync'. Provides the ability
+  # to switch the Nvidia Optimus Prime profile
+  # to sync mode during the boot process, enhancing performance.
+  # specialisation = {
+  #   nvidia-sync.configuration = {
+  #     system.nixos.tags = [ "nvidia-sync" ];
+  #     hardware.nvidia = {
+  #       powerManagement.finegrained = lib.mkForce false;
+
+  #       prime.offload.enable = lib.mkForce false;
+  #       prime.offload.enableOffloadCmd = lib.mkForce false;
+
+  #       prime.sync.enable = lib.mkForce true;
+  #     };
+  #   };
+  # };
 }
