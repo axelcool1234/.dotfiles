@@ -27,6 +27,9 @@
 
   # boot.blacklistedKernelModules = [ "nouveau" "nvidia" "nvidia_drm" "nvidia_modeset" ];
 
+  # NOTE: If you want the dGPU enabled, you should still blacklist nouveau drivers
+  boot.blacklistedKernelModules=["nouveau"];
+
   # --- Boot Settings --- #
   boot.kernelPackages = pkgs.linuxKernel.packages.linux_zen;
   boot.kernelParams = [ 
@@ -99,7 +102,7 @@
     # Dynamic Boost. It is a technology found in NVIDIA Max-Q design laptops with RTX GPUs.
     # It intelligently and automatically shifts power between
     # the CPU and GPU in real-time based on the workload of your game or application.
-    # dynamicBoost.enable = lib.mkForce true;
+    dynamicBoost.enable = true;
 
     # Use the NVidia open source kernel module (not to be confused with the
     # independent third-party "nouveau" open source driver).
@@ -108,11 +111,13 @@
     # https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus 
     # Only available from driver 515.43.04+
     # Currently alpha-quality/buggy, so false is currently the recommended setting.
-    open = false;
+    open = true;
 
     # Enable the Nvidia settings menu,
   	# accessible via `nvidia-settings`.
     nvidiaSettings = true;
+
+    nvidiaPersistenced = true;
 
     # Optionally, you may need to select the appropriate driver version for your specific GPU.
     package = config.boot.kernelPackages.nvidiaPackages.production;
