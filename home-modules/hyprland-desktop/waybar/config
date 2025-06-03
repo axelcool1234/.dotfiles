@@ -284,8 +284,8 @@
         // "numlock": true,
         "format": "{name} {icon}",
         "format-icons": {
-            "locked": "",
-            "unlocked": ""
+            "locked": "󰌾",
+            "unlocked": "󰍀"
         }
     },
 
