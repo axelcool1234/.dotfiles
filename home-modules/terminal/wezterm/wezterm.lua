@@ -81,7 +81,6 @@ end)
 return {
   -- max_fps = 165, 
   enable_wayland = true;
-  enable_kitty_keyboard = true;
   color_scheme = 'Tokyo Night',
   font = wezterm.font 'JetBrains Mono',
   font_size = 10.0,

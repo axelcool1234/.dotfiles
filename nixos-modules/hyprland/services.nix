@@ -27,13 +27,18 @@
     # services.udev.packages = with pkgs; [ gnome.gnome-settings-daemon ];
 
     environment.systemPackages = with pkgs; [
-      bottom          # See System Health
+      # Hyprland
+      pyprland        # Additional Hyprland Plugins
+      hyprpicker      # Color Picker
+      hyprcursor      # Cursor themes
+      hyprlock        # Screen Locker
+      hypridle        # Idle Management Daemon
+      hyprpaper       # Wallpaper Daemon
+
+      # General System Stuff
       btop            # See System Health
-      tre-command     # Tree Command
-      lsof            # Lists Open Files
       psi-notify      # System Resource Alerter
       poweralertd     # Power Alerter
-      pyprland        # Additional Hyprland Plugins
       playerctl       # Audio Control
       waybar          # Bar
       dunst           # Notification
@@ -47,27 +52,17 @@
       grim            # Screenshot
       slurp           # Screenshot
       wl-screenrec    # Recording
-      hyprpicker      # Color Picker
       wl-clipboard    # Clipboard
       cliphist        # Clipboard
       wl-clip-persist # Clipboard
-      hyprlock        # Screen Locker
-      hypridle        # Idle Management Daemon
       wlogout         # Logout menu
-      hyprpaper       # Wallpaper Daemon
-      wlogout         # Logout Menu
+      psmisc          # Terminal utils (used in some scripts)
+      wlrctl          # Terminal utils (just really cool, good potential scripting here)
+      wtype           # Terminal util  (used in some scripts)
+      ffmpeg_6-full   # Terminal util  (used in recording script)
 
       at-spi2-atk
       qt6.qtwayland
-      psmisc # Terminal utils
-      xdg-utils # Terminal utils
-      wlrctl # Terminal utils
-      gifsicle # Terminal utils
-      imagemagick
-      ffmpeg_6-full
-      wtype
-      wlr-randr
-      gpu-viewer
     ];
 
     # Security
