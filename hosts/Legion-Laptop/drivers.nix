@@ -38,10 +38,22 @@
   services.fstrim.enable = lib.mkDefault true;
 
   /* LAPTOP CONFIGURATION */
-  boot.kernelParams = [
+  boot.kernelPackages = pkgs.linuxKernel.packages.linux_zen;
+  boot.kernelParams = [ 
+    "quiet"
+    "splash"
+    "loglevel=3"
+    "rd.udev.log_priority=3"
+    "systemd.show_status=auto"
+    "fbcon=nodefer"
+    "vt.global_cursor_default=0"
+    "usbcore.autosuspend=-1"
+    "video4linux"
+    "acpi_rev_override=5"
     "reboot=acpi" /* I believe this has lowered the chance of hanging on shutdown. */
   ];
-  /* Everything below is from NixOS guide */
+
+   /* Everything below is from NixOS guide */
   # Enable OpenGL
   hardware.graphics = {
     enable = true;
