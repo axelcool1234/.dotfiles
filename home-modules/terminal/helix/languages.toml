@@ -37,3 +37,10 @@ language-servers = ["nil"]
 [language.indent]
 tab-width = 2
 unit = "  "
+
+[[language]]
+name = "hyprlang"
+language-servers = [ "hyprls" ]
+
+[language-server.hyprls]
+command = "hyprls"

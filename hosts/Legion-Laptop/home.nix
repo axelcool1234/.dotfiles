@@ -30,6 +30,9 @@
     nil
     nixpkgs-fmt
 
+    # Hypr LSP
+    hyprls
+
     # Lua LSP
     lua-language-server
 
