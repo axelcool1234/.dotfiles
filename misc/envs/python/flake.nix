@@ -2,7 +2,7 @@
   description = "Python Environment";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
   }; 
 
   outputs = { self, nixpkgs, ... }: 
@@ -14,9 +14,10 @@
     devShells.x86_64-linux.default = pkgs.mkShell {
       nativeBuildInputs = with pkgs; [
         python3
-        pyright
+        basedpyright
+        ruff
       ];
-      propagatedBuildInputs = with pkgs.python311Packages; [
+      propagatedBuildInputs = with pkgs.python313Packages; [
         pip
         z3-solver
         setuptools
