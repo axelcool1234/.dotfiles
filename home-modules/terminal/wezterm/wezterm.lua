@@ -49,7 +49,7 @@ wezterm.on("trigger-editor-with-scrollback", function(window, pane)
   -- Retrieve the current viewport's text.
   -- Pass an optional number of lines (eg: 2000) to retrieve
   -- that number of lines starting from the bottom of the viewport
-  local scrollback = pane:get_lines_as_text();
+  local scrollback = pane:get_lines_as_text(pane:get_dimensions().scrollback_rows);
 
   -- Create a temporary file to pass to vim
   local name = os.tmpname();
