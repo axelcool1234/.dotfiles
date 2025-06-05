@@ -1,11 +1,14 @@
 theme = "tokyonight"
 
 [editor]
+scrolloff = 8
 auto-pairs = false
+insert-final-newline = false
 mouse = false
 color-modes = true
 bufferline = "always"
 line-number = "relative"
+popup-border = "all"
 shell = ["fish", "-c"]
 idle-timeout = 0
 
@@ -15,6 +18,7 @@ render = true
 [editor.lsp]
 display-messages = true
 display-inlay-hints = true
+display-progress-messages = true
 
 [keys]
 [keys.insert]
