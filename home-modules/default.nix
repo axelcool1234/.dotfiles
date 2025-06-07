@@ -3,12 +3,14 @@
     ./hyprland-desktop
     ./terminal/wezterm.nix
     ./terminal/shell.nix
+    ./terminal/fish.nix
+    ./terminal/nushell.nix
+    ./terminal/starship.nix
     ./terminal/bat.nix
     ./terminal/bottom.nix
     ./terminal/btop.nix
     ./terminal/neofetch.nix
     ./terminal/tealdeer.nix
-    ./terminal/fish.nix
     ./terminal/vim.nix
     ./terminal/nvim.nix
     ./terminal/helix.nix
@@ -25,6 +27,10 @@
   wezterm.enable =
     lib.mkDefault true;
 
+  starship.enable =
+    lib.mkDefault true;
+  nushell.enable =
+    lib.mkDefault true;
   fish.enable =
     lib.mkDefault true;
   zsh.enable =

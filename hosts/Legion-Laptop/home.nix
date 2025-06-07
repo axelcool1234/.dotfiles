@@ -14,6 +14,7 @@
   home.packages = with pkgs; [
     # Development Essentials
     fish
+    nushell
     starship
     helix
     git
