@@ -7,7 +7,7 @@
     isNormalUser = true;
     description = "Axel Sorenson";
     extraGroups = [ "networkmanager" "input" "wheel" "video" "audio" "tss" "dialout" "docker" ];
-    shell = pkgs.fish;
+    shell = pkgs.nushell;
     packages = with pkgs; [];
   };
 }

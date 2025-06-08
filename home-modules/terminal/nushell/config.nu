@@ -11,6 +11,7 @@ alias ll = ls -l
 
 #--- Settings ---#
 $env.config.buffer_editor = "hx"
+$env.config.history.file_format = "sqlite"
 
 #--- Hooks ---#
 # NixOS command_not_found Hook

@@ -9,7 +9,7 @@ color-modes = true
 bufferline = "always"
 line-number = "relative"
 popup-border = "all"
-shell = ["fish", "-c"]
+shell = ["nu", "-c"]
 idle-timeout = 0
 
 [editor.indent-guides]
