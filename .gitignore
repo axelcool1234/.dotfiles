@@ -7,6 +7,7 @@ foo.*
 *.log
 data
 misc/envs/rust/Cargo.*
+misc/envs/rust/.cargo
 misc/envs/haskell/.curry
 misc/envs/*/src/
 misc/envs/*/target/
@@ -18,4 +19,3 @@ misc/envs/haskell/random/*
 misc/envs/ocaml/_build/*
 misc/envs/ocaml/dune*
 misc/envs/ocaml/*.ml
-
