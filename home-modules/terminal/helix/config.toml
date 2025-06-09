@@ -12,13 +12,20 @@ popup-border = "all"
 shell = ["nu", "-c"]
 idle-timeout = 0
 
-[editor.indent-guides]
-render = true
-
 [editor.lsp]
 display-messages = true
 display-inlay-hints = true
 display-progress-messages = true
+
+[editor.indent-guides]
+render = true
+
+[editor.whitespace.render]
+space = "none"
+tab = "all"
+nbsp = "all"
+nnbsp = "all"
+newline = "all"
 
 [keys]
 [keys.insert]
