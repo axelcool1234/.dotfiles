@@ -8,6 +8,7 @@ alias cl = clear
 alias lgit = lazygit
 alias grep = grep --color=auto
 alias ll = ls -l
+alias fg = job unfreeze
 
 #--- Settings ---#
 $env.config.buffer_editor = "hx"
@@ -19,6 +20,7 @@ $env.config.hooks.command_not_found = {
   |command_name|
   print (command-not-found $command_name | str trim)
 }
+
 
 #--- Miscellaneous Setups ---#
 
@@ -33,3 +35,6 @@ source ($nu.default-config-dir | path join "zoxide.nu")
 # Catpuccin Theme
 source ($nu.default-config-dir | path join "catppuccin_macchiato.nu")
 # source ($nu.default-config-dir | path join "catppuccin_mocha.nu")
+
+#--- Custom Commands ---#
+use hhx.nu

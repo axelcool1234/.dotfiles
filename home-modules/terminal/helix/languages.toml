@@ -44,3 +44,7 @@ language-servers = [ "hyprls" ]
 
 [language-server.hyprls]
 command = "hyprls"
+
+[language-server.qmlls]
+args = ["-E"]
+command = "qmlls"

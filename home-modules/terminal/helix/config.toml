@@ -30,6 +30,7 @@ newline = "all"
 [keys]
 [keys.insert]
 "C-space" = "completion"
+"C-o" = "normal_mode"
 
 [keys.normal]
 # Buffer binds
