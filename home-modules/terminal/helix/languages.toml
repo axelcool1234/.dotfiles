@@ -48,3 +48,11 @@ command = "hyprls"
 [language-server.qmlls]
 args = ["-E"]
 command = "qmlls"
+
+[[language]]
+name = "lean"
+language-servers = ["leanls"]
+
+[language-server.leanls]
+command = "lake"
+args = ["serve"]
