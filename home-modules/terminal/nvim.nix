@@ -28,6 +28,16 @@ let
       sha256 = "1qg06xia1sm67b10sf6vdhmma9xmwkj7hzlk5dyfg25a7xmf2107";
     };
   };
+  lean-nvim = pkgs.vimUtils.buildVimPlugin {
+    name = "lean-nvim";
+    src = pkgs.fetchFromGitHub {
+      owner = "Julian";
+      repo = "lean.nvim";
+      rev = "ce53638a93612123c7e08b2d169f72bc8c8f4ed1";
+      sha256 = "FIkm8OsPu+UIJHq9IaEa6Y0w3zcwKRmRAffBAUCkyec=";
+    };
+    doCheck = false;
+  };
 in
 {  
   options = {
@@ -95,6 +105,9 @@ in
 
         # LaTeX
         vimtex # (could be replaced with texlab LSP's build command, but as of now this is fine)
+
+        # Lean4
+        lean-nvim
 
         # Rust
         rustaceanvim
