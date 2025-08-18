@@ -27,6 +27,9 @@
     zip
     unzip
 
+    # Emergency Purposes
+    alacritty
+
     # Nix LSP
     nil
     nixpkgs-fmt
