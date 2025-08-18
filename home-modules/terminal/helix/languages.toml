@@ -56,3 +56,7 @@ language-servers = ["leanls"]
 [language-server.leanls]
 command = "lake"
 args = ["serve"]
+
+[[language]]
+name = "perl"
+file-types = ["perl"]
