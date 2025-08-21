@@ -46,7 +46,7 @@
     "clock#time": {
         "format": "{:%I:%M %p %Ez}",
         // "locale": "en_US.UTF-8",
-        // "timezones": [ "Europe/Kyiv", "America/New_York" ],
+        // "timezones": [ "America/Denver" ],
     },
 
     "custom/separator": {
@@ -94,7 +94,7 @@
         "format-alt": "{:%I:%M %p}",
         "tooltip-format": "<tt><small>{calendar}</small></tt>",
         // "locale": "en_US.UTF-8",
-        // "timezones": [ "America/Los_Angeles" ],
+        // "timezones": [ "America/Denver" ],
         "actions": {
             "on-click-right": "mode",
         },

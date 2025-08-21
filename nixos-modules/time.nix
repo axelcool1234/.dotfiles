@@ -5,5 +5,5 @@
   # This is required for compatibility with windows
   time.hardwareClockInLocalTime = true;
   # Set your time zone.
-  time.timeZone = "America/Los_Angeles";
+  time.timeZone = "America/Denver";
 }
