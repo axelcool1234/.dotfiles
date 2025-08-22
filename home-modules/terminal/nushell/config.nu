@@ -38,3 +38,17 @@ source ($nu.default-config-dir | path join "catppuccin_macchiato.nu")
 
 #--- Custom Commands ---#
 use hhx.nu
+
+#--- Keybinds ---#
+$env.config.keybindings ++= [
+  {
+    name: "unfreeze",
+    modifier: control,
+    keycode: "char_z",
+    event: {
+      send: executehostcommand,
+      cmd: "job unfreeze"
+    },
+    mode: emacs
+  }
+]
