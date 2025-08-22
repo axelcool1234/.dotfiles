@@ -42,7 +42,7 @@ g.Q = ":bc!" # Close buffer with unsaved changed
 # Lazygit integration
 C-g = [
     ":write-all",
-    ":insert-output lazygit >/dev/tty",
+    ":insert-output lazygit out> /dev/tty",
     ":redraw",
     ":reload-all"
 ]
@@ -50,16 +50,15 @@ C-g = [
 # Scooter integration
 C-r = [
     ":write-all",
-    ":insert-output scooter >/dev/tty",
+    ":insert-output scooter out> /dev/tty",
     ":redraw",
     ":reload-all"
 ]
 
-# Yazi integration (FIXME: Broken, should be fixed in next Helix update)
+# Yazi integration
 - = [
   ':sh rm -f /tmp/unique-file',
   ':insert-output yazi %{buffer_name} --chooser-file=/tmp/unique-file',
-  ':insert-output echo "\x1b[?1049h\x1b[?2004h" > /dev/tty',
   ':open %sh{cat /tmp/unique-file}',
   ':redraw',
 ]
