@@ -1,4 +1,22 @@
-{ pkgs, ... }:
+{
+  inputs,
+  pkgs,
+  config,
+  lib,
+  ...
+}:
+let
+  binPath = lib.makeBinPath (
+    with pkgs;
+    [
+      inputs.steel.packages.${system}.default
+    ]
+  );
+  helix-plugins = pkgs.writeShellScriptBin "shx" ''
+    export PATH=$PATH:${binPath}
+    exec ${inputs.steel-helix.packages.${pkgs.system}.default}/bin/hx "$@"
+  '';
+in
 {
   nixpkgs = {
     config = {
@@ -17,6 +35,7 @@
     nushell
     starship
     helix
+    helix-plugins # Plugins (mainly used for Lean right now)
     git
     lazygit
     yazi
@@ -41,7 +60,7 @@
     lua-language-server
 
     # Terminal Utils
-    neofetch    
+    neofetch
     bat
     bat-extras.batman
     cloc

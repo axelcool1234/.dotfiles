@@ -25,8 +25,17 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Outdated:
-    # spicetify-nix.url = "github:the-argus/spicetify-nix";
+    # Helix with Steel plugins
+    # SEE: https://github.com/axelcool1234/helix/commit/626d5e08e85aad2e68e61b7d1bd1097ba2553f72
+    # I had to fork it so that Steel would be enabled by default.
+    steel-helix = {
+      url = "github:axelcool1234/helix/steel-event-system";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    steel = {
+      url = "github:mattwparas/steel";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
