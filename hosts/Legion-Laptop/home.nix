@@ -10,6 +10,7 @@ let
     with pkgs;
     [
       inputs.steel.packages.${system}.default
+      lean4
     ]
   );
   helix-plugins = pkgs.writeShellScriptBin "shx" ''
