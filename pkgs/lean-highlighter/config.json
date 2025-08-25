@@ -1,0 +1,83 @@
+{
+  "parser-directories": [
+  ],
+  "theme": {
+    "attribute": {
+      "color": 30
+    },
+    "comment": {
+      "color": 30
+    },
+    "constant": "yellow",
+    "constant.builtin": {
+      "bold": true,
+      "color": "yellow"
+    },
+    "constructor": 30,
+    "embedded": null,
+    "function": {
+      "color": "blue",
+      "underline": true
+    },
+    "function.builtin": {
+      "bold": true,
+      "underline": true,
+      "color": "blue"
+    },
+    "keyword": {
+      "color": "red",
+      "bold": true
+    },
+    "keyword.control": {
+      "color": 35,
+      "bold": true
+    },
+    "module": 30,
+    "number": {
+      "bold": true,
+      "color": "yellow"
+    },
+    "operator": {
+      "bold": true,
+      "color": "blue"
+    },
+    "property": 30,
+    "property.builtin": {
+      "bold": true,
+      "color": 30
+    },
+    "punctuation": {
+       "bold": true,
+       "color": 35
+    },
+    "punctuation.bracket": {
+       "bold": true,
+       "color": 35
+    },
+    "punctuation.delimiter": {
+       "bold": true,
+       "color": 35
+    },
+    "punctuation.special": {
+       "bold": true,
+       "color": 35
+    },
+    "string": "green",
+    "string.special": "green",
+    "tag": 30,
+    "type": "cyan",
+    "type.builtin": {
+      "bold": true,
+      "color": "cyan"
+    },
+    "variable": "white",
+    "variable.builtin": {
+      "bold": true,
+      "color": "white"
+    },
+    "variable.parameter": {
+      "color": "white",
+      "underline": true
+    }
+  }
+}

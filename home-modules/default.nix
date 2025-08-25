@@ -1,4 +1,5 @@
-{ pkgs, lib, ... }: {
+{ pkgs, lib, ... }:
+{
   imports = [
     ./hyprland-desktop
     ./terminal/wezterm.nix
@@ -22,49 +23,28 @@
     ./programs/zathura.nix
   ];
 
-  hyprland.enable =
-    lib.mkDefault true;
-  wezterm.enable =
-    lib.mkDefault true;
+  hyprland.enable = lib.mkDefault true;
+  wezterm.enable = lib.mkDefault true;
 
-  starship.enable =
-    lib.mkDefault true;
-  nushell.enable =
-    lib.mkDefault true;
-  fish.enable =
-    lib.mkDefault true;
-  zsh.enable =
-    lib.mkDefault true;
-  bash.enable =
-    lib.mkDefault true;
-    
-  vim.enable =
-    lib.mkDefault true;
-  nvim.enable =
-    lib.mkDefault true;
-  helix.enable =
-    lib.mkDefault true;
-  git.enable =
-    lib.mkDefault true;
-  lazygit.enable =
-    lib.mkDefault true;
-  bat.enable =
-    lib.mkDefault true;
-  bottom.enable =
-    lib.mkDefault true;
-  btop.enable =
-    lib.mkDefault true;
-  tealdeer.enable =
-    lib.mkDefault true;
-  neofetch.enable =
-    lib.mkDefault true;
-  zathura.enable =
-    lib.mkDefault true;
-  
-  firefox.enable = 
-    lib.mkDefault true;
-  vencord.enable =
-    lib.mkDefault true;
-  spicetify.enable =
-    lib.mkDefault true;
+  starship.enable = lib.mkDefault true;
+  nushell.enable = lib.mkDefault true;
+  fish.enable = lib.mkDefault true;
+  zsh.enable = lib.mkDefault true;
+  bash.enable = lib.mkDefault true;
+
+  vim.enable = lib.mkDefault true;
+  nvim.enable = lib.mkDefault true;
+  helix.enable = lib.mkDefault true;
+  git.enable = lib.mkDefault true;
+  lazygit.enable = lib.mkDefault true;
+  bat.enable = lib.mkDefault true;
+  bottom.enable = lib.mkDefault true;
+  btop.enable = lib.mkDefault true;
+  tealdeer.enable = lib.mkDefault true;
+  neofetch.enable = lib.mkDefault true;
+  zathura.enable = lib.mkDefault true;
+
+  firefox.enable = lib.mkDefault true;
+  vencord.enable = lib.mkDefault true;
+  spicetify.enable = lib.mkDefault true;
 }

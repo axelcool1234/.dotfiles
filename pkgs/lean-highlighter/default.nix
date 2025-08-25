@@ -1,0 +1,141 @@
+{
+  pkgs ? import <nixpkgs> { },
+}:
+
+let
+  tree-sitter-lean = pkgs.fetchFromGitHub {
+    owner = "Julian";
+    repo = "tree-sitter-lean";
+    rev = "master";
+    sha256 = "sha256-MF+LRzhDw3V/l/h11ZTyWCUCm3b+g0oyOdaCZMVlJc4=";
+  };
+  tree-sitter-config = parseDir: ''
+    {
+      "parser-directories": [
+        "${parseDir}"
+      ],
+      "theme": {
+        "attribute": {
+          "color": 30
+        },
+        "comment": {
+          "color": 30
+        },
+        "constant": "yellow",
+        "constant.builtin": {
+          "bold": true,
+          "color": "yellow"
+        },
+        "constructor": 30,
+        "embedded": null,
+        "function": {
+          "color": "blue",
+          "underline": true
+        },
+        "function.builtin": {
+          "bold": true,
+          "underline": true,
+          "color": "blue"
+        },
+        "keyword": {
+          "color": "red",
+          "bold": true
+        },
+        "keyword.control": {
+          "color": 35,
+          "bold": true
+        },
+        "module": 30,
+        "number": {
+          "bold": true,
+          "color": "yellow"
+        },
+        "operator": {
+          "bold": true,
+          "color": "blue"
+        },
+        "property": 30,
+        "property.builtin": {
+          "bold": true,
+          "color": 30
+        },
+        "punctuation": {
+           "bold": true,
+           "color": 35
+        },
+        "punctuation.bracket": {
+           "bold": true,
+           "color": 35
+        },
+        "punctuation.delimiter": {
+           "bold": true,
+           "color": 35
+        },
+        "punctuation.special": {
+           "bold": true,
+           "color": 35
+        },
+        "string": "green",
+        "string.special": "green",
+        "tag": 30,
+        "type": "cyan",
+        "type.builtin": {
+          "bold": true,
+          "color": "cyan"
+        },
+        "variable": "white",
+        "variable.builtin": {
+          "bold": true,
+          "color": "white"
+        },
+        "variable.parameter": {
+          "color": "white",
+          "underline": true
+        }
+      }
+    }
+  '';
+in
+pkgs.stdenv.mkDerivation {
+  pname = "lean-highlighter";
+  version = "0.1.0";
+
+  src = ./.;
+
+  buildInputs = [
+    pkgs.tree-sitter
+    pkgs.python3
+    pkgs.jq
+  ];
+
+  installPhase = ''
+    mkdir -p $out/share/tree-sitter
+    cat > $out/share/tree-sitter/config.json <<EOF
+    ${tree-sitter-config "$out/share/tree-sitter"}
+    EOF
+
+    mkdir -p $out/share/tree-sitter/tree-sitter-lean
+    cp -r ${tree-sitter-lean}/* $out/share/tree-sitter/tree-sitter-lean/
+
+    mkdir -p $out/share/tree-sitter/tree-sitter-lean/queries
+    cp highlights.scm $out/share/tree-sitter/tree-sitter-lean/queries/highlights.scm
+
+    jq '.grammars[0].highlights = "queries/highlights.scm"' "$out/share/tree-sitter/tree-sitter-lean/tree-sitter.json" > "$out/share/tree-sitter/tree-sitter-lean/tree-sitter.json.tmp"
+    mv "$out/share/tree-sitter/tree-sitter-lean/tree-sitter.json.tmp" "$out/share/tree-sitter/tree-sitter-lean/tree-sitter.json"
+
+    mkdir -p $out/bin
+    cp ansi_compress.py $out/bin/ansi_compress.py
+
+    cat > $out/bin/lean-highlight <<EOF
+    #!/usr/bin/env bash
+    if [ "\$#" -lt 1 ]; then
+      echo "Usage: highlight-lean <file>"
+      exit 1
+    fi
+    ${pkgs.tree-sitter}/bin/tree-sitter highlight "\$1" | \
+      ${pkgs.python3}/bin/python3 -u $out/bin/ansi_compress.py
+    EOF
+
+    chmod +x $out/bin/lean-highlight
+  '';
+}

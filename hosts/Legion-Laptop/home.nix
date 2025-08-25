@@ -17,6 +17,7 @@ let
     export PATH=$PATH:${binPath}
     exec ${inputs.steel-helix.packages.${pkgs.system}.default}/bin/hx "$@"
   '';
+  lean-highlighter = (pkgs.callPackage ../../pkgs/lean-highlighter { });
 in
 {
   nixpkgs = {
@@ -30,6 +31,9 @@ in
   home.stateVersion = "23.11"; # Please read the comment before changing.
   programs.home-manager.enable = true;
 
+  home.file.".config/tree-sitter/config.json".source =
+    "${lean-highlighter}/share/tree-sitter/config.json";
+
   home.packages = with pkgs; [
     # Development Essentials
     fish
@@ -37,6 +41,7 @@ in
     starship
     helix
     helix-plugins # Plugins (mainly used for Lean right now)
+    lean-highlighter
     git
     lazygit
     yazi
