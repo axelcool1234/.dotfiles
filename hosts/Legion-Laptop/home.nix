@@ -88,5 +88,8 @@ in
     spicetify-cli
     stremio
     slack
+
+    # TODO: This is here because it fixes wl-copy, making it properly copy to my system clipboard
+    glib
   ];
 }
