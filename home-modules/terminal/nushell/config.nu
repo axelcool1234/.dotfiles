@@ -29,8 +29,15 @@ mkdir ($nu.data-dir | path join "vendor/autoload")
 starship init nu | save -f ($nu.data-dir | path join "vendor/autoload/starship.nu")
 
 # Zoxide Setup 
-zoxide init nushell | save -f ($nu.default-config-dir | path join "zoxide.nu")
-source ($nu.default-config-dir | path join "zoxide.nu")
+# zoxide init nushell | save -f ($nu.default-config-dir | path join "zoxide.nu")
+# source ($nu.default-config-dir | path join "zoxide.nu")
+const ZOXIDE_PATH = ($nu.default-config-dir | path join "zoxide.nu")
+if not ($ZOXIDE_PATH | path exists) {
+    zoxide init nushell | save -f $ZOXIDE_PATH
+}
+const NOZOXIDE = "/dev/null"
+const zoxide_file = (if ($ZOXIDE_PATH | path exists) { $ZOXIDE_PATH } else { $NOZOXIDE })
+source $zoxide_file
 
 # Catpuccin Theme
 source ($nu.default-config-dir | path join "catppuccin_macchiato.nu")
