@@ -63,11 +63,13 @@
             ./nixos-modules
           ];
         };
-        lab = nixpkgs.lib.nixosSystem {
+
+        # Lab config
+        fermi = nixpkgs.lib.nixosSystem {
           inherit system;
           specialArgs = { inherit inputs; };
           modules = [
-            ./hosts/lab/configuration.nix
+            ./hosts/fermi/configuration.nix
             ./nixos-modules
           ];
         };
