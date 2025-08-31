@@ -8,8 +8,8 @@ plugins = [
 ]
 
 [scratchpads.term]
-command = "wezterm start --always-new-process"
-class = "wezterm_dropdown"
+command = "kitty --class kitty_dropdown"
+class = "kitty_dropdown"
 animation = "fromTop"
 unfocus = "hide"
 excludes = "*"

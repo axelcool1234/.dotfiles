@@ -161,7 +161,7 @@
         // "tooltip-format-ethernet":"Interface: {ifname}\nIP: {ipaddr}\nGW: {gwaddr}\nNetmask: {netmask}\nCIDR: {cidr}\n\n<span color='#a6da95'>{bandwidthUpBits}</span>\t<span color='#ee99a0'>{bandwidthDownBits}</span>\t<span color='#c6a0f6'>󰹹{bandwidthTotalBits}</span>",
         "max-length": 35,
         "on-click": "fish -c wifi_toggle",
-        "on-click-right": "wezterm start nmtui",
+        "on-click-right": "kitty nmtui",
     },
 
     "group/misc": {
@@ -335,8 +335,8 @@
             "lower-medium": 30,
             "low": 10,
         },
-        "on-click": "wezterm start btop",
-        "on-click-right": "wezterm start btm",
+        "on-click": "kitty start btop",
+        "on-click-right": "kitty start btm",
     },
     
     "memory": {
@@ -349,8 +349,8 @@
             "lower-medium": 30,
             "low": 10,
         },
-        "on-click": "wezterm start btop",
-        "on-click-right": "wezterm start btm",
+        "on-click": "kitty start btop",
+        "on-click-right": "kitty start btm",
     },
 
     "disk": {
@@ -363,8 +363,8 @@
             "lower-medium": 30,
             "low": 10,
         },
-        "on-click": "wezterm start btop",
-        "on-click-right": "wezterm start btm",
+        "on-click": "kitty start btop",
+        "on-click-right": "kitty start btm",
     },
 
     "temperature": {

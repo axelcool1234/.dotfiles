@@ -3,6 +3,7 @@
   imports = [
     ./hyprland-desktop
     ./terminal/wezterm.nix
+    ./terminal/kitty.nix
     ./terminal/shell.nix
     ./terminal/fish.nix
     ./terminal/nushell.nix
@@ -25,6 +26,7 @@
 
   hyprland.enable = lib.mkDefault true;
   wezterm.enable = lib.mkDefault true;
+  kitty.enable = lib.mkDefault true;
 
   starship.enable = lib.mkDefault true;
   nushell.enable = lib.mkDefault true;

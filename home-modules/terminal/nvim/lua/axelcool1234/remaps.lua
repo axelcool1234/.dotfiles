@@ -1,3 +1,4 @@
+-- TODO: Wezterm is broken, so a lot of binds here that use Wezterm are also broken.
 -- Leader Key
 vim.g.mapleader = " "
 
