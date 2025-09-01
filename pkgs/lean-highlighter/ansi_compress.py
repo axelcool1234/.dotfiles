@@ -52,44 +52,58 @@ def compress_styles(tokens):
             i += 1
     return result
 
-def rebuild(tokens):
-    """Rebuilds string from tokens."""
+def triplets(tokens):
+    merged = []
+    i = 0
+    while i < len(tokens):
+        k0, v0 = tokens[i]
+        if k0 == "text":
+            merged.append((None, v0, None))
+            i += 1
+            continue
+        k1, v1 = tokens[i + 1]
+        k2, v2 = tokens[i + 2]
+        if k0 == "style" and k1 == "text" and k2 == "reset":
+            merged.append((v0, v1, v2))
+            i += 3
+    return merged
+
+def merge_adjacent_triplets(triplets):
+    if not triplets:
+        return []
+
+    merged = [triplets[0]]
+
+    for style, text, reset in triplets[1:]:
+        last_style, last_text, last_reset = merged[-1]
+
+        if style == last_style or style is None or last_style is None:
+            # Pick the non-None style to preserve actual styling
+            new_style = style if style is not None else last_style
+            # Merge text
+            merged[-1] = (new_style, last_text + text, last_reset)
+        else:
+            merged.append((style, text, reset))
+
+    return merged
+
+def rebuild(triplets):
     out = []
-    for kind, val in tokens:
-        if kind == "text":
-            out.append(val)
-        elif kind == "reset":
-            out.append("\x1b[0m")
-        elif kind == "style":
-            if not val.startswith("\x1b["):
-                out.append(f"\x1b[{val}m")
-            else:
-                out.append(val)
+    for style, text, reset in triplets:
+        if style:
+            out.append(style)
+        out.append(text)
+        if reset:
+            out.append(reset)
     return "".join(out)
 
-
 def main():
-    # if len(sys.argv) != 2:
-    #     print(f"Usage: {sys.argv[0]} <file>")
-    #     sys.exit(1)
-
-    # filepath = sys.argv[1]
-
-    # with open(filepath, "r", encoding="utf-8") as f:
-    #     content = f.read()
-
-    # tokens = tokenize(content)
-    # compressed = compress_styles(tokens)
-    # final = rebuild(compressed)
-
-    # with open(filepath, "w", encoding="utf-8") as f:
-    #     f.write(final)
-    # 
-    # 
     content = sys.stdin.read()
     tokens = tokenize(content)
     compressed = compress_styles(tokens)
-    final = rebuild(compressed)
+    triples = triplets(compressed)
+    merged_triples = merge_adjacent_triplets(triples)
+    final = rebuild(merged_triples)
     sys.stdout.write(final)
 
 if __name__ == "__main__":

@@ -38,12 +38,10 @@ let
           "color": "blue"
         },
         "keyword": {
-          "color": "red",
-          "bold": true
+          "color": 35
         },
         "keyword.control": {
-          "color": 35,
-          "bold": true
+          "color": 35
         },
         "module": 30,
         "number": {
@@ -51,8 +49,7 @@ let
           "color": "yellow"
         },
         "operator": {
-          "bold": true,
-          "color": "blue"
+          "color": "white"
         },
         "property": 30,
         "property.builtin": {
@@ -60,20 +57,16 @@ let
           "color": 30
         },
         "punctuation": {
-           "bold": true,
-           "color": 35
+           "color": "white"
         },
         "punctuation.bracket": {
-           "bold": true,
-           "color": 35
+           "color": "white"
         },
         "punctuation.delimiter": {
-           "bold": true,
-           "color": 35
+           "color": "white"
         },
         "punctuation.special": {
-           "bold": true,
-           "color": 35
+           "color": "white"
         },
         "string": "green",
         "string.special": "green",
@@ -83,13 +76,13 @@ let
           "bold": true,
           "color": "cyan"
         },
-        "variable": "white",
+        "variable": "blue",
         "variable.builtin": {
           "bold": true,
-          "color": "white"
+          "color": "blue"
         },
         "variable.parameter": {
-          "color": "white",
+          "color": "blue",
           "underline": true
         }
       }
