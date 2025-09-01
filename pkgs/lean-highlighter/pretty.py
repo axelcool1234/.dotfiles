@@ -17,7 +17,7 @@ LIGATURES = {
     "?!": "⁈",
     "!?": "⁉",
     "·":  "•",
-
+    "*": "∗",
 }
 
 def replace_ligatures(text: str) -> str:
