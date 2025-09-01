@@ -54,6 +54,7 @@ def handle_result(args: list[str], query: str, target_window_id: int, boss: Boss
             "hints",
             "--customize-processing",
             "custom-hints.py",
+            "--",
             query
         ),
     )
