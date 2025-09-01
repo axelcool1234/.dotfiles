@@ -87,6 +87,31 @@ def merge_adjacent_triplets(triplets):
 
     return merged
 
+def split_newlines(triplets):
+    """
+    Split triplets on newlines so that style is preserved and resets
+    happen only at the very end of a segment.
+    """
+    result = []
+    for style, text, reset in triplets:
+        if "\n" not in text:
+            result.append((style, text, reset))
+            continue
+
+        lines = text.split("\n")
+        for i, line in enumerate(lines):
+            # For all lines except the last, the newline IS the reset
+            if i < len(lines) - 1:
+                result.append((style, line, "\n"))
+            else:
+                if line.strip() != "":
+                    # Last segment keeps original reset, as long as there's actual text
+                    result.append((style, line, reset))
+                else:
+                    result.append((None, line, None))
+    return result
+
+
 def rebuild(triplets):
     out = []
     for style, text, reset in triplets:
@@ -103,7 +128,8 @@ def main():
     compressed = compress_styles(tokens)
     triples = triplets(compressed)
     merged_triples = merge_adjacent_triplets(triples)
-    final = rebuild(merged_triples)
+    split_triples = split_newlines(merged_triples)
+    final = rebuild(split_triples)
     sys.stdout.write(final)
 
 if __name__ == "__main__":
