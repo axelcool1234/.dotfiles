@@ -29,12 +29,10 @@ let
         "constructor": 30,
         "embedded": null,
         "function": {
-          "color": "blue",
-          "underline": true
+          "color": "blue"
         },
         "function.builtin": {
           "bold": true,
-          "underline": true,
           "color": "blue"
         },
         "keyword": {
@@ -82,8 +80,7 @@ let
           "color": "blue"
         },
         "variable.parameter": {
-          "color": "blue",
-          "underline": true
+          "color": "blue"
         }
       }
     }
@@ -118,17 +115,29 @@ pkgs.stdenv.mkDerivation {
 
     mkdir -p $out/bin
     cp ansi_compress.py $out/bin/ansi_compress.py
+    cp pretty.py $out/bin/pretty.py
 
     cat > $out/bin/lean-highlight <<EOF
     #!/usr/bin/env bash
     if [ "\$#" -lt 1 ]; then
-      echo "Usage: highlight-lean <file>"
+      echo "Usage: lean-highlight <file>"
       exit 1
     fi
     ${pkgs.tree-sitter}/bin/tree-sitter highlight "\$1" | \
       ${pkgs.python3}/bin/python3 -u $out/bin/ansi_compress.py
     EOF
 
+    cat > $out/bin/lean-pretty <<EOF
+    #!/usr/bin/env bash
+    if [ "\$#" -lt 1 ]; then
+      echo "Usage: lean-pretty <file>"
+      exit 1
+    fi
+    $out/bin/lean-highlight "\$1" | \
+      ${pkgs.python3}/bin/python3 -u $out/bin/pretty.py
+    EOF
+
     chmod +x $out/bin/lean-highlight
+    chmod +x $out/bin/lean-pretty
   '';
 }
