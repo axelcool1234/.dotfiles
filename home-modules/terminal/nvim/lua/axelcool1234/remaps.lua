@@ -323,3 +323,25 @@ vim.api.nvim_create_autocmd("FileType", {
       { buffer = true, desc = "Expand Macro in Rust" })
   end,
 })
+
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "lean",
+  callback = function()
+    vim.keymap.set('n', '<leader>lp', function() vim.cmd('LeanInfoviewPinTogglePause') end,
+      { buffer = true, desc = "Pause Infoview" })
+    vim.keymap.set('n', '<leader><tab>', function() vim.cmd('LeanGotoInfoview') end,
+      { buffer = true, desc = "Goto Infoview" })
+    vim.keymap.set('n', '<leader>dd', function() vim.cmd('LeanPlainDiagnostics') end,
+      { buffer = true, desc = "Open Diagnostic float" })
+    vim.keymap.set('n', '<leader>ll', function() vim.cmd('LeanGoal') end,
+      { buffer = true, desc = "Open Goal Float" })
+    vim.keymap.set('n', '<leader>la', function() vim.cmd('LeanInfoviewAddPin') end,
+      { buffer = true, desc = "Add Pin" })
+    vim.keymap.set('n', '<leader>lc', function() vim.cmd('LeanInfoviewClearPins') end,
+      { buffer = true, desc = "Clear Pins" })
+    vim.keymap.set('n', '<leader>ld', function() vim.cmd('LeanInfoviewToggleAutoDiffPin') end,
+      { buffer = true, desc = "Toggle Auto Diff Pin" })
+    vim.keymap.set('n', '<leader>l\\', function() vim.cmd('LeanAbbreviationsReverseLookup') end,
+      { buffer = true, desc = "Abbreviation Lookup" })
+  end,
+})
