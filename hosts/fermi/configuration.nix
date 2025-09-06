@@ -1,4 +1,4 @@
-{ ... }:
+{ pkgs, ... }:
 {
   imports = [
     # Include the results of the hardware scan.
@@ -9,6 +9,7 @@
     ./firewall.nix
     ./open-ssh.nix
   ];
+  hardware.enableAllFirmware = true;
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
