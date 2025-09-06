@@ -74,13 +74,13 @@ let
           "bold": true,
           "color": "cyan"
         },
-        "variable": "blue",
+        "variable": 38,
         "variable.builtin": {
           "bold": true,
-          "color": "blue"
+          "color": 38
         },
         "variable.parameter": {
-          "color": "blue"
+          "color": 38
         }
       }
     }
