@@ -5,7 +5,7 @@
   lib,
   ...
 }:
-let
+let # TODO: Everything in this `let ... in` block should be placed in seperate locations
   binPath = lib.makeBinPath (
     with pkgs;
     [
@@ -31,45 +31,38 @@ in
   home.stateVersion = "23.11"; # Please read the comment before changing.
   programs.home-manager.enable = true;
 
+  # TODO: Move this somewhere else
   home.file.".config/tree-sitter/config.json".source =
     "${lean-highlighter}/share/tree-sitter/config.json";
 
   home.packages = with pkgs; [
-    # Development Essentials
+    # Shell
     fish
     nushell
     starship
+
+    # Editor
     helix
     helix-plugins # Plugins (mainly used for Lean right now)
-    lean-highlighter
+
+    # Helix integrations
     git
     lazygit
     yazi
     scooter
-    zoxide
-    fd
-    fzf
-    zip
-    unzip
 
-    # Nix LSP
+    # Lang specific (Nix LSP + Lean highlighter)
     nil
     nixpkgs-fmt
-
-    # Hypr LSP
-    hyprls
-
-    # Lua LSP
-    lua-language-server
+    lean-highlighter
 
     # Terminal Utils
-    neofetch
-    bat
-    bat-extras.batman
-    cloc
-    tealdeer
+    zoxide
     ripgrep
+    fd
+    fzf
     nix-prefetch-github
+    neofetch
 
     # Clipboard
     wl-clipboard
@@ -77,10 +70,6 @@ in
     clipboard-jh
 
     # Gui/Programs
-    # (discord.override {
-    # 	withVencord = true;
-    #   # withOpenASAR = true;
-    # })
     vesktop
     spicetify-cli
     stremio
