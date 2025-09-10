@@ -36,6 +36,7 @@
             mold # Faster linker
             clang-tools # LSP
             clang
+            alive2
           ];
           # where to find libgcc
           NIX_LDFLAGS = "-L${gccForLibs}/lib/gcc/${targetPlatform.config}/${gccForLibs.version}";
@@ -67,7 +68,7 @@
                 # this makes llvm only to produce code for the current platform, this saves CPU time, change it to what you need
                 "-DLLVM_TARGETS_TO_BUILD=host;RISCV;AArch64;X86"
                 # Projects to build
-                "-DLLVM_ENABLE_PROJECTS=llvm;mlir"
+                "-DLLVM_ENABLE_PROJECTS=llvm"
                 # Faster linker
                 "-DLLVM_USE_LINKER=mold"
                 # Dynamic Linking
