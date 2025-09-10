@@ -49,13 +49,25 @@
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
+
+      # Home Manager configuaration
+      mkHome =
+        username: host:
+        home-manager.lib.homeManagerConfiguration {
+          inherit pkgs;
+          extraSpecialArgs = { inherit inputs username host; };
+          modules = [
+            ./hosts/Legion-Laptop/home.nix
+            ./home-modules
+          ];
+        };
     in
     {
 
       # List of system configurations
       nixosConfigurations = {
-        # Default config
-        default = nixpkgs.lib.nixosSystem {
+        # Lenovo Legion config
+        legion = nixpkgs.lib.nixosSystem {
           inherit system;
           specialArgs = { inherit inputs; };
           modules = [
@@ -78,14 +90,8 @@
       # List of user configurations
       homeConfigurations = {
         # Main user
-        axelcool1234 = home-manager.lib.homeManagerConfiguration {
-          inherit pkgs;
-          extraSpecialArgs = { inherit inputs; };
-          modules = [
-            ./hosts/Legion-Laptop/home.nix
-            ./home-modules
-          ];
-        };
+        "axelcool1234@fermi" = mkHome "axelcool1234" "fermi";
+        "axelcool1234@legion" = mkHome "axelcool1234" "legion";
       };
     };
 }

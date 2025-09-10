@@ -2,6 +2,7 @@
   pkgs,
   lib,
   config,
+  host,
   ...
 }:
 {
@@ -86,7 +87,7 @@
             show-special = true;
             persistent-workspaces =
               # TODO: Doesn't work because it's pure so it can't see HOSTNAME!
-              if builtins.getEnv "HOSTNAME" == "fermi" then
+              if host == "fermi" then
                 {
                   DP-4 = [
                     1

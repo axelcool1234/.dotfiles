@@ -29,11 +29,12 @@ Nix refers to the holy trinity: An operating system, a programming language, and
 
 # Update Commands
 - nix flake update
-- sudo nixos-rebuild switch --flake .#default
-- home-manager switch --flake .#axelcool1234
+- sudo nixos-rebuild switch --flake .#hostname
+- home-manager switch --flake .
+  - This will by default check for `$USER@$(hostname)` then `$USER`.
 
 # Rollback Command
-- sudo nixos-rebuild switch --flake .#default --rollback
+- sudo nixos-rebuild switch --flake .#hostname --rollback
 
 # Delete Generations
 https://discourse.nixos.org/t/why-doesnt-nix-collect-garbage-remove-old-generations-from-efi-menu/17592/2
@@ -58,15 +59,15 @@ Firstly... DON'T PANIC! This will be an easy transition - even if we only have t
 7. Execute `cp /etc/nixos/hardware-configuration.nix .dotfiles/hosts/Legion-Laptop/hardware-configuration.nix`
 7. Execute `cd .dotfiles`
 8. Execute `nix flake update` (you may need to temporarily enable experimental features for the command)
-9. Execute `sudo nixos-rebuild switch --flake .#default`
-10. Execute `home-manager switch --flake .#axelcool1234`
+9. Execute `sudo nixos-rebuild switch --flake .#hostname`
+10. Execute `home-manager switch --flake .`
 
 ## Mismatched Hash
 If home-manager fails to install due to a mismatch in a hash, that means we need to update that hash. If you don't know where the mismatched hash is, I recommend:
 1. Execute `nix-shell -p ripgrep`
 2. Execute `rg` and then part of the name of the derivation with the mismatched hash. You should be able to find where it's located. 
 3. Change the `sha256` of the derivation with the `sha256` the home-manager error outputted.
-4. Try to execute `home-manager switch --flake .#axelcool1234` again.
+4. Try to execute `home-manager switch --flake .` again.
 
 Once this is all done, we can execute `reboot` and get into our system. It should be just as how you remembered it! Remember to commit and push these .dotfiles,
 since you called `nix flake update`! You may need to do the post-setup steps to be able to properly commit and push these changes.
@@ -91,7 +92,7 @@ Has your bootloader been wiped? Try this:
 3. Execute `sudo mount /dev/[linux boot partition] /mnt/boot`
 4. `cd` to `/mnt`
 5. Execute `cd /home/axelcool1234/.dotfiles`
-6. Execute `sudo nixos-install --flake .#default`
+6. Execute `sudo nixos-install --flake .#hostname`
 
 Your bootloader should've been reinstalled. Now, when you reboot, GRUB (or whatever bootloader being used at the time) should start up.
 Make sure to execute `nixos-switch` once you've booted into NixOS so that GRUB can be reconfigured.
