@@ -42,7 +42,7 @@ in
     starship
 
     # Editor
-    helix
+    inputs.jump-helix.packages.${pkgs.system}.default
     helix-plugins # Plugins (mainly used for Lean right now)
 
     # Helix integrations

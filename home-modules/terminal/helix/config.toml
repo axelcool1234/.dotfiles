@@ -11,6 +11,10 @@ line-number = "relative"
 popup-border = "all"
 shell = ["nu", "-c"]
 idle-timeout = 0
+end-of-line-diagnostics = "disable"
+
+[editor.inline-diagnostics]
+cursor-line = "disable"
 
 [editor.lsp]
 display-messages = true

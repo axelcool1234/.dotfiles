@@ -441,6 +441,28 @@
         "type": "github"
       }
     },
+    "jump-helix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "rust-overlay": "rust-overlay"
+      },
+      "locked": {
+        "lastModified": 1757547431,
+        "narHash": "sha256-zC2ypfaQM1mLZIsOK3GsMCZ4HOzKL+cJvAAc4d7uZFI=",
+        "owner": "axelcool1234",
+        "repo": "helix",
+        "rev": "7f295d7569ba4b4f267789b609512c8ae3c265a7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "axelcool1234",
+        "ref": "my-jump",
+        "repo": "helix",
+        "type": "github"
+      }
+    },
     "libpng": {
       "flake": false,
       "locked": {
@@ -549,6 +571,7 @@
       "inputs": {
         "home-manager": "home-manager",
         "hyprland": "hyprland",
+        "jump-helix": "jump-helix",
         "nixpkgs": "nixpkgs_2",
         "nixpkgs-25-05": "nixpkgs-25-05",
         "spicetify-nix": "spicetify-nix",
@@ -558,6 +581,27 @@
       }
     },
     "rust-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "jump-helix",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1740623427,
+        "narHash": "sha256-3SdPQrZoa4odlScFDUHd4CUPQ/R1gtH4Mq9u8CBiK8M=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "d342e8b5fd88421ff982f383c853f0fc78a847ab",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "rust-overlay_2": {
       "inputs": {
         "nixpkgs": [
           "steel-helix",
@@ -578,7 +622,7 @@
         "type": "github"
       }
     },
-    "rust-overlay_2": {
+    "rust-overlay_3": {
       "inputs": {
         "nixpkgs": [
           "wezterm",
@@ -649,7 +693,7 @@
         "nixpkgs": [
           "nixpkgs"
         ],
-        "rust-overlay": "rust-overlay"
+        "rust-overlay": "rust-overlay_2"
       },
       "locked": {
         "lastModified": 1756082573,
@@ -754,7 +798,7 @@
         "harfbuzz": "harfbuzz",
         "libpng": "libpng",
         "nixpkgs": "nixpkgs_3",
-        "rust-overlay": "rust-overlay_2",
+        "rust-overlay": "rust-overlay_3",
         "zlib": "zlib"
       },
       "locked": {

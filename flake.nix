@@ -36,6 +36,12 @@
       url = "github:mattwparas/steel";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Helix with modified jump motion
+    jump-helix = {
+      url = "github:axelcool1234/helix/my-jump";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
