@@ -126,6 +126,22 @@
 
           ninja install
         '';
+        setup = pkgs.writeShellScriptBin "setup" ''
+          #!/usr/bin/env bash
+          mkdir -p mlir-fuzz/build && cd mlir-fuzz/build
+          export CMAKE_GENERATOR=Ninja
+          cmake -G Ninja ../ -DCMAKE_BUILD_TYPE=Release \
+                             -DCMAKE_EXPORT_COMPILE_COMMANDS=1 \
+                             -DMLIR_DIR=$(pwd)/../llvm-project/build/lib/cmake/mlir
+        '';
+        build = pkgs.writeShellScriptBin "build" ''
+          #!/usr/bin/env bash
+          cd mlir-fuzz/build
+          ninja mlir-enumerate
+          ninja superoptimizer
+          ninja check-subpattern
+          ninja remove-redundant-patterns
+        '';
       in
       {
         # Package a virtual environment as our main application.
@@ -147,6 +163,8 @@
               pkgs.cmake # CMake for build configuration
               pkgs.ninja # Ninja build system for faster builds
               build-llvm
+              setup
+              build
             ];
             env = {
               # Prevent uv from managing Python downloads
@@ -232,6 +250,8 @@
                 pkgs.cmake # CMake for build configuration
                 pkgs.ninja # Ninja build system for faster builds
                 build-llvm
+                setup
+                build
               ];
 
               env = {
