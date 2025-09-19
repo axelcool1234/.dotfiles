@@ -159,6 +159,7 @@
             packages = [
               virtualenv
               pkgs.uv
+              pkgs.basedpyright
 
               pkgs.cmake # CMake for build configuration
               pkgs.ninja # Ninja build system for faster builds
@@ -246,6 +247,7 @@
               packages = [
                 virtualenv
                 pkgs.uv
+                pkgs.basedpyright
 
                 pkgs.cmake # CMake for build configuration
                 pkgs.ninja # Ninja build system for faster builds
@@ -268,12 +270,17 @@
               };
 
               shellHook = ''
-                # Undo dependency propagation by nixpkgs.
+                    # Undo dependency propagation by nixpkgs.
                 unset PYTHONPATH
 
                 # Get repository root using git. This is expanded at runtime by the editable `.pth` machinery.
                 export REPO_ROOT=$(git rev-parse --show-toplevel)
+
+                export PATH=$PWD/mlir-fuzz/llvm-project/clang/tools/clang-format:$PATH
+                export PATH=$PWD/mlir-fuzz/llvm-project/build:$PATH
+                export PATH=$PWD/mlir-fuzz/llvm-project/build/bin:$PATH
               '';
+
             };
         };
       }
