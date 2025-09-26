@@ -19,4 +19,3 @@ envs/haskell/random/*
 envs/ocaml/_build/*
 envs/ocaml/dune*
 envs/ocaml/*.ml
-envs/llvm/*
