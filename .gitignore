@@ -6,13 +6,8 @@ debug
 foo.*
 *.log
 data
-envs/rust/Cargo.*
-envs/rust/.cargo
 envs/*/src/
 envs/*/target/
 envs/*/build/
 envs/*/tmp/
 envs/*/.cache/
-envs/ocaml/_build/*
-envs/ocaml/dune*
-envs/ocaml/*.ml
