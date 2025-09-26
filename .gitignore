@@ -8,14 +8,11 @@ foo.*
 data
 envs/rust/Cargo.*
 envs/rust/.cargo
-envs/haskell/.curry
 envs/*/src/
 envs/*/target/
 envs/*/build/
 envs/*/tmp/
 envs/*/.cache/
-envs/haskell/*.curry
-envs/haskell/random/*
 envs/ocaml/_build/*
 envs/ocaml/dune*
 envs/ocaml/*.ml
