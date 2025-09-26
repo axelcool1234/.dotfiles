@@ -1,3 +1,6 @@
 [submodule "envs/qmk_firmware"]
 	path = envs/qmk_firmware
 	url = https://github.com/axelcool1234/qmk_firmware
+[submodule "envs/llvm/llvm-project"]
+	path = envs/llvm/llvm-project
+	url = https://github.com/axelcool1234/llvm-project
