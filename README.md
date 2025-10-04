@@ -114,3 +114,5 @@ For more information, I learned how to do this from this [discussion](https://ww
   - Search for ALL versions of a Nix package and the revision you can download it from
 - https://noogle.dev/
   - Search the NixLang library
+- https://discourse.nixos.org/t/start-a-nix-shell-from-unstable-channel/36227
+  - Information about using nix-shell with the unstable channel. I need to figure out how to make this easier to deal with.
