@@ -6,7 +6,3 @@
 	path = envs/llvm/llvm-project
 	url = https://github.com/axelcool1234/llvm-project
 	branch = main
-[submodule "envs/minecraft/server"]
-	path = envs/minecraft/server
-	url = git@github.com:axelcool1234/E2E-E-Server.git
-	branch = main
