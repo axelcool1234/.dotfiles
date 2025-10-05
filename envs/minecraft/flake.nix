@@ -28,27 +28,25 @@
 
           CLEANROOM_VERSION="0.3.17-alpha"
           CLEANROOM_INSTALLER_JAR="cleanroom-''${CLEANROOM_VERSION}-installer.jar"
-          CLEANROOM_INSTALLER_URL="https://github.com/CleanroomMC/Cleanroom/releases/download/v''${CLEANROOM_VERSION}/''${CLEANROOM_INSTALLER_JAR}"
+          CLEANROOM_INSTALLER_URL="https://github.com/CleanroomMC/Cleanroom/releases/download/''${CLEANROOM_VERSION}/''${CLEANROOM_INSTALLER_JAR}"
           CLEANROOM_SERVER_JAR="cleanroom-''${CLEANROOM_VERSION}.jar"
 
-          JAVA8_BIN="${pkgs.jdk8}/bin/java"  # adjust this for your system
-          JAVA25_BIN="${pkgs.jdk25}/bin/java" # adjust this for your system
           RAMDISK_SIZE="2G"
 
           # === Helper functions ===
           run_serverstarter() {
             echo "[INFO] Running ServerStarter for initial setup..."
-            "$JAVA8_BIN" -jar "$SERVERSTARTER_JAR"
+            PATH="${pkgs.jdk8}/bin:$PATH" java -jar "$SERVERSTARTER_JAR"
           }
 
           run_cleanroom_installer() {
             echo "[INFO] Running Cleanroom installer..."
-            "$JAVA25_BIN" -jar "$CLEANROOM_INSTALLER_JAR" --installServer
+            PATH="${pkgs.jdk8}/bin:$PATH" java -jar "$CLEANROOM_INSTALLER_JAR" --installServer
           }
 
           run_cleanroom_server() {
             echo "[INFO] Starting Cleanroom server..."
-            "$JAVA25_BIN" -jar "$CLEANROOM_SERVER_JAR"
+            PATH="${pkgs.jdk25}/bin:$PATH" java -jar "$CLEANROOM_SERVER_JAR"
           }
 
           setup_ramdisk() {
