@@ -31,6 +31,8 @@
           CLEANROOM_INSTALLER_URL="https://github.com/CleanroomMC/Cleanroom/releases/download/''${CLEANROOM_VERSION}/''${CLEANROOM_INSTALLER_JAR}"
           CLEANROOM_SERVER_JAR="cleanroom-''${CLEANROOM_VERSION}.jar"
 
+          SERVER_DIRECTORY="server"
+
           RAMDISK_SIZE="2G"
 
           # === Helper functions ===
@@ -74,6 +76,9 @@
           }
 
           # === Main logic ===
+          # Step 0: Move to the server directory
+          cd $SERVER_DIRECTORY
+
           # Step 1: ensure ServerStarter jar exists
           if [[ ! -f "$SERVERSTARTER_JAR" ]]; then
             echo "[INFO] Downloading ServerStarter..."
