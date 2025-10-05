@@ -123,22 +123,57 @@
           # Step 4: teardown RAM disk if used
           teardown_ramdisk "$SAVE_DIR"
         '';
+
+        # BUG: Running prismlauncher from nixpkgs leads to an incompatible QT error.
+        # For now, use prismlauncher attained from `nix-shell -p prismlauncher`
+        prismLauncher = pkgs.writeShellScriptBin "launch-prism" ''
+          #!/usr/bin/env bash
+          # exec ${pkgs.prismlauncher}/bin/prismlauncher "$@"
+          exec prismlauncher "$@"
+        '';
+
+        serverPkgs = [
+          pkgs.jdk25
+          pkgs.jdk8
+          pkgs.wget
+          pkgs.curl
+          pkgs.gawk
+        ];
+
+        # BUG: Running prismlauncher from nixpkgs leads to an incompatible QT error.
+        # For now, use prismlauncher attained from `nix-shell -p prismlauncher`
+        prismPkgs = [
+          pkgs.jdk25
+        ];
+
       in
       {
-        devShells.default = pkgs.mkShell {
-          packages = [
-            pkgs.jdk25
-            pkgs.jdk8
-            pkgs.wget
-            pkgs.curl
-            pkgs.gawk
+        devShells = {
+          server = pkgs.mkShell { packages = serverPkgs; };
 
-            pkgs.prismlauncher
-          ];
+          prism = pkgs.mkShell { packages = prismPkgs; };
+          default = pkgs.mkShell { packages = prismPkgs; };
         };
-        # Expose script as a standalone flake app
-        packages.default = startServer;
-        apps.default = flake-utils.lib.mkApp { drv = startServer; };
+
+        packages = {
+          server = pkgs.buildEnv {
+            name = "start-server";
+            paths = serverPkgs ++ [ startServer ];
+          };
+          default = self.packages.${system}.server;
+
+          prism = pkgs.buildEnv {
+            name = "launch-prism";
+            paths = prismPkgs ++ [ prismLauncher ];
+          };
+        };
+
+        apps = {
+          server = flake-utils.lib.mkApp { drv = self.packages.${system}.server; };
+          default = flake-utils.lib.mkApp { drv = self.packages.${system}.server; };
+
+          prism = flake-utils.lib.mkApp { drv = self.packages.${system}.prism; };
+        };
       }
     );
 }
