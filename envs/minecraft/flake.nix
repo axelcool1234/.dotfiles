@@ -132,6 +132,8 @@
             pkgs.wget
             pkgs.curl
             pkgs.gawk
+
+            pkgs.prismlauncher
           ];
         };
         # Expose script as a standalone flake app
