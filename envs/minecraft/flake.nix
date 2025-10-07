@@ -1,6 +1,6 @@
 {
   # Command to run a client and the server in one (nushell):
-  # job spawn { nix develop --command nix-shell -p prismlauncher --command "prismlauncher --launch \"Enigmatica 2- Expert - Extended\"" }; job spawn { nix run .#server; }
+  # job spawn { nix develop --command nix-shell -p prismlauncher --command "prismlauncher --launch \"Enigmatica 2- Expert - Extended\"" }; nix run .#server
   description = "Minecraft E2E-E Server";
 
   inputs = {
