@@ -1,4 +1,6 @@
 {
+  # Command to run a client and the server in one (nushell):
+  # job spawn { nix develop --command nix-shell -p prismlauncher --command "prismlauncher --launch \"Enigmatica 2- Expert - Extended\"" }; job spawn { nix run .#server; }
   description = "Minecraft E2E-E Server";
 
   inputs = {
@@ -82,27 +84,13 @@
           # Step 1: ensure ServerStarter jar exists
           if [[ ! -f "$SERVERSTARTER_JAR" ]]; then
             echo "[INFO] Downloading ServerStarter..."
-            if command -v wget >/dev/null; then
-              wget -O "$SERVERSTARTER_JAR" "$SERVERSTARTER_URL"
-            elif command -v curl >/dev/null; then
-              curl -L -o "$SERVERSTARTER_JAR" "$SERVERSTARTER_URL"
-            else
-              echo "[ERROR] Please install wget or curl." >&2
-              exit 1
-            fi
+            ${pkgs.wget}/bin/wget -O "$SERVERSTARTER_JAR" "$SERVERSTARTER_URL" 
           fi
 
           # Step 1.5: ensure Cleanroom installer jar exists
           if [[ ! -f "$CLEANROOM_INSTALLER_JAR" ]]; then
             echo "[INFO] Downloading Cleanroom installer..."
-            if command -v wget >/dev/null; then
-              wget -O "$CLEANROOM_INSTALLER_JAR" "$CLEANROOM_INSTALLER_URL"
-            elif command -v curl >/dev/null; then
-              curl -L -o "$CLEANROOM_INSTALLER_JAR" "$CLEANROOM_INSTALLER_URL"
-            else
-              echo "[ERROR] Please install wget or curl." >&2
-              exit 1
-            fi
+            ${pkgs.wget}/bin/wget -O "$CLEANROOM_INSTALLER_JAR" "$CLEANROOM_INSTALLER_URL"
           fi
 
           # Step 2: setup optional RAM disk
@@ -132,13 +120,7 @@
           exec prismlauncher "$@"
         '';
 
-        serverPkgs = [
-          pkgs.jdk25
-          pkgs.jdk8
-          pkgs.wget
-          pkgs.curl
-          pkgs.gawk
-        ];
+        serverPkgs = [ ];
 
         # BUG: Running prismlauncher from nixpkgs leads to an incompatible QT error.
         # For now, use prismlauncher attained from `nix-shell -p prismlauncher`
