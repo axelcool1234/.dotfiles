@@ -142,6 +142,7 @@
 
         # BUG: Running prismlauncher from nixpkgs leads to an incompatible QT error.
         # For now, use prismlauncher attained from `nix-shell -p prismlauncher`
+        # INFO: nix-shell -p prismlauncher --command prismlauncher --launch "Enigmatica 2- Expert - Extended"
         prismPkgs = [
           pkgs.jdk25
         ];
