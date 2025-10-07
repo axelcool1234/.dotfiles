@@ -1,6 +1,9 @@
 {
-  # Command to run a client and the server in one (nushell):
+  # Client + Server Command:
   # job spawn { nix develop --command nix-shell -p prismlauncher --command "prismlauncher --launch \"Enigmatica 2- Expert - Extended\"" }; sleep 5sec; nix run .#server
+  #
+  # Tailscale command (while in the envs/minecraft directory and after running nix develop .#server):
+  # tailscaled --tun=userspace-networking --state=./tailscaled.state --socket=./tailscaled.sock & tailscale --socket=./tailscaled.sock up
   description = "Minecraft E2E-E Server";
 
   inputs = {
@@ -120,7 +123,9 @@
           exec prismlauncher "$@"
         '';
 
-        serverPkgs = [ ];
+        serverPkgs = [
+          pkgs.tailscale
+        ];
 
         # BUG: Running prismlauncher from nixpkgs leads to an incompatible QT error.
         # For now, use prismlauncher attained from `nix-shell -p prismlauncher`
@@ -135,7 +140,7 @@
           server = pkgs.mkShell { packages = serverPkgs; };
 
           prism = pkgs.mkShell { packages = prismPkgs; };
-          default = pkgs.mkShell { packages = prismPkgs; };
+          default = pkgs.mkShell { packages = prismPkgs ++ serverPkgs; };
         };
 
         packages = {
