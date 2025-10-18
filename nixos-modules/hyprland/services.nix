@@ -62,7 +62,7 @@
       playerctl # Audio Control
       waybar # Bar
       dunst # Notification
-      rofi-wayland # Launcher
+      rofi # Launcher
       avizo # OSD (on-screen display) aka notification daemon
       xfce.thunar # File Manager
       mpv # Media Player

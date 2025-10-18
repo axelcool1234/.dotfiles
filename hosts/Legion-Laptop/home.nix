@@ -72,7 +72,7 @@ in
     # Gui/Programs
     vesktop
     spicetify-cli
-    stremio
+    # stremio # ERROR: Uses qtwebengine version that has dozens of CVEs, disabled for now
     slack
 
     # TODO: This is here because it fixes wl-copy, making it properly copy to my system clipboard
