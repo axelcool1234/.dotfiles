@@ -19,7 +19,7 @@
     ./terminal/git.nix
     ./terminal/lazygit.nix
     ./programs/firefox.nix
-    ./programs/vencord.nix
+    ./programs/nixcord.nix
     ./programs/spicetify.nix
     ./programs/zathura.nix
   ];
@@ -47,6 +47,6 @@
   zathura.enable = lib.mkDefault true;
 
   firefox.enable = lib.mkDefault true;
-  vencord.enable = lib.mkDefault true;
+  nixcord.enable = lib.mkDefault true;
   spicetify.enable = lib.mkDefault true;
 }

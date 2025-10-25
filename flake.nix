@@ -19,10 +19,13 @@
     # NEW PROBLEM: https://github.com/wezterm/wezterm/issues/7150
     wezterm.url = "github:wez/wezterm?dir=nix";
 
-    # New Fork:
     spicetify-nix = {
       url = "github:Gerg-L/spicetify-nix";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    nixcord = {
+      url = "github:kaylorben/nixcord";
     };
 
     # Helix with Steel plugins

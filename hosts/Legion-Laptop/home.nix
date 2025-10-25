@@ -70,7 +70,6 @@ in
     clipboard-jh
 
     # Gui/Programs
-    vesktop
     spicetify-cli
     stremio
     slack
