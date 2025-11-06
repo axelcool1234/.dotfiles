@@ -69,29 +69,7 @@ C-r = [
 
 # Remaps
 x = "extend_line" # Now extends based off where head is 
-A-W = "move_next_sub_word_start"
-A-B = "move_prev_sub_word_start"
-A-E = "move_next_sub_word_end" 
-
-C-w = "extend_next_word_start"
-C-b = "extend_prev_word_start"
-C-e = "extend_next_word_end"
-
-C-W = "extend_next_long_word_start"
-C-B = "extend_prev_long_word_start"
-C-E = "extend_next_long_word_end"
 
 [keys.select]
 # Remaps
 x = "extend_line" # Now extends based off where head is 
-A-W = "move_next_sub_word_start"
-A-B = "move_prev_sub_word_start"
-A-E = "move_next_sub_word_end"
-
-C-w = "extend_next_word_start"
-C-b = "extend_prev_word_start"
-C-e = "extend_next_word_end"
-
-C-W = "extend_next_long_word_start"
-C-B = "extend_prev_long_word_start"
-C-E = "extend_next_long_word_end"
