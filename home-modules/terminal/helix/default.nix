@@ -17,7 +17,7 @@ in
   config = mkIf program-module.enable {
     programs.${program} = {
       enable = true;
-      package = inputs.jump-helix.packages.${pkgs.system}.default;
+      package = inputs.modded-helix.packages.${pkgs.system}.default;
     };
     xdg.configFile.${program}.source = ./.;
   };

@@ -32,9 +32,9 @@
       url = "github:kaylorben/nixcord";
     };
 
-    # Helix with modified jump motion
-    jump-helix = {
-      url = "github:axelcool1234/helix/my-jump";
+    # Modded Helix
+    modded-helix = {
+      url = "github:axelcool1234/helix/modded";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

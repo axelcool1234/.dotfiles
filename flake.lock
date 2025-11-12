@@ -385,7 +385,7 @@
         "type": "github"
       }
     },
-    "jump-helix": {
+    "modded-helix": {
       "inputs": {
         "nixpkgs": [
           "nixpkgs"
@@ -393,16 +393,16 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1757547431,
-        "narHash": "sha256-zC2ypfaQM1mLZIsOK3GsMCZ4HOzKL+cJvAAc4d7uZFI=",
+        "lastModified": 1762980503,
+        "narHash": "sha256-jNvCikxvBGomaKmqIDu/7vuKxPdku6gOLdjAweJKyKw=",
         "owner": "axelcool1234",
         "repo": "helix",
-        "rev": "7f295d7569ba4b4f267789b609512c8ae3c265a7",
+        "rev": "bbb32c8ed45d55f9bb8ec8d1db358d677372ea3c",
         "type": "github"
       },
       "original": {
         "owner": "axelcool1234",
-        "ref": "my-jump",
+        "ref": "modded",
         "repo": "helix",
         "type": "github"
       }
@@ -533,7 +533,7 @@
       "inputs": {
         "home-manager": "home-manager",
         "hyprland": "hyprland",
-        "jump-helix": "jump-helix",
+        "modded-helix": "modded-helix",
         "nixcord": "nixcord",
         "nixpkgs": "nixpkgs_3",
         "nixpkgs-25-05": "nixpkgs-25-05",
@@ -543,16 +543,16 @@
     "rust-overlay": {
       "inputs": {
         "nixpkgs": [
-          "jump-helix",
+          "modded-helix",
           "nixpkgs"
         ]
       },
       "locked": {
-        "lastModified": 1740623427,
-        "narHash": "sha256-3SdPQrZoa4odlScFDUHd4CUPQ/R1gtH4Mq9u8CBiK8M=",
+        "lastModified": 1759631821,
+        "narHash": "sha256-V8A1L0FaU/aSXZ1QNJScxC12uP4hANeRBgI4YdhHeRM=",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "d342e8b5fd88421ff982f383c853f0fc78a847ab",
+        "rev": "1d7cbdaad90f8a5255a89a6eddd8af24dc89cafe",
         "type": "github"
       },
       "original": {

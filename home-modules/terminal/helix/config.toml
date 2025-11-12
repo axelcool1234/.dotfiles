@@ -34,7 +34,6 @@ newline = "all"
 [keys]
 [keys.insert]
 "C-space" = "completion"
-"C-o" = "normal_mode"
 
 [keys.normal]
 # Buffer binds
@@ -42,6 +41,7 @@ H = "goto_previous_buffer" # Move to left buffer
 L = "goto_next_buffer"     # Move to right buffer
 g.q = ":bc"  # Close buffer
 g.Q = ":bc!" # Close buffer with unsaved changed 
+g.w = "goto_word_flash" # Better jump motion
 
 # Lazygit integration
 C-g = [
@@ -73,3 +73,4 @@ x = "extend_line" # Now extends based off where head is
 [keys.select]
 # Remaps
 x = "extend_line" # Now extends based off where head is 
+g.w = "extend_to_word_flash" # Better jump motion
