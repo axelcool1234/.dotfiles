@@ -51,6 +51,7 @@
     ripgrep
     fd
     fzf
+    neofetch
 
     # Gui/Programs
     stremio
