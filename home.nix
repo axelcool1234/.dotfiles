@@ -16,7 +16,7 @@
 
   home.username = "axelcool1234";
   home.homeDirectory = "/home/axelcool1234";
-  home.stateVersion = "25.05"; # Please read the comment before changing.
+  home.stateVersion = "23.11"; # Please read https://home-manager-options.extranix.com/?query=home.stateVersion before changing.
   programs.home-manager.enable = true;
 
   home.packages = with pkgs; [

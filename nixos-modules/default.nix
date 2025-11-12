@@ -13,6 +13,7 @@
     ./printing.nix # no need for .enable option
     ./time.nix # no need for .enable option
     ./bluetooth.nix # no need for .enable option
+    ./networking.nix # no need for .enable option
     ./nix-settings.nix # no need for .enable option
     ./fonts.nix # no need for .enable option
   ];

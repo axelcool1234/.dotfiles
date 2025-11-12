@@ -3,12 +3,17 @@
   description = "Flake Config";
 
   inputs = {
+    # NixOS
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     nixpkgs-25-05.url = "github:NixOS/nixpkgs/nixos-25.05";
+
+    # Home-manager
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # Hyprland
     # See: https://github.com/hyprwm/Hyprland/issues/5891
     hyprland = {
       type = "git";
@@ -43,51 +48,41 @@
       ...
     }@inputs:
     let
-      system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
-
-      # Home Manager configuaration
-      mkHome =
-        username: host:
-        home-manager.lib.homeManagerConfiguration {
-          inherit pkgs;
-          extraSpecialArgs = { inherit inputs username host; };
+      # NixOS Configuration
+      mkSystem =
+        pkgs: system: username: hostname:
+        pkgs.lib.nixosSystem {
+          system = system;
+          specialArgs = { inherit inputs username hostname; };
           modules = [
-            ./hosts/Legion-Laptop/home.nix
+            { networking.hostName = hostname; }
+            ./hosts/${hostname}/configuration.nix
+            ./nixos-modules
+          ];
+        };
+
+      # Home Manager Configuaration
+      mkHome =
+        pkgs: system: username: hostname:
+        home-manager.lib.homeManagerConfiguration {
+          pkgs = pkgs.legacyPackages.${system};
+          extraSpecialArgs = { inherit inputs username hostname; };
+          modules = [
+            ./home.nix
             ./home-modules
           ];
         };
     in
     {
-
-      # List of system configurations
       nixosConfigurations = {
-        # Lenovo Legion config
-        legion = nixpkgs.lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs; };
-          modules = [
-            ./hosts/Legion-Laptop/configuration.nix
-            ./nixos-modules
-          ];
-        };
-
-        # Lab config
-        fermi = nixpkgs.lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs; };
-          modules = [
-            ./hosts/fermi/configuration.nix
-            ./nixos-modules
-          ];
-        };
+        #                    pkgs         Architecture     Username    Hostname
+        legion = mkSystem inputs.nixpkgs "x86_64-linux" "axelcool1234" "legion";
+        fermi = mkSystem inputs.nixpkgs "x86_64-linux" "axelcool1234" "fermi";
       };
-
-      # List of user configurations
       homeConfigurations = {
-        # Main user
-        "axelcool1234@fermi" = mkHome "axelcool1234" "fermi";
-        "axelcool1234@legion" = mkHome "axelcool1234" "legion";
+        #                                 pkgs         Architecture     Username    Hostname
+        "axelcool1234@legion" = mkHome inputs.nixpkgs "x86_64-linux" "axelcool1234" "legion";
+        "axelcool1234@fermi" = mkHome inputs.nixpkgs "x86_64-linux" "axelcool1234" "fermi";
       };
     };
 }

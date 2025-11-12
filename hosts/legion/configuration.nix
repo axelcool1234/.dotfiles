@@ -6,7 +6,6 @@
     ./drivers.nix
 
     # Non-hardware stuff
-    ./networking.nix
     ./firewall.nix
   ];
 

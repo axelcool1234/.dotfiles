@@ -2,7 +2,7 @@
   pkgs,
   lib,
   config,
-  host,
+  hostname,
   ...
 }:
 {
@@ -87,7 +87,7 @@
             show-special = true;
             persistent-workspaces =
               # TODO: Doesn't work because it's pure so it can't see HOSTNAME!
-              if host == "fermi" then
+              if hostname == "fermi" then
                 {
                   DP-4 = [
                     1

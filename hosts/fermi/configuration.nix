@@ -5,7 +5,6 @@
     ./hardware-configuration.nix
 
     # Non-hardware stuff
-    ./networking.nix
     ./firewall.nix
     ./open-ssh.nix
   ];
