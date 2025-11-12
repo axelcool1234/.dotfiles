@@ -124,13 +124,12 @@ For more information, I learned how to do this from this [discussion](https://ww
 - Update Helix fork to use the proposed flash.nvim PR that was rejected
 - Update Helix fork to use surround motion extension and fixes
 - Remove custom jump motion written as a kitten in Kitty
-- There are some home packages I do not need anymore, remove them
 - Add a section in README.md that shows off what editor, desktop, etc. I use
 - Figure out why nixcord is not enabling my plugins
 - Figure out the absolute mess that is my custom options in my default.nix files
-- Remove customization for CLI and programs I don't use anymore
+  - This is resolved for home-manager, not nixos
 - Clean up hyprland/services.nix 
-- Explore Kitty (and kittnes) a bit more
+- Explore Kitty (and kittens) a bit more
   - Specifically I'd like to have a motion that yanks file paths and urls
   - I'd also like to move around Kitty in a nvim mode of some sort, much like Tmux allows
 - Explore Yazi and Scooter more so I don't end up neglecting nice uses for them
@@ -139,8 +138,8 @@ For more information, I learned how to do this from this [discussion](https://ww
 - Alternatives to nmtui?
 - Migrate all fish scripts to bash or nu scripts so I can remove Fish from home.nix
 - Switch from neofetch to fastfetch
-- Figure out if the clipboard CLI packages listed in home.nix even need to be there (I think Hyprland services enable them already)
 - Set up Nix Impermanence (check out the alternative to Nix Impermanence first)
 - Set up Nix secrets
 - Switch to some desktop shell, like Quickshell
 - Check out gtgreet for greetd
+- Figure out why zathura doesn't copy to my clipboard

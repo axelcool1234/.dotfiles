@@ -1,36 +1,48 @@
 {
-  inputs,
-  pkgs,
   config,
   lib,
+  inputs,
+  pkgs,
   ...
 }:
+
 {
-  # Allows home-manager to manage unfree packages
-  nixpkgs = {
-    config = {
-      allowUnfree = true;
-      allowUnfreePredicate = (_: true);
-    };
-  };
-
-  home.username = "axelcool1234";
-  home.homeDirectory = "/home/axelcool1234";
-  home.stateVersion = "23.11"; # Please read https://home-manager-options.extranix.com/?query=home.stateVersion before changing.
-  programs.home-manager.enable = true;
-
-  home.packages = with pkgs; [
-    # Shell
-    fish # Enabled because scripts for my desktop require them
-    nushell
-    starship
-
+  imports = [ home-modules/default.nix ];
+  config.modules = {
     # Editor
-    inputs.jump-helix.packages.${pkgs.system}.default
+    helix.enable = true;
 
+    # Terminal
+    kitty.enable = true;
+
+    # Shell
+    nushell.enable = true;
+    starship.enable = true;
+
+    # System diagnostics
+    btop.enable = true;
+
+    # Enabled because scripts for my desktop require them
+    fish.enable = true;
+
+    # Git
+    git.enable = true;
+    lazygit.enable = true;
+
+    # Browser
+    firefox.enable = true;
+
+    # PDF Viewer
+    zathura.enable = true;
+
+    # Music player
+    spicetify.enable = true;
+
+    # Desktop configuration
+    hyprland.enable = true; # This configures a lot of the Hyprland services (like waybar and dunst)
+  };
+  config.home.packages = with pkgs; [
     # Helix integrations
-    git
-    lazygit
     yazi
     scooter
 
@@ -39,14 +51,12 @@
     ripgrep
     fd
     fzf
-    neofetch
 
     # Gui/Programs
-    spicetify-cli
     stremio
     slack
 
-    # --- Lang specific --- #
+    # --- programming language specific --- #
     # Nix
     nil # LSP
     nixpkgs-fmt # Formatter

@@ -5,11 +5,16 @@
   hostname,
   ...
 }:
+with lib;
+let
+  program = "hyprland"; # Technically not a program here
+  program-module = config.modules.${program};
+in
 {
-  options = {
-    hyprland.enable = lib.mkEnableOption "enables hyprland config";
+  options.modules.${program} = {
+    enable = mkEnableOption "enables ${program} config";
   };
-  config = lib.mkIf config.hyprland.enable {
+  config = mkIf program-module.enable {
     xdg.configFile.hypr.source = ./hyprland;
     # xdg.configFile.waybar.source = ./waybar;
     xdg.configFile.dunst.source = ./dunst;

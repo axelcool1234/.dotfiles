@@ -68,8 +68,18 @@
           pkgs = pkgs.legacyPackages.${system};
           extraSpecialArgs = { inherit inputs username hostname; };
           modules = [
+            {
+              # Allows home-manager to manage unfree packages
+              nixpkgs.config.allowUnfree = true;
+              nixpkgs.config.allowUnfreePredicate = (_: true);
+
+              # Basic info home-manager needs
+              home.username = username;
+              home.homeDirectory = "/home/${username}";
+              home.stateVersion = "23.11"; # Please read https://home-manager-options.extranix.com/?query=home.stateVersion before changing.
+              programs.home-manager.enable = true;
+            }
             ./home.nix
-            ./home-modules
           ];
         };
     in

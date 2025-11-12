@@ -1,6 +1,14 @@
-{ pkgs, lib, config, ... }: 
-
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
+with lib;
 let
+  program = "neovim";
+  program-module = config.modules.${program};
+
   precognition-nvim = pkgs.vimUtils.buildVimPlugin {
     name = "precognition-nvim";
     src = pkgs.fetchFromGitHub {
@@ -16,7 +24,7 @@ let
       owner = "echasnovski";
       repo = "mini.move";
       rev = "v0.13.0";
-      sha256 = "11yqz3w5bbddgx59dvrg3vglidymdqy6zc2bjcqkjl7g54ng5f9c";   
+      sha256 = "11yqz3w5bbddgx59dvrg3vglidymdqy6zc2bjcqkjl7g54ng5f9c";
     };
   };
   mini-icons = pkgs.vimUtils.buildVimPlugin {
@@ -39,15 +47,15 @@ let
     doCheck = false;
   };
 in
-{  
-  options = {
-    nvim.enable = 
-      lib.mkEnableOption "enables nvim config";
+{
+  options.modules.${program} = {
+    enable = mkEnableOption "enables ${program} config";
   };
-  config = lib.mkIf config.nvim.enable {
-    xdg.configFile.nvim.source = ./nvim;
+  config = mkIf program-module.enable {
+    # for xdg.configFile, it's "nvim", not "neovim"
+    xdg.configFile.nvim.source = ./.;
 
-    programs.neovim = {
+    programs.${program} = {
       enable = true;
 
       viAlias = true;
@@ -59,7 +67,7 @@ in
         plenary-nvim
         nvim-treesitter
         nvim-treesitter-parsers.nix
-      	nvim-treesitter-parsers.vim
+        nvim-treesitter-parsers.vim
         nvim-treesitter-parsers.vimdoc
         nvim-treesitter-parsers.typst
         nvim-treesitter-parsers.toml
@@ -75,10 +83,10 @@ in
         nvim-lspconfig
         nvim-lint
         nvim-cmp
-        cmp-nvim-lsp       # Completion source for nvim builtin lsp
-        cmp-buffer         # Completion source for nvim-cmp
-        cmp-path           # Completion source for file system paths
-        cmp-cmdline        # Completion source for nvim's command line
+        cmp-nvim-lsp # Completion source for nvim builtin lsp
+        cmp-buffer # Completion source for nvim-cmp
+        cmp-path # Completion source for file system paths
+        cmp-cmdline # Completion source for nvim's command line
         cmp-nvim-ultisnips # Completion source for ultisnips
         ultisnips
         friendly-snippets
@@ -125,9 +133,8 @@ in
 
         # Themes
         catppuccin-nvim
-        tokyonight-nvim      
+        tokyonight-nvim
       ];
-
     };
   };
 }
