@@ -15,15 +15,14 @@
       url = "https://github.com/hyprwm/Hyprland";
       submodules = true;
     };
-    # See: https://github.com/wez/wezterm/issues/5103#issuecomment-1915820504
-    # NEW PROBLEM: https://github.com/wezterm/wezterm/issues/7150
-    wezterm.url = "github:wez/wezterm?dir=nix";
 
+    # Spotify
     spicetify-nix = {
       url = "github:Gerg-L/spicetify-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Discord
     nixcord = {
       url = "github:kaylorben/nixcord";
     };

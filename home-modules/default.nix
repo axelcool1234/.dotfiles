@@ -25,7 +25,7 @@
   ];
 
   hyprland.enable = lib.mkDefault true;
-  wezterm.enable = lib.mkDefault true;
+  wezterm.enable = lib.mkDefault false;
   kitty.enable = lib.mkDefault true;
 
   starship.enable = lib.mkDefault true;
