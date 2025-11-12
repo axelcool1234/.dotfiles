@@ -10,7 +10,8 @@
   - [Mismatched-Hash](#Mismatched-Hash)
   - [Post-Setup](#Post-Setup)
 - [Lost Bootloader](#Lost-Bootloader)
-- [Useful NixOS Resources:](#useful-nixos-resources)
+- [Useful NixOS Resources](#useful-nixos-resources)
+- [TODO](#TODO)
 <!--toc:end-->
 
 # What Is Nix?
@@ -99,7 +100,7 @@ Make sure to execute `nixos-switch` once you've booted into NixOS so that GRUB c
 
 For more information, I learned how to do this from this [discussion](https://www.reddit.com/r/NixOS/comments/183jlh5/comment/kapafke/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button).
 
-# Useful NixOS Resources:
+# Useful NixOS Resources
 - https://mynixos.com/
   - Search for NixOS options, packages, categories (plus the website has some videos and tutorials)
 - https://search.nixos.org/options
@@ -116,3 +117,35 @@ For more information, I learned how to do this from this [discussion](https://ww
   - Search the NixLang library
 - https://discourse.nixos.org/t/start-a-nix-shell-from-unstable-channel/36227
   - Information about using nix-shell with the unstable channel. I need to figure out how to make this easier to deal with.
+
+# TODO:
+- Switch from Git and LazyGit to Jujutsu and LazyJJ
+- Add direnv to workflow
+- Update Helix fork to use the proposed flash.nvim PR that was rejected
+- Update Helix fork to use surround motion extension and fixes
+- Remove custom jump motion written as a kitten in Kitty
+- Disable my custom lean highlighter tool
+- Remove Steel Helix
+- home.nix shouldn't be in the host directory
+- There are some home packages I do not need anymore, remove them
+- Remove Wezterm
+- Add a section in README.md that shows off what editor, desktop, etc. I use
+- Figure out why nixcord is not enabling my plugins
+- Figure out the absolute mess that is my custom options in my default.nix files
+- Remove customization for CLI and programs I don't use anymore
+- Clean up home.nix
+- Clean up hyprland/services.nix 
+- Explore Kitty (and kittnes) a bit more
+  - Specifically I'd like to have a motion that yanks file paths and urls
+  - I'd also like to move around Kitty in a nvim mode of some sort, much like Tmux allows
+- Explore Yazi and Scooter more so I don't end up neglecting nice uses for them
+  - Yazi file tree: https://www.reddit.com/r/HelixEditor/comments/1bgsauh/instruction_how_to_setup_file_tree_in_helix_using/
+- Make Thunar NOT ugly (maybe even look for alternatives)
+- Alternatives to nmtui?
+- Migrate all fish scripts to bash or nu scripts so I can remove Fish from home.nix
+- Switch from neofetch to fastfetch
+- Figure out if the clipboard CLI packages listed in home.nix even need to be there (I think Hyprland services enable them already)
+- Set up Nix Impermanence (check out the alternative to Nix Impermanence first)
+- Set up Nix secrets
+- Switch to some desktop shell, like Quickshell
+- Check out gtgreet for greetd
