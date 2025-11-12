@@ -26,12 +26,12 @@
         gnome2.GConf
       ];
     };
-    services.mpd.enable = true;
-    programs.thunar.enable = true;
+    services.mpd.enable = true; # Music daemon
+    programs.thunar.enable = true; # File manager
     programs.xfconf.enable = true;
     services.tumbler.enable = true;
     services.fwupd.enable = true;
-    services.auto-cpufreq.enable = true;
+    services.auto-cpufreq.enable = true; # automatic CPU speed and power optimizer for Linux
     # services.udev.packages = with pkgs; [ gnome.gnome-settings-daemon ];
 
     # Automount rules (just configured for my split keyboard right now)

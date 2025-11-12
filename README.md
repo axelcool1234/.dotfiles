@@ -126,9 +126,6 @@ For more information, I learned how to do this from this [discussion](https://ww
 - Remove custom jump motion written as a kitten in Kitty
 - Add a section in README.md that shows off what editor, desktop, etc. I use
 - Figure out why nixcord is not enabling my plugins
-- Figure out the absolute mess that is my custom options in my default.nix files
-  - This is resolved for home-manager, not nixos
-- Clean up hyprland/services.nix 
 - Explore Kitty (and kittens) a bit more
   - Specifically I'd like to have a motion that yanks file paths and urls
   - I'd also like to move around Kitty in a nvim mode of some sort, much like Tmux allows
@@ -141,5 +138,7 @@ For more information, I learned how to do this from this [discussion](https://ww
 - Set up Nix Impermanence (check out the alternative to Nix Impermanence first)
 - Set up Nix secrets
 - Switch to some desktop shell, like Quickshell
+  - This will consequentially allow me to clean up my custom options for nixos-modules
+  - This will consequentially allow me to clean up hyprland/services.nix
 - Check out gtgreet for greetd
 - Figure out why zathura doesn't copy to my clipboard
