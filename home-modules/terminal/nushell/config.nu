@@ -39,6 +39,17 @@ const NOZOXIDE = "/dev/null"
 const zoxide_file = (if ($ZOXIDE_PATH | path exists) { $ZOXIDE_PATH } else { $NOZOXIDE })
 source $zoxide_file
 
+# Yazi shell wrapper
+def --env y [...args] {
+	let tmp = (mktemp -t "yazi-cwd.XXXXXX")
+	yazi ...$args --cwd-file $tmp
+	let cwd = (open $tmp)
+	if $cwd != "" and $cwd != $env.PWD {
+		cd $cwd
+	}
+	rm -fp $tmp
+}
+
 # Catpuccin Theme
 source ($nu.default-config-dir | path join "catppuccin_macchiato.nu")
 # source ($nu.default-config-dir | path join "catppuccin_mocha.nu")
