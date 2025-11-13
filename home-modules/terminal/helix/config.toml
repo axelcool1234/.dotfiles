@@ -12,6 +12,7 @@ popup-border = "all"
 shell = ["nu", "-c"]
 idle-timeout = 0
 end-of-line-diagnostics = "disable"
+enable-focus-dimmer = true
 
 [editor.inline-diagnostics]
 cursor-line = "disable"

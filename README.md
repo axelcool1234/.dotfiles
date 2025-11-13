@@ -121,8 +121,7 @@ For more information, I learned how to do this from this [discussion](https://ww
 # TODO:
 - Switch from Git and LazyGit to Jujutsu and LazyJJ
 - Add direnv to workflow
-- Update Helix fork to use the proposed flash.nvim PR that was rejected
-- Update Helix fork to use surround motion extension and fixes
+- Explore harps for my Helix fork (https://github.com/helix-editor/helix/commit/b24129030653bc3e0a5f37f1d04cb2b88583e6bb)
 - Remove custom jump motion written as a kitten in Kitty
 - Add a section in README.md that shows off what editor, desktop, etc. I use
 - Figure out why nixcord is not enabling my plugins
