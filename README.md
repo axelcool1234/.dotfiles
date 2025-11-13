@@ -141,4 +141,3 @@ For more information, I learned how to do this from this [discussion](https://ww
   - This will consequentially allow me to clean up hyprland/services.nix
 - Check out gtgreet for greetd
 - Figure out why zathura doesn't copy to my clipboard
-- Figure out why sound doesn't work on Fermi
