@@ -40,6 +40,9 @@
 
     # Desktop configuration
     hyprland.enable = true; # This configures a lot of the Hyprland services (like waybar and dunst)
+
+    # Messenger (Discord)
+    nixcord.enable = true;
   };
   config.home.packages = with pkgs; [
     # Helix integrations
