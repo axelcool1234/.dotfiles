@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ ... }:
 {
   imports = [
     ./hyprland-desktop
@@ -12,7 +12,6 @@
     ./terminal/fd
     ./terminal/fzf
     ./terminal/btop
-    # ./terminal/neofetch
     ./terminal/fastfetch
     ./terminal/neovim
     ./terminal/helix
