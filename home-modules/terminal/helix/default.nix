@@ -2,8 +2,8 @@
   inputs,
   pkgs,
   lib,
-  options,
   config,
+  username,
   hostname,
   ...
 }:
@@ -122,15 +122,17 @@ in
             args = [ "--semantic-tokens=true" ];
             config.nixd =
               let
-                myFlake = ''(builtins.getFlake "${options.programs.nh.flake}")'';
-                nixosOpts = "${myFlake}.nixosConfigurations.${hostname}.options";
+                myFlake = ''(builtins.getFlake "/home/${username}/.dotfiles")''; # TODO: Figure out a safer way to point to flake!
+                homeUser = "${username}@${hostname}";
+                nixosOpts = ''${myFlake}.nixosConfigurations."${hostname}".options'';
+                homeOpts = ''${myFlake}.homeConfigurations."${homeUser}".options'';
               in
               {
                 nixpkgs.expr = "import ${myFlake}.inputs.nixpkgs { }";
                 formatting.command = [ "${lib.getExe pkgs.nixfmt-rfc-style}" ];
                 options = {
                   nixos.expr = nixosOpts;
-                  home-manager.expr = "${nixosOpts}.home-manager.users.type.getSubOptions []";
+                  home-manager.expr = homeOpts;
                 };
               };
           };
