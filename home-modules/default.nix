@@ -17,6 +17,7 @@
     ./terminal/helix
     ./terminal/yazi
     ./terminal/git
+    ./terminal/jujutsu
     ./terminal/lazygit
     ./terminal/nix-tools
     ./programs/firefox

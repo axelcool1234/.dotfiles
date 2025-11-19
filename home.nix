@@ -31,6 +31,7 @@
     # Git
     git.enable = true;
     lazygit.enable = true;
+    jujutsu.enable = true;
 
     # Browser
     firefox.enable = true;
@@ -56,6 +57,9 @@
     nix-tools.enable = true;
   };
   config.home.packages = with pkgs; [
+    # JJ
+    jjui
+
     # Helix integrations
     scooter
 
