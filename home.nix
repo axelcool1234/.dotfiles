@@ -43,6 +43,14 @@
 
     # Messenger (Discord)
     nixcord.enable = true;
+
+    # Nix tools
+    # - nh
+    # - nix-index-database
+    # - comma (replacement for nix-shell -p)
+    # - direnv and nix-direnv (TODO: replace nix-direnv with alternative)
+    # - nix-init
+    nix-tools.enable = true;
   };
   config.home.packages = with pkgs; [
     # Helix integrations
@@ -62,9 +70,10 @@
 
     # --- programming language specific --- #
     # Nix
-    nil # LSP
-    nixpkgs-fmt # Formatter
-    nix-prefetch-github
+    nix-prefetch # get hashes
+    nix-output-monitor # (nom) replacement for nix build
+    dix # Diff Nix
+    nix-tree # browse dependency graphs of nix derivations
     # Hyprlang
     hyprls
   ];

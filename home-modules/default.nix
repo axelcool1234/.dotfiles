@@ -13,6 +13,7 @@
     ./terminal/helix
     ./terminal/git
     ./terminal/lazygit
+    ./terminal/nix-tools
     ./programs/firefox
     ./programs/nixcord
     ./programs/spicetify
