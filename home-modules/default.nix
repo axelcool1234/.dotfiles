@@ -7,10 +7,16 @@
     ./terminal/fish
     ./terminal/nushell
     ./terminal/starship
+    ./terminal/zoxide
+    ./terminal/ripgrep
+    ./terminal/fd
+    ./terminal/fzf
     ./terminal/btop
-    ./terminal/neofetch
+    # ./terminal/neofetch
+    ./terminal/fastfetch
     ./terminal/neovim
     ./terminal/helix
+    ./terminal/yazi
     ./terminal/git
     ./terminal/lazygit
     ./terminal/nix-tools

@@ -9,8 +9,9 @@
 {
   imports = [ home-modules/default.nix ];
   config.modules = {
-    # Editor
+    # Editor (plus integrations)
     helix.enable = true;
+    yazi.enable = true;
 
     # Terminal
     kitty.enable = true;
@@ -18,6 +19,11 @@
     # Shell
     nushell.enable = true;
     starship.enable = true;
+    zoxide.enable = true;
+    ripgrep.enable = true;
+    fd.enable = true;
+    fzf.enable = true;
+    fastfetch.enable = true;
 
     # System diagnostics
     btop.enable = true;
@@ -54,15 +60,7 @@
   };
   config.home.packages = with pkgs; [
     # Helix integrations
-    yazi
     scooter
-
-    # Terminal Utils
-    zoxide
-    ripgrep
-    fd
-    fzf
-    neofetch
 
     # Gui/Programs
     stremio

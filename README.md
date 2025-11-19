@@ -133,7 +133,6 @@ For more information, I learned how to do this from this [discussion](https://ww
 - Make Thunar NOT ugly (maybe even look for alternatives)
 - Alternatives to nmtui?
 - Migrate all fish scripts to bash or nu scripts so I can remove Fish from home.nix
-- Switch from neofetch to fastfetch
 - Set up Nix Impermanence (check out the alternative to Nix Impermanence first)
 - Set up Nix secrets
 - Switch to some desktop shell, like Quickshell
