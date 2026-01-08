@@ -10,6 +10,9 @@
     helix.enable = true;
     yazi.enable = true;
 
+    # For Lean
+    neovim.enable = true;
+
     # Terminal
     kitty.enable = true;
 
