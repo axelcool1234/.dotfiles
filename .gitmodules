@@ -6,3 +6,6 @@
 	path = envs/llvm/llvm-project
 	url = https://github.com/axelcool1234/llvm-project
 	branch = main
+[submodule "envs/llvm/alive2"]
+	path = envs/llvm/alive2
+	url = https://github.com/axelcool1234/alive2
