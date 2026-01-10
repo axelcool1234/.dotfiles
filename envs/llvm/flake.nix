@@ -23,7 +23,14 @@
         # Build scripts as packages so they can be exposed as apps
         build-llvm-pkg = pkgs.writeShellApplication {
           name = "build-llvm";
-          runtimeInputs = with pkgs; [ cmake ninja mold clang clang-tools zlib ];
+          runtimeInputs = with pkgs; [
+            cmake
+            ninja
+            mold
+            clang
+            clang-tools
+            zlib
+          ];
           text = ''
             set -e
 
@@ -32,13 +39,11 @@
               exit 1
             fi
 
-            src="$PWD/$1/llvm"
+            src="$(realpath "$1")/llvm"
+            mkdir -p ./build/llvm
+            build_dir="$(realpath ./build/llvm)"
 
-            # Create an out-of-source build directory: build/llvm
-            build_dir="$PWD/build/llvm"
-            mkdir -p "$build_dir"
-
-            # where to find libgcc
+             # where to find libgcc
             export NIX_LDFLAGS="-L${gccForLibs}/lib/gcc/${pkgs.targetPlatform.config}/${gccForLibs.version}"
             # teach clang about C startup file locations
             export CFLAGS="-B${gccForLibs}/lib/gcc/${pkgs.targetPlatform.config}/${gccForLibs.version} -B ${pkgs.stdenv.cc.libc}/lib"
@@ -49,9 +54,9 @@
                  # inst will be our installation prefix
                 "-DCMAKE_INSTALL_PREFIX=../inst"
                 # this makes llvm only to produce code for the given platforms, this saves CPU time, change it to what you need
-                "-DLLVM_TARGETS_TO_BUILD=host;RISCV;AArch64;X86"
+                "-DLLVM_TARGETS_TO_BUILD=host"
                 # Projects to build
-                "-DLLVM_ENABLE_PROJECTS=clang"
+                "-DLLVM_ENABLE_PROJECTS=llvm;clang"
                 # Faster linker
                 "-DLLVM_USE_LINKER=mold"
                 # Dynamic Linking
@@ -69,15 +74,17 @@
                 "-DLLVM_ENABLE_RTTI=ON"
             )
             # Run CMake inside build/llvm
-            cd "$build_dir"
-            cmake "''${cmakeFlags[@]}" "$src"
-            ninja
+            cmake -S "$src" -B "$build_dir" "''${cmakeFlags[@]}"
+            ninja -C "$build_dir"
           '';
         };
 
         build-alive-pkg = pkgs.writeShellApplication {
           name = "build-alive";
-          runtimeInputs = with pkgs; [ cmake ninja ];
+          runtimeInputs = with pkgs; [
+            cmake
+            ninja
+          ];
           text = ''
             set -e
 
@@ -120,7 +127,10 @@
         };
 
         devShells.default = mkShell {
-          packages = [ build-llvm-pkg build-alive-pkg ];
+          packages = [
+            build-llvm-pkg
+            build-alive-pkg
+          ];
           buildInputs = [
             gccForLibs # C/C++ compiler
             cmake # CMake for build configuration
