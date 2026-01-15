@@ -117,25 +117,25 @@ in
           }
         ];
         language-server = {
-          nixd = {
-            command = "nixd";
-            args = [ "--semantic-tokens=true" ];
-            config.nixd =
-              let
-                myFlake = ''(builtins.getFlake "/home/${username}/.dotfiles")''; # TODO: Figure out a safer way to point to flake!
-                homeUser = "${username}@${hostname}";
-                nixosOpts = ''${myFlake}.nixosConfigurations."${hostname}".options'';
-                homeOpts = ''${myFlake}.homeConfigurations."${homeUser}".options'';
-              in
-              {
-                nixpkgs.expr = "import ${myFlake}.inputs.nixpkgs { }";
-                formatting.command = [ "${lib.getExe pkgs.nixfmt-rfc-style}" ];
-                options = {
-                  nixos.expr = nixosOpts;
-                  home-manager.expr = homeOpts;
-                };
-              };
-          };
+          # nixd = {
+          #   command = "nixd";
+          #   args = [ "--semantic-tokens=true" ];
+          #   config.nixd =
+          #     let
+          #       myFlake = ''(builtins.getFlake "/home/${username}/.dotfiles")''; # TODO: Figure out a safer way to point to flake!
+          #       homeUser = "${username}@${hostname}";
+          #       nixosOpts = ''${myFlake}.nixosConfigurations."${hostname}".options'';
+          #       homeOpts = ''${myFlake}.homeConfigurations."${homeUser}".options'';
+          #     in
+          #     {
+          #       nixpkgs.expr = "import ${myFlake}.inputs.nixpkgs { }";
+          #       formatting.command = [ "${lib.getExe pkgs.nixfmt-rfc-style}" ];
+          #       options = {
+          #         nixos.expr = nixosOpts;
+          #         home-manager.expr = homeOpts;
+          #       };
+          #     };
+          # };
           texlab = {
             config.texlab = {
               build = {
