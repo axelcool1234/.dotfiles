@@ -155,6 +155,8 @@
 
           shellHook = ''
             export PATH=$PWD/llvm-project/clang/tools/clang-format:$PATH
+            export PATH=$PWD/build/llvm/bin:$PATH
+            export PATH=$PWD/build/alive:$PATH
             export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [ zlib ]}:$LD_LIBRARY_PATH"
             export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib.outPath}/lib:$LD_LIBRARY_PATH"
           '';
