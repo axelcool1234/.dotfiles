@@ -8,44 +8,6 @@ with lib;
 let
   program = "neovim";
   program-module = config.modules.${program};
-
-  precognition-nvim = pkgs.vimUtils.buildVimPlugin {
-    name = "precognition-nvim";
-    src = pkgs.fetchFromGitHub {
-      owner = "tris203";
-      repo = "precognition.nvim";
-      rev = "v1.0.0"; # Update this to the latest tag or commit hash
-      sha256 = "0csph3ww7vhrsxybzabvnv8ncrbif8kkh2v076r05fkxzrbri982"; # Obtain this hash from an error message or use `nix-prefetch-url`
-    };
-  };
-  mini-move = pkgs.vimUtils.buildVimPlugin {
-    name = "mini-move";
-    src = pkgs.fetchFromGitHub {
-      owner = "echasnovski";
-      repo = "mini.move";
-      rev = "v0.13.0";
-      sha256 = "11yqz3w5bbddgx59dvrg3vglidymdqy6zc2bjcqkjl7g54ng5f9c";
-    };
-  };
-  mini-icons = pkgs.vimUtils.buildVimPlugin {
-    name = "mini-icons";
-    src = pkgs.fetchFromGitHub {
-      owner = "echasnovski";
-      repo = "mini.icons";
-      rev = "2d89252993fec829b24720097a687412d10f6c85";
-      sha256 = "1qg06xia1sm67b10sf6vdhmma9xmwkj7hzlk5dyfg25a7xmf2107";
-    };
-  };
-  lean-nvim = pkgs.vimUtils.buildVimPlugin {
-    name = "lean-nvim";
-    src = pkgs.fetchFromGitHub {
-      owner = "Julian";
-      repo = "lean.nvim";
-      rev = "ce53638a93612123c7e08b2d169f72bc8c8f4ed1";
-      sha256 = "FIkm8OsPu+UIJHq9IaEa6Y0w3zcwKRmRAffBAUCkyec=";
-    };
-    doCheck = false;
-  };
 in
 {
   options.modules.${program} = {
