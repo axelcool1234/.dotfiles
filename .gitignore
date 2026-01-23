@@ -11,3 +11,4 @@ envs/*/target/
 envs/*/build/
 envs/*/tmp/
 envs/*/.cache/
+envs/*/compile_commands.json

@@ -72,7 +72,7 @@
                 # this makes llvm only to produce code for the given platforms, this saves CPU time, change it to what you need
                 "-DLLVM_TARGETS_TO_BUILD=host"
                 # Projects to build
-                "-DLLVM_ENABLE_PROJECTS=clang;mlir"
+                "-DLLVM_ENABLE_PROJECTS=mlir"
                 # Faster linker
                 "-DLLVM_USE_LINKER=mold"
                 # Dynamic Linking
@@ -104,6 +104,9 @@
 
             echo "Building LLVM"
             ninja -C "$build_dir"
+
+            echo "Making compile_commands.json symlink"
+            ln -sf build/llvm/compile_commands.json compile_commands.json
           '';
         };
 
@@ -236,10 +239,11 @@
             build-llvm-pkg
             build-alive-pkg
             build-all-pkg
+            clang-tools
           ];
           shellHook = ''
-            export PATH=$PWD/build/llvm/bin:$PATH
-            export PATH=$PWD/build/alive:$PATH
+            export PATH=$PATH:$PWD/build/llvm/bin
+            export PATH=$PATH:$PWD/build/alive
           '';
         };
       }
