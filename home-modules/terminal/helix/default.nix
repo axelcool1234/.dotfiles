@@ -74,6 +74,7 @@ in
             g.q = ":bc"; # Close buffer
             g.Q = ":bc!"; # Close buffer with unsaved changed
             g.w = "goto_word_flash"; # Better jump motion
+            "'" = "goto_word_flash";
 
             # Lazygit integration
             "C-g" = [
@@ -106,6 +107,7 @@ in
           select = {
             x = "extend_line";
             g.w = "extend_to_word_flash";
+            "'" = "goto_word_flash";
           };
         };
       };

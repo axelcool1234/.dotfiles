@@ -82,6 +82,9 @@ in
         # Rust
         rustaceanvim
 
+        # Dafny
+        vim-loves-dafny
+
         # Power user
         flash-nvim
         oil-nvim

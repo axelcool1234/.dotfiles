@@ -1,5 +1,6 @@
 -- Load required modules
 local lspconfig = require('lspconfig')
+local configs = require('lspconfig.configs')
 
 -- Set up lspconfig
 local capabilities = require('cmp_nvim_lsp').default_capabilities()
@@ -13,7 +14,32 @@ local on_attach = function(client, bufnr)
     -- end
 end
 
+-- Dafny
+if not configs.dafny then
+  configs.dafny = {
+    default_config = {
+      cmd = { "dafny", "server" },
+      filetypes = { "dafny" },
+      root_dir = lspconfig.util.root_pattern(
+        ".git",
+        "dafny.toml",
+        "Dafny.toml"
+      ),
+      settings = {},
+    },
+  }
+end
+
+
 -- Configure language servers
+-- Dafny
+lspconfig.dafny.setup {
+  capabilities = capabilities,
+  on_attach = on_attach,
+  document_highlight = { enabled = false },
+}
+
+
 -- Nix
 lspconfig.nil_ls.setup {
   autostart = true,
