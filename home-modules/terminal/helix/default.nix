@@ -75,6 +75,7 @@ in
             g.Q = ":bc!"; # Close buffer with unsaved changed
             g.w = "goto_word_flash"; # Better jump motion
             "'" = "goto_word_flash";
+            g.k = "goto_hover"; # Jump into hover
 
             # Lazygit integration
             "C-g" = [
