@@ -1,5 +1,6 @@
 {
   pkgs,
+  inputs,
   ...
 }:
 
@@ -69,6 +70,10 @@
     # Gui/Programs
     stremio
     slack
+
+    # LLM CLIs
+    inputs.llm-agents.packages.${pkgs.system}.codex
+    inputs.llm-agents.packages.${pkgs.system}.code
 
     # --- programming language specific --- #
     # Nix

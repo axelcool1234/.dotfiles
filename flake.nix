@@ -43,6 +43,9 @@
       url = "github:axelcool1234/helix/modded";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # LLM Agents
+    llm-agents.url = "github:numtide/llm-agents.nix";
   };
 
   outputs =

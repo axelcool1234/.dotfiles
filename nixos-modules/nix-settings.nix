@@ -10,8 +10,13 @@
     nixPath = lib.mapAttrsToList (key: value: "${key}=${value.to.path}") config.nix.registry;
 
     settings = {
-      # Enable flakes and new 'nix' command
-      experimental-features = "nix-command flakes";
+      experimental-features = [ "nix-command" "flakes" ];
+      substituters = [
+         "https://numtide.cachix.org"
+       ];
+       trusted-public-keys = [
+         "numtide.cachix.org-1:2ps1kLBUWjxIneOy1Ik6cQjb41X0iXVXeHigGmycPPE="
+       ];
     };
 
   };
