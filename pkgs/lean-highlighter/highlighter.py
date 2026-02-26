@@ -358,33 +358,32 @@ def _render_with_styles(text, styles):
 
 def _bridge_unstyled_whitespace(text, styles):
     """
-    Extend style across unstyled whitespace-only gaps to reduce reset/reapply
-    churn. If both sides are styled, prefer the left style so color-to-color
-    transitions happen directly at the next token.
+    Normalize whitespace styling to reduce ANSI churn:
+    - If whitespace is between two styled tokens, use the left style.
+    - Otherwise, make whitespace unstyled (default color).
+
+    This removes odd colored spaces emitted by upstream highlighters and
+    enables direct color-to-color transitions across token boundaries.
     """
     bridged = list(styles)
     n = len(bridged)
     i = 0
 
     while i < n:
-        if bridged[i] is not None:
+        if not text[i].isspace():
             i += 1
             continue
 
         j = i
-        while j < n and bridged[j] is None:
+        while j < n and text[j].isspace():
             j += 1
 
-        if j > i and text[i:j].isspace():
-            left = bridged[i - 1] if i > 0 else None
-            right = bridged[j] if j < n else None
+        left = bridged[i - 1] if i > 0 else None
+        right = bridged[j] if j < n else None
 
-            # Bridge only when there is a styled token on the left and another
-            # styled token on the right; this keeps resets for real returns to
-            # default text while minimizing style ping-pong between tokens.
-            if left is not None and right is not None:
-                for k in range(i, j):
-                    bridged[k] = left
+        fill = left if left is not None and right is not None else None
+        for k in range(i, j):
+            bridged[k] = fill
 
         i = j
 
