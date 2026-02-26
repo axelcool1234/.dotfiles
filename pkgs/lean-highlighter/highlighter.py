@@ -72,10 +72,10 @@ ROLE_STYLES = {
     "string": (False, False, FG_GREEN, None),
     "number": (False, False, FG_YELLOW, None),
     "number_strong": (True, False, FG_YELLOW, None),
-    "variable": (False, False, FG_WHITE, None),
+    "variable": None,
     "parameter": (False, False, FG_CYAN, None),
     "property": (False, False, FG_YELLOW, None),
-    "operator": (False, False, FG_WHITE, None),
+    "operator": None,
     "namespace": (False, False, FG_CYAN, None),
     "warning": (True, True, FG_RED, BG_FIREFLY_DARK_BLUE),
 }
@@ -162,6 +162,9 @@ def _normalize_style(style):
     if style is None:
         return None
     bold, underline, fg, bg = style
+    # Discord default text is effectively white; avoid redundant explicit white.
+    if fg == FG_WHITE:
+        fg = None
     if not bold and not underline and fg is None and bg is None:
         return None
     return (bold, underline, fg, bg)
@@ -313,9 +316,27 @@ def _transition_sgr(prev, nxt):
     if not pu and nu:
         codes.append(FMT_UNDERLINE)
 
-    if not codes:
-        return ""
-    return f"\x1b[{';'.join(codes)}m"
+    delta_seq = ""
+    if codes:
+        delta_seq = f"\x1b[{';'.join(codes)}m"
+
+    # Optional shorter route: reset-to-default (white), then re-apply needed attrs.
+    # This is mainly useful when moving from a colored span to default text.
+    use_reset_candidate = pfg is not None and nfg is None
+    if use_reset_candidate:
+        reset_codes = [FMT_NORMAL]
+        if nb:
+            reset_codes.append(FMT_BOLD)
+        if nu:
+            reset_codes.append(FMT_UNDERLINE)
+        if nbg is not None:
+            reset_codes.append(nbg)
+        reset_seq = f"\x1b[{';'.join(reset_codes)}m"
+
+        if not delta_seq or len(reset_seq) <= len(delta_seq):
+            return reset_seq
+
+    return delta_seq
 
 
 def _render_with_styles(text, styles):
@@ -333,6 +354,41 @@ def _render_with_styles(text, styles):
     if prev is not None:
         out.append(f"\x1b[{FMT_NORMAL}m")
     return "".join(out)
+
+
+def _bridge_unstyled_whitespace(text, styles):
+    """
+    Extend style across unstyled whitespace-only gaps to reduce reset/reapply
+    churn. If both sides are styled, prefer the left style so color-to-color
+    transitions happen directly at the next token.
+    """
+    bridged = list(styles)
+    n = len(bridged)
+    i = 0
+
+    while i < n:
+        if bridged[i] is not None:
+            i += 1
+            continue
+
+        j = i
+        while j < n and bridged[j] is None:
+            j += 1
+
+        if j > i and text[i:j].isspace():
+            left = bridged[i - 1] if i > 0 else None
+            right = bridged[j] if j < n else None
+
+            # Bridge only when there is a styled token on the left and another
+            # styled token on the right; this keeps resets for real returns to
+            # default text while minimizing style ping-pong between tokens.
+            if left is not None and right is not None:
+                for k in range(i, j):
+                    bridged[k] = left
+
+        i = j
+
+    return bridged
 
 
 def _package_root():
@@ -552,9 +608,6 @@ def _semantic_style(token_type, token_mods):
     elif "modification" in token_mods and fg in (None, FG_WHITE):
         fg = FG_YELLOW
 
-    if fg is None:
-        fg = FG_WHITE
-
     return _normalize_style((bold, underline, fg, bg))
 
 
@@ -684,18 +737,30 @@ def _styles_from_semantic(text, spans):
 
 
 def highlight(file_path, mode):
-    ts_text, ts_styles = _run_tree_sitter(file_path)
-
-    if mode == "treesitter":
-        return _render_with_styles(ts_text, ts_styles)
+    if mode == "auto":
+        try:
+            sem_text, spans = _semantic_spans_for_file(file_path)
+            sem_styles = _styles_from_semantic(sem_text, spans)
+            sem_styles = _bridge_unstyled_whitespace(sem_text, sem_styles)
+            return _render_with_styles(sem_text, sem_styles)
+        except Exception:
+            # Preserve legacy --auto behavior: semantic first, then pure tree-sitter fallback.
+            mode = "treesitter"
 
     if mode == "semantic":
         sem_text, spans = _semantic_spans_for_file(file_path)
         sem_styles = _styles_from_semantic(sem_text, spans)
+        sem_styles = _bridge_unstyled_whitespace(sem_text, sem_styles)
         return _render_with_styles(sem_text, sem_styles)
 
-    if mode != "mixed":
+    if mode not in {"treesitter", "mixed"}:
         raise RuntimeError(f"Unknown mode: {mode}")
+
+    ts_text, ts_styles = _run_tree_sitter(file_path)
+    ts_styles = _bridge_unstyled_whitespace(ts_text, ts_styles)
+
+    if mode == "treesitter":
+        return _render_with_styles(ts_text, ts_styles)
 
     try:
         sem_text, spans = _semantic_spans_for_file(file_path)
@@ -710,14 +775,13 @@ def highlight(file_path, mode):
         sem if sem is not None else ts
         for ts, sem in zip(ts_styles, sem_styles)
     ]
+    merged = _bridge_unstyled_whitespace(ts_text, merged)
     return _render_with_styles(ts_text, merged)
 
 
 def main():
     default_mode = os.environ.get("LEAN_HIGHLIGHT_MODE", "mixed").strip().lower()
-    if default_mode == "auto":
-        default_mode = "mixed"
-    if default_mode not in {"mixed", "semantic", "treesitter"}:
+    if default_mode not in {"mixed", "semantic", "treesitter", "auto"}:
         default_mode = "mixed"
 
     parser = argparse.ArgumentParser(add_help=True)
@@ -728,7 +792,7 @@ def main():
     )
     parser.add_argument(
         "--mode",
-        choices=["mixed", "semantic", "treesitter"],
+        choices=["mixed", "semantic", "treesitter", "auto"],
         default=default_mode,
         help="highlighting mode",
     )
@@ -736,7 +800,7 @@ def main():
     mode_group.add_argument("--mixed", action="store_true", help="same as --mode mixed")
     mode_group.add_argument("--semantic", action="store_true", help="same as --mode semantic")
     mode_group.add_argument("--treesitter", action="store_true", help="same as --mode treesitter")
-    mode_group.add_argument("--auto", action="store_true", help="alias for --mode mixed")
+    mode_group.add_argument("--auto", action="store_true", help="semantic first; fallback to treesitter")
     parser.add_argument("--pretty", action="store_true", help="apply pretty ligature pass")
     parser.add_argument("file", nargs="?")
     args = parser.parse_args()
@@ -756,8 +820,10 @@ def main():
         return 1
 
     mode = args.mode
-    if args.mixed or args.auto:
+    if args.mixed:
         mode = "mixed"
+    elif args.auto:
+        mode = "auto"
     elif args.semantic:
         mode = "semantic"
     elif args.treesitter:
