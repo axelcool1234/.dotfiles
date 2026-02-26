@@ -15,6 +15,7 @@
     ./terminal/fastfetch
     ./terminal/neovim
     ./terminal/helix
+    ./terminal/lean-highlighter
     ./terminal/yazi
     ./terminal/git
     ./terminal/jujutsu

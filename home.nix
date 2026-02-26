@@ -3,7 +3,6 @@
   inputs,
   ...
 }:
-
 {
   imports = [ home-modules/default.nix ];
   config.modules = {
@@ -13,6 +12,7 @@
 
     # For Lean
     neovim.enable = true;
+    lean-highlighter.enable = true;
 
     # Terminal
     kitty.enable = true;

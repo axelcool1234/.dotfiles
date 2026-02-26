@@ -123,6 +123,8 @@ pkgs.stdenv.mkDerivation {
       echo "Usage: lean-highlight <file>"
       exit 1
     fi
+    # tree-sitter compiles parser sources into ~/.cache/tree-sitter on first run.
+    export PATH="${pkgs.stdenv.cc}/bin:\$PATH"
     ${pkgs.tree-sitter}/bin/tree-sitter highlight "\$1" | \
       ${pkgs.python3}/bin/python3 -u $out/bin/ansi_compress.py
     EOF
