@@ -38,6 +38,13 @@
       url = "github:kaylorben/nixcord";
     };
 
+    # Glide Browser
+    glide = {
+      url = "github:glide-browser/glide.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.home-manager.follows = "home-manager";
+    };
+
     # Modded Helix
     modded-helix = {
       url = "github:axelcool1234/helix/modded";
