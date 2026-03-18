@@ -59,8 +59,8 @@
     let
       # NixOS Configuration
       mkSystem =
-        pkgs: system: username: hostname:
-        pkgs.lib.nixosSystem {
+        nixpkgsInput: system: username: hostname:
+        nixpkgsInput.lib.nixosSystem {
           system = system;
           specialArgs = { inherit inputs username hostname; };
           modules = [
@@ -72,13 +72,18 @@
 
       # Home Manager Configuaration
       mkHome =
-        pkgs: system: username: hostname:
+        nixpkgsInput: system: username: hostname:
         home-manager.lib.homeManagerConfiguration {
-          pkgs = pkgs.legacyPackages.${system};
+          pkgs = import nixpkgsInput {
+            inherit system;
+            config.allowUnfree = true;
+            config.allowUnfreePredicate = (_: true);
+          };
           extraSpecialArgs = { inherit inputs username hostname; };
           modules = [
             {
-              # Allows home-manager to manage unfree packages
+              # Some imported Home Manager modules consult nixpkgs.config
+              # even when pkgs is provided explicitly.
               nixpkgs.config.allowUnfree = true;
               nixpkgs.config.allowUnfreePredicate = (_: true);
 

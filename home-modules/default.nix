@@ -22,6 +22,7 @@
     ./terminal/lazygit
     ./terminal/nix-tools
     ./programs/firefox
+    ./programs/glide
     ./programs/nixcord
     ./programs/spicetify
     ./programs/zathura

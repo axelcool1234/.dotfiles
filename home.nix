@@ -39,6 +39,7 @@
 
     # Browser
     firefox.enable = true;
+    glide.enable = true;
 
     # PDF Viewer
     zathura.enable = true;
