@@ -16,6 +16,20 @@
 //
 // Try typing `glide.` and see what you can do!
 
+glide.excmds.create({
+  name: "nix",
+  description: "Search NixOS packages on search.nixos.org",
+}, async ({ args_arr }) => {
+  const query = args_arr.join(" ").trim();
+
+  const url = new URL("https://search.nixos.org/packages");
+  url.searchParams.set("channel", "unstable");
+  url.searchParams.set("query", query);
+
+  await browser.tabs.create({ url: url.toString() });
+  await glide.excmds.execute("keys <C-,>");
+});
+
 glide.keymaps.set("normal", "t", async () => {
   await glide.commandline.show({
     title: "Google Search",
