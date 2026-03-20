@@ -41,6 +41,34 @@ vim.g.vimtex_view_method = 'zathura'
 -- Configure forward search
 vim.g.vimtex_view_general_options = '--synctex-forward @line:@col:@pdf %p'
 
+local lsp_attach_group = vim.api.nvim_create_augroup('axelcool1234-lsp-attach', { clear = true })
+
+local function toggle_inlay_hints(bufnr)
+  local filter = { bufnr = bufnr }
+  vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled(filter), filter)
+end
+
+vim.api.nvim_create_autocmd('LspAttach', {
+  group = lsp_attach_group,
+  callback = function(args)
+    local client = vim.lsp.get_client_by_id(args.data.client_id)
+    local bufnr = args.buf
+
+    if not client then
+      return
+    end
+
+    vim.bo[bufnr].omnifunc = 'v:lua.vim.lsp.omnifunc'
+
+    if client:supports_method('textDocument/inlayHint') then
+      vim.lsp.inlay_hint.enable(true, { bufnr = bufnr })
+      vim.keymap.set('n', '<leader>i', function()
+        toggle_inlay_hints(bufnr)
+      end, { buffer = bufnr, desc = 'Toggle inlay hints', silent = true })
+    end
+  end,
+})
+
 -- Firenvim
 vim.g.firenvim_config = {
     globalSettings = { alt = "all" },
@@ -73,11 +101,6 @@ vim.g.rustaceanvim = {
   --   test_executor = 'background',
   -- },
   server = {
-    on_attach = function(client, bufnr)
-      vim.bo[bufnr].omnifunc = "v:lua.vim.lsp.omnifunc"
-      vim.lsp.inlay_hint.enable(true)
-      vim.api.nvim_set_keymap('n', '<leader>i', "<cmd>lua require('vim.lsp.inlay_hint').enable(not require('vim.lsp.inlay_hint').is_enabled())<CR>", { noremap = true, silent = true })
-    end,
     default_settings = {
       -- rust-analyzer language server configuration
       ['rust-analyzer'] = {

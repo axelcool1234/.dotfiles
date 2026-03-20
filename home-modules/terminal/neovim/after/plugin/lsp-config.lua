@@ -1,281 +1,197 @@
--- Load required modules
-local lspconfig = require('lspconfig')
-local configs = require('lspconfig.configs')
-
--- Set up lspconfig
 local capabilities = require('cmp_nvim_lsp').default_capabilities()
 
-local on_attach = function(client, bufnr)
-	vim.bo[bufnr].omnifunc = "v:lua.vim.lsp.omnifunc"
-
-    -- if client.server_capabilities.inlayHintProvider then
-    --     vim.g.inlay_hints_visible = true
-    --     vim.lsp.inlay_hint(bufnr, true)
-    -- end
-end
-
--- Dafny
-if not configs.dafny then
-  configs.dafny = {
-    default_config = {
-      cmd = { "dafny", "server" },
-      filetypes = { "dafny" },
-      root_dir = lspconfig.util.root_pattern(
-        ".git",
-        "dafny.toml",
-        "Dafny.toml"
-      ),
-      settings = {},
-    },
-  }
-end
-
-
--- Configure language servers
--- Dafny
-lspconfig.dafny.setup {
+vim.lsp.config('*', {
   capabilities = capabilities,
-  on_attach = on_attach,
-  document_highlight = { enabled = false },
-}
+})
 
+local function enable(server_name, config)
+  vim.lsp.config(server_name, config or {})
+  vim.lsp.enable(server_name)
+end
+
+-- Dafny
+enable('dafny', {
+  filetypes = { 'dfy', 'dafny' },
+  root_markers = { { 'dafny.toml', 'Dafny.toml' }, '.git' },
+})
 
 -- Nix
-lspconfig.nil_ls.setup {
-  autostart = true,
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('nil_ls', {
   cmd = { 'nil' },
   settings = {
     ['nil'] = {
       testSetting = 42,
       formatting = {
-        command = { "nixpkgs-fmt" },
+        command = { 'nixpkgs-fmt' },
       },
     },
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- TableGen
-lspconfig.tblgen_lsp_server.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
-  cmd = { 'tblgen-lsp-server', '--tablegen-compilation-database=/home/axelcool1234/.dotfiles/misc/envs/llvm/build/tablegen_compile_commands.yml'},
+enable('tblgen_lsp_server', {
+  cmd = {
+    'tblgen-lsp-server',
+    '--tablegen-compilation-database=/home/axelcool1234/.dotfiles/misc/envs/llvm/build/tablegen_compile_commands.yml',
+  },
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
-
+})
 
 -- Python
-lspconfig.pyright.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('pyright', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- LaTeX (texlab)
-lspconfig.texlab.setup {
-    capabilities = capabilities,
-    on_attach = on_attach,
-    settings = {
-        texlab = {
-            -- build = {
-            --     onSave = false,
-            --     forwardSearchAfter = false,
-            --     -- executable = "tectonic",
-            --     -- args = { "-X", "compile", "%f", "--synctex", "-Zshell-escape", "--keep-logs", "--keep-intermediates" },
-            --     executable = "latexmk",
-            --     args = { "-pdf", "-interaction=nonstopmode", "-synctex=1", "%f" },
-            -- },
-            -- forwardSearch = {
-            --     executable = "zathura",
-            --     args = { "--synctex-forward", "%l:1:%f", "%p" },
-            -- },
-            chktex = {
-                onEdit = true,
-            },
-            auxDirectory = ".",
-            bibtexFormatter = "texlab",
-            diagnosticsDelay = 300,
-            formatterLineLength = 80,
-            latexFormatter = "latexindent",
-            latexindent = {
-                modifyLineBreaks = true,
-            },
-        },
+enable('texlab', {
+  settings = {
+    texlab = {
+      -- build = {
+      --   onSave = false,
+      --   forwardSearchAfter = false,
+      --   -- executable = 'tectonic',
+      --   -- args = { '-X', 'compile', '%f', '--synctex', '-Zshell-escape', '--keep-logs', '--keep-intermediates' },
+      --   executable = 'latexmk',
+      --   args = { '-pdf', '-interaction=nonstopmode', '-synctex=1', '%f' },
+      -- },
+      -- forwardSearch = {
+      --   executable = 'zathura',
+      --   args = { '--synctex-forward', '%l:1:%f', '%p' },
+      -- },
+      chktex = {
+        onEdit = true,
+      },
+      auxDirectory = '.',
+      bibtexFormatter = 'texlab',
+      diagnosticsDelay = 300,
+      formatterLineLength = 80,
+      latexFormatter = 'latexindent',
+      latexindent = {
+        modifyLineBreaks = true,
+      },
     },
-    document_highlight = { enabled = false }
-}
+  },
+})
 
 -- Typst
-lspconfig.tinymist.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('tinymist', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
-
+})
 
 -- Haskell
-lspconfig.hls.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('hls', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- Rust (using rustaceanvim instead!)
--- lspconfig.rust_analyzer.setup {
---   capabilities = capabilities,
---   on_attach = on_attach,
+-- enable('rust_analyzer', {
 --   settings = {
 --     hint = true,
 --     ['rust-analyzer'] = {
 --       cargo = {
 --         allFeatures = true,
---       },      
---       checkOnSave = {
---         command = "clippy",
 --       },
---     }
+--       checkOnSave = {
+--         command = 'clippy',
+--       },
+--     },
 --   },
---   document_highlight = { enabled = false }
--- }
+-- })
 
 -- C/C++
-lspconfig.clangd.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('clangd', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- Go
-lspconfig.gopls.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('gopls', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
--- OCaml 
-lspconfig.ocamllsp.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+-- OCaml
+enable('ocamllsp', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- Ruby
-lspconfig.solargraph.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('solargraph', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- Java
-lspconfig.jdtls.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('jdtls', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- PHP
-lspconfig.intelephense.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('intelephense', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- Lua
-lspconfig.lua_ls.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('lua_ls', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- HTML, CSS, JavaScript (web development)
-lspconfig.html.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('html', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
-lspconfig.cssls.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+})
+
+enable('cssls', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- Vue.js
-lspconfig.volar.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('volar', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- C#
-lspconfig.omnisharp.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('omnisharp', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- Kotlin
-lspconfig.kotlin_language_server.setup {
-  capabilities = capabilities,
-  on_attach = on_attach,
+enable('kotlin_language_server', {
   settings = {
     hint = true,
   },
-  document_highlight = { enabled = false }
-}
+})
 
 -- Swift
--- lspconfig.sourcekit.setup {
---   capabilities = capabilities,
---   on_attach = on_attach,
+-- enable('sourcekit', {
 --   settings = {
 --     hint = true,
 --   },
---   document_highlight = { enabled = false }
--- }
+-- })

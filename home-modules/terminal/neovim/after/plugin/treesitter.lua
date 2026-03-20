@@ -1,8 +1,11 @@
 -- [[ Configure Treesitter ]]
 -- See `:help nvim-treesitter`
--- Defer Treesitter setup after first render to improve startup time of 'nvim {filename}'
-vim.defer_fn(function()
-  require('nvim-treesitter.configs').setup {
-    highlight = { enable = true, },
-  }
-end, 0)
+
+local treesitter_group = vim.api.nvim_create_augroup('axelcool1234-treesitter', { clear = true })
+
+vim.api.nvim_create_autocmd('FileType', {
+  group = treesitter_group,
+  callback = function(args)
+    pcall(vim.treesitter.start, args.buf)
+  end,
+})
