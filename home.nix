@@ -71,6 +71,7 @@
     # Gui/Programs
     stremio
     slack
+    (callPackage ./pkgs/restart-waybar.nix { })
 
     # LLM CLIs
     inputs.llm-agents.packages.${pkgs.system}.codex
