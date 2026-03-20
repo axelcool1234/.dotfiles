@@ -69,13 +69,12 @@
     scooter
 
     # Gui/Programs
-    stremio
     slack
     (callPackage ./pkgs/restart-waybar.nix { })
 
     # LLM CLIs
-    inputs.llm-agents.packages.${pkgs.system}.codex
-    inputs.llm-agents.packages.${pkgs.system}.code
+    inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex
+    inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.code
 
     # --- programming language specific --- #
     # Nix

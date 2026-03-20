@@ -11,9 +11,9 @@ in
   config = mkIf program-module.enable {
     programs.${program} = {
       enable = true;
-      userName = "Axel Sorenson";
-      userEmail = "AxelPSorenson@gmail.com";
-      extraConfig = {
+      settings = {
+        user.name = "Axel Sorenson";
+        user.email = "AxelPSorenson@gmail.com";
         init = {
           defaultBranch = "main";
         };

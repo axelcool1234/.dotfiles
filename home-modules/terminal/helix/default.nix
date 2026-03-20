@@ -20,7 +20,11 @@ in
     programs.${program} = {
       enable = true;
       defaultEditor = true;
-      package = inputs.modded-helix.packages.${pkgs.system}.default;
+      # package = inputs.modded-helix.packages.${pkgs.system}.default;
+      # TODO: It should be the above, but bovex treesitter is dead. This should be fixed in OG Helix eventually I think.
+      package = inputs.modded-helix.packages.${pkgs.stdenv.hostPlatform.system}.default.override {
+        includeGrammarIf = grammar: grammar.name != "bovex";
+      };
       extraPackages = [ pkgs.nixd ];
       settings = {
         theme = "tokyonight";
