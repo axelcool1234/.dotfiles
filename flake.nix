@@ -64,7 +64,7 @@
       ...
     }@inputs:
     let
-      theme = import ./themes/catppuccin-macchiato.nix;
+      theme = import ./themes/catppuccin-mocha.nix;
 
       # NixOS Configuration
       mkSystem =

@@ -20,7 +20,7 @@ in
     "dotfiles-theme/rofi.rasi".text = templates.rofi;
     "helix/themes/${theme.helix.themeName}.toml".text = templates.helix;
     "yazi/theme.toml".text = templates.yazi;
-    "yazi/${templates.yaziSyntectThemeFileName}".text = templates.yaziSyntectTheme;
+    "yazi/${theme.selection.family}-${theme.selection.flavor}.tmTheme".text = templates.yaziSyntectTheme;
 
     "dotfiles-theme/zathura".text = templates.zathura;
     "dotfiles-theme/nushell.nu".text = templates.nushell;
