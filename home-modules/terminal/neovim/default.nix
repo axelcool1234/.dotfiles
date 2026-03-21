@@ -1,13 +1,14 @@
-{ pkgs, lib, config, theme, ... }:
+{ pkgs, lib, config, themes, theme, ... }:
 with lib;
 let
   program = "neovim";
   program-module = config.modules.${program};
+  neovimProvider = themes.helpers.getAppProvider theme "neovim";
   neovimThemePlugin =
-    if theme.integrations.neovimThemePlugin == null then
+    if neovimProvider == null || neovimProvider.type != "package" then
       null
     else
-      builtins.foldl' (acc: name: builtins.getAttr name acc) pkgs.vimPlugins theme.integrations.neovimThemePlugin.attrPath;
+      builtins.foldl' (acc: name: builtins.getAttr name acc) pkgs.vimPlugins neovimProvider.attrPath;
 
   themePlugins = lib.optionals (neovimThemePlugin != null) [ neovimThemePlugin ];
 in

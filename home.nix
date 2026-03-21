@@ -5,7 +5,8 @@
 }:
 {
   imports = [ home-modules/default.nix ];
-  config.modules = {
+  config = {
+    modules = {
     # Editor (plus integrations)
     helix.enable = true;
     yazi.enable = true;
@@ -63,8 +64,8 @@
     # - direnv and nix-direnv (TODO: replace nix-direnv with alternative)
     # - nix-init
     nix-tools.enable = true;
-  };
-  config.home.packages = with pkgs; [
+    };
+    home.packages = with pkgs; [
     # JJ
     jjui
 
@@ -86,5 +87,6 @@
     nix-tree # browse dependency graphs of nix derivations
     # Hyprlang
     hyprls
-  ];
+    ];
+  };
 }

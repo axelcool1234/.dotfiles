@@ -3,7 +3,6 @@
   imports = [
     ./theme
     ./hyprland-desktop
-    ./terminal/wezterm
     ./terminal/kitty
     ./terminal/fish
     ./terminal/nushell

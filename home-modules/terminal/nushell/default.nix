@@ -1,19 +1,19 @@
-{ lib, config, theme, ... }:
+{ lib, config, themes, theme, ... }:
 with lib;
 let
   program = "nushell";
   program-module = config.modules.${program};
+  neovimProvider = themes.helpers.getAppProvider theme "neovim";
   configNu = ''
     #--- Environment Variables ---#
     $env.EDITOR = "hx"
     $env.VOLUME_STEP = 5
     $env.BRIGHTNESS_STEP = 5
 
-    $env.DOTFILES_THEME_FAMILY = ${builtins.toJSON theme.selection.family}
-    $env.DOTFILES_THEME_FLAVOR = ${builtins.toJSON theme.selection.flavor}
-    $env.DOTFILES_THEME_ACCENT = ${builtins.toJSON theme.selection.accent}
-    $env.NVIM_COLORSCHEME = ${builtins.toJSON theme.neovim.colorscheme}
-    $env.FZF_DEFAULT_OPTS = ${builtins.toJSON theme.fzf.defaultOpts}
+    $env.DOTFILES_THEME_FAMILY = ${builtins.toJSON theme.source.family}
+    $env.DOTFILES_THEME_FLAVOR = ${builtins.toJSON theme.source.variant}
+    $env.DOTFILES_THEME_ACCENT = ${builtins.toJSON theme.source.accent}
+    $env.NVIM_COLORSCHEME = ${builtins.toJSON neovimProvider.options.colorscheme}
 
     #--- Aliases ---#
     alias cl = clear
@@ -65,6 +65,9 @@ let
     # Catpuccin Theme
     const THEME_NU = "~/.config/dotfiles-theme/nushell.nu"
     source $THEME_NU
+
+    const FZF_THEME_NU = "~/.config/dotfiles-theme/fzf.nu"
+    source $FZF_THEME_NU
 
     #--- Custom Commands ---#
     use hhx.nu

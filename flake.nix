@@ -64,7 +64,8 @@
       ...
     }@inputs:
     let
-      theme = import ./themes/catppuccin-mocha.nix;
+      themes = import ./themes { lib = nixpkgs.lib; };
+      theme = themes.families.catppuccin.mk { };
 
       # NixOS Configuration
       mkSystem =
@@ -72,7 +73,7 @@
         nixpkgsInput.lib.nixosSystem {
           system = system;
           specialArgs = {
-            inherit inputs username hostname theme;
+            inherit inputs username hostname themes theme;
           };
           modules = [
             { networking.hostName = hostname; }
@@ -91,7 +92,7 @@
             config.allowUnfreePredicate = (_: true);
           };
           extraSpecialArgs = {
-            inherit inputs username hostname theme;
+            inherit inputs username hostname themes theme;
           };
           modules = [
             {

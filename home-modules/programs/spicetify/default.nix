@@ -2,6 +2,7 @@
   inputs,
   lib,
   config,
+  themes,
   theme,
   ...
 }:
@@ -10,11 +11,12 @@ let
   program = "spicetify";
   program-module = config.modules.${program};
   spicePkgs = inputs.spicetify-nix.legacyPackages.x86_64-linux;
+  spicetifyProvider = themes.helpers.getAppProvider theme "spicetify";
   spicetifyThemePkg =
-    if theme.integrations.spicetifyThemePackage == null then
+    if spicetifyProvider == null || spicetifyProvider.type != "package" then
       null
     else
-      builtins.foldl' (acc: name: builtins.getAttr name acc) spicePkgs.themes theme.integrations.spicetifyThemePackage.attrPath;
+      builtins.foldl' (acc: name: builtins.getAttr name acc) spicePkgs.themes spicetifyProvider.attrPath;
 in
 {
   imports = [
@@ -41,7 +43,7 @@ in
       #spotifyPackage = (pkgs.callPackage ../../pkgs/spotify-adblock.nix { });
     } // lib.optionalAttrs (spicetifyThemePkg != null) {
       theme = spicetifyThemePkg;
-      colorScheme = theme.integrations.spicetifyThemePackage.colorScheme;
+      colorScheme = spicetifyProvider.options.colorScheme;
     };
   };
 }

@@ -1,27 +1,21 @@
-{ lib, config, theme, ... }:
+{ pkgs, lib, config, themes, theme, ... }:
 with lib;
 let
   program = "lazygit";
   program-module = config.modules.${program};
+  lazygitProvider = themes.helpers.getAppProvider theme "lazygit";
+  lazygitThemeSource =
+    if lazygitProvider != null && lazygitProvider.type == "asset" then
+      themes.helpers.resolveAssetSource lazygitProvider
+    else
+      throw "theme.apps.lazygit must fetch an upstream theme asset";
 in
 {
   options.modules.${program} = {
     enable = mkEnableOption "enables ${program} config";
   };
   config = mkIf program-module.enable {
-    programs.${program} = {
-      enable = true;
-      settings.gui.theme = {
-        lightTheme = theme.mode == "light";
-        activeBorderColor = [ (theme.hex "green") "bold" ];
-        inactiveBorderColor = [ (theme.hex "text") ];
-        optionsTextColor = [ (theme.hex "blue") ];
-        selectedLineBgColor = [ (theme.hex "surface0") ];
-        selectedRangeBgColor = [ (theme.hex "surface0") ];
-        cherryPickedCommitBgColor = [ (theme.hex "teal") ];
-        cherryPickedCommitFgColor = [ (theme.hex "blue") ];
-        unstagedChangesColor = [ (theme.hex "red") ];
-      };
-    };
+    home.packages = [ pkgs.lazygit ];
+    xdg.configFile."lazygit/config.yml".source = lazygitThemeSource;
   };
 }

@@ -1,4 +1,3 @@
--- TODO: Wezterm is broken, so a lot of binds here that use Wezterm are also broken.
 -- Leader Key
 vim.g.mapleader = " "
 
@@ -19,23 +18,6 @@ _G.live_grep_in_git_root = function()
     else
         require("telescope.builtin").live_grep()
     end
-end
-
-_G.open_lazygit_in_wezterm = function()
-  local current_cwd = vim.fn.getcwd()
-  local wezterm_command = string.format("wezterm cli split-pane --right --cwd '%s' lazygit", current_cwd)
-  vim.fn.system(wezterm_command)
-end
-
-_G.open_terminal_in_wezterm = function()
-  local current_cwd = vim.fn.getcwd()
-  -- local wezterm_command = string.format("wezterm cli split-pane --right --cwd '%s'", current_cwd)
-  local wezterm_command = string.format("wezterm cli split-pane --percent 30 --cwd '%s'", current_cwd)
-  vim.fn.system(wezterm_command)
-end
-
-_G.wezterm_pane_move = function(direction)
-  vim.fn.system('wezterm cli activate-pane-direction ' .. direction)
 end
 
 _G.open_submissions = function()
@@ -237,8 +219,6 @@ local mappings = {
     { "Toggle Undotree", '<leader>u', "<cmd>lua vim.cmd.UndotreeToggle()<CR>", 'n' },
 
     -- UltiSnips keymappings
-    -- Note: Due to my Wezterm keybindings making <C-;> be the up arrow and <C-;> be the down arrow, I have 
-    -- rebound the UltiSnips keymappings accordingly
     { "UltiSnips: Expand Trigger", '<tab>', "<cmd>call UltiSnips#ExpandSnippet()<CR>", { "i", "s" } },
     -- { "UltiSnips: Jump Forward", '<C-;>', "<cmd>call UltiSnips#JumpForwards()<CR>", { "i", "s" } },
     { "UltiSnips: Jump Forward", '<Up>', "<cmd>call UltiSnips#JumpForwards()<CR>", { "i", "s" } },
@@ -256,14 +236,6 @@ local mappings = {
     { "Prev Buffer", 'H', "<cmd>BufferLineCyclePrev<cr>", 'n' },
     { "Next Buffer", 'L', "<cmd>BufferLineCycleNext<cr>", 'n' },
     { "Close Buffer", 'gq', "<cmd>bdelete<CR>", 'n' },
-
-    -- Terminal-based keymappings
-    { "Lazygit", "<leader>gg", "<cmd>lua open_lazygit_in_wezterm()<CR>", 'n' },
-    { "Terminal", "<leader>gt", "<cmd>lua open_terminal_in_wezterm()<CR>", 'n' },
-    { "Left Pane", '<C-h>', '<cmd>lua wezterm_pane_move("Left")<CR>', 'n' },
-    { "Right Pane", '<C-l>', '<cmd>lua wezterm_pane_move("Right")<CR>', 'n' },
-    { "Above Pane", '<C-k>', '<cmd>lua wezterm_pane_move("Right")<CR>', 'n' },
-    { "Below Pane", '<C-j>', '<cmd>lua wezterm_pane_move("Down")<CR>', 'n' },
 
     -- Oil keymappings
     { "Open Parent Directory", "-", "<cmd>Oil<CR>", 'n' },

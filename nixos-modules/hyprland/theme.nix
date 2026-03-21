@@ -1,6 +1,13 @@
-{ pkgs, theme, ... }:
+{
+  pkgs,
+  themes,
+  theme ? null,
+  ...
+}:
 
 let
+  inherit (themes.helpers) getAppProvider;
+
   resolvePkgsAttr = spec:
     let
       pkg = builtins.getAttr (builtins.head spec.attrPath) pkgs;
@@ -8,33 +15,109 @@ let
     in
     if spec ? override then nested.override spec.override else nested;
 
-  gtkThemePkg =
-    if theme.integrations.gtkThemePackage == null then null else resolvePkgsAttr theme.integrations.gtkThemePackage;
+  gtkProvider = getAppProvider theme "gtk";
+  kvantumProvider = getAppProvider theme "kvantum";
+  cursorProvider = getAppProvider theme "cursor";
+  qtProvider = getAppProvider theme "qt";
+  consoleProvider = getAppProvider theme "console";
 
-  kvantumThemePkg =
-    if theme.integrations.kvantumThemePackage == null then null else resolvePkgsAttr theme.integrations.kvantumThemePackage;
+  gtkThemeName =
+    if gtkProvider != null && gtkProvider.type == "module" && gtkProvider.options ? themeName then
+      gtkProvider.options.themeName
+    else
+      throw "theme.apps.gtk.provider.options.themeName is required";
 
-  cursorThemePkg =
-    if theme.integrations.cursorThemePackage == null then null else resolvePkgsAttr theme.integrations.cursorThemePackage;
+  cursorName =
+    if cursorProvider != null && cursorProvider.type == "module" && cursorProvider.options ? name then
+      cursorProvider.options.name
+    else
+      throw "theme.apps.cursor.provider.options.name is required";
+
+  cursorSize =
+    if cursorProvider != null && cursorProvider.type == "module" && cursorProvider.options ? size then
+      cursorProvider.options.size
+    else
+      throw "theme.apps.cursor.provider.options.size is required";
+
+  qtEnabled =
+    if qtProvider != null && qtProvider.type == "module" && qtProvider.options ? enable then
+      qtProvider.options.enable
+    else
+      throw "theme.apps.qt.provider.options.enable is required";
+
+  qtPlatformTheme =
+    if qtProvider != null && qtProvider.type == "module" && qtProvider.options ? platformTheme then
+      qtProvider.options.platformTheme
+    else
+      throw "theme.apps.qt.provider.options.platformTheme is required";
+
+  qtStyle =
+    if qtProvider != null && qtProvider.type == "module" && qtProvider.options ? style then
+      qtProvider.options.style
+    else
+      throw "theme.apps.qt.provider.options.style is required";
+
+  gtkThemeSpec =
+    if gtkProvider != null
+      && gtkProvider.type == "module"
+      && gtkProvider.options ? package
+      && gtkProvider.options.package != null then
+      gtkProvider.options.package
+    else
+      throw "theme.apps.gtk.provider.options.package is required";
+
+  kvantumThemeSpec =
+    if kvantumProvider != null
+      && kvantumProvider.type == "module"
+      && kvantumProvider.options ? package
+      && kvantumProvider.options.package != null then
+      kvantumProvider.options.package
+    else
+      throw "theme.apps.kvantum.provider.options.package is required";
+
+  cursorThemeSpec =
+    if cursorProvider != null
+      && cursorProvider.type == "module"
+      && cursorProvider.options ? package
+      && cursorProvider.options.package != null then
+      cursorProvider.options.package
+    else
+      throw "theme.apps.cursor.provider.options.package is required";
+
+  gtkThemePkg = resolvePkgsAttr gtkThemeSpec;
+
+  kvantumThemePkg = resolvePkgsAttr kvantumThemeSpec;
+
+  cursorThemePkg = resolvePkgsAttr cursorThemeSpec;
+
+  accent =
+    if theme != null && theme.source != null && theme.source ? accent then
+      theme.source.accent
+    else
+      throw "theme.source.accent is required";
 in
 {
   # Enable Theme
-  environment.variables.GTK_THEME = theme.gtk.themeName;
-  environment.variables.XCURSOR_THEME = theme.cursor.name;
-  environment.variables.XCURSOR_SIZE = toString theme.cursor.size;
-  environment.variables.HYPRCURSOR_THEME = theme.cursor.name;
-  environment.variables.HYPRCURSOR_SIZE = toString theme.cursor.size;
-  qt.enable = true;
-  qt.platformTheme = "gtk2";
-  qt.style = "gtk2";
+  environment.variables.GTK_THEME = gtkThemeName;
+  environment.variables.XCURSOR_THEME = cursorName;
+  environment.variables.XCURSOR_SIZE = toString cursorSize;
+  environment.variables.HYPRCURSOR_THEME = cursorName;
+  environment.variables.HYPRCURSOR_SIZE = toString cursorSize;
+  qt.enable = qtEnabled;
+  qt.platformTheme = qtPlatformTheme;
+  qt.style = qtStyle;
   console = {
     earlySetup = true;
-    colors = theme.consoleColors;
+    colors =
+      if consoleProvider != null && consoleProvider.type == "module" && consoleProvider.options ? colors then
+        consoleProvider.options.colors
+      else
+        throw "theme.apps.console.provider.options.colors is required";
   };
 
   # Override packages
   nixpkgs.config.packageOverrides = pkgs: {
-    colloid-icon-theme = pkgs.colloid-icon-theme.override { colorVariants = [ theme.selection.accent ]; };
+    colloid-icon-theme = pkgs.colloid-icon-theme.override { colorVariants = [ accent ]; };
   } // {
     discord = pkgs.discord.override {
       withOpenASAR = true;

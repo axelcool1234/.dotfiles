@@ -3,7 +3,8 @@
   lib,
   config,
   hostname,
-  theme,
+  themes,
+  theme ? null,
   ...
 }:
 with lib;
@@ -15,13 +16,96 @@ in
   options.modules.${program} = {
     enable = mkEnableOption "enables ${program} config";
   };
-  config = mkIf program-module.enable {
-    xdg.configFile.hypr.source = ./hyprland;
+  config = mkIf program-module.enable (
+    let
+      inherit (themes.helpers) getAppProvider resolveAssetSource resolveWrapperText;
+
+      waybarProvider = getAppProvider theme "waybar";
+      dunstProvider = getAppProvider theme "dunst";
+      rofiProvider = getAppProvider theme "rofi";
+      wlogoutProvider = getAppProvider theme "wlogout";
+      gtkProvider = getAppProvider theme "gtk";
+      kvantumProvider = getAppProvider theme "kvantum";
+      cursorProvider = getAppProvider theme "cursor";
+
+      gtkThemeName =
+        if gtkProvider != null && gtkProvider.type == "module" && gtkProvider.options ? themeName then
+          gtkProvider.options.themeName
+        else
+          throw "theme.apps.gtk.provider.options.themeName is required";
+
+      gtkIconThemeName =
+        if gtkProvider != null && gtkProvider.type == "module" && gtkProvider.options ? iconThemeName then
+          gtkProvider.options.iconThemeName
+        else
+          throw "theme.apps.gtk.provider.options.iconThemeName is required";
+
+      cursorGtkName =
+        if cursorProvider != null && cursorProvider.type == "module" && cursorProvider.options ? gtkName then
+          cursorProvider.options.gtkName
+        else
+          throw "theme.apps.cursor.provider.options.gtkName is required";
+
+      cursorSize =
+        if cursorProvider != null && cursorProvider.type == "module" && cursorProvider.options ? size then
+          cursorProvider.options.size
+        else
+          throw "theme.apps.cursor.provider.options.size is required";
+
+      kvantumThemeName =
+        if kvantumProvider != null && kvantumProvider.type == "module" && kvantumProvider.options ? themeName then
+          kvantumProvider.options.themeName
+        else
+          throw "theme.apps.kvantum.provider.options.themeName is required";
+
+      waybarAssetSource = resolveAssetSource waybarProvider;
+      dunstAssetSource = resolveAssetSource dunstProvider;
+      rofiAssetSource = resolveAssetSource rofiProvider;
+      wlogoutAssetSource =
+        if wlogoutProvider != null && wlogoutProvider.options ? colors then
+          null
+        else
+          resolveAssetSource wlogoutProvider;
+
+      waybarColors =
+        if waybarProvider != null
+          && waybarProvider.type == "asset+import"
+          && waybarProvider.options ? colors then
+          waybarProvider.options.colors
+        else
+          throw "theme.apps.waybar.provider.options.colors is required";
+
+      rofiWrapperDir =
+        if rofiProvider != null && rofiProvider.type == "asset+import" then
+          pkgs.runCommandLocal "rofi-config-dir" { } ''
+            mkdir -p "$out"
+            ln -s ${rofiProvider.wrapperFile} "$out/config.rasi"
+          ''
+        else
+          null;
+
+      wlogoutWrapperDir =
+        if wlogoutProvider != null && wlogoutProvider.type == "asset+import" then
+          pkgs.runCommandLocal "wlogout-config-dir" { } ''
+            mkdir -p "$out/icons"
+            ln -s ${wlogoutProvider.wrapperFile} "$out/style.css"
+            ln -s ${./wlogout/layout} "$out/layout"
+            ln -s ${./wlogout/icons/hibernate.png} "$out/icons/hibernate.png"
+            ln -s ${./wlogout/icons/lock.png} "$out/icons/lock.png"
+            ln -s ${./wlogout/icons/logout.png} "$out/icons/logout.png"
+            ln -s ${./wlogout/icons/reboot.png} "$out/icons/reboot.png"
+            ln -s ${./wlogout/icons/shutdown.png} "$out/icons/shutdown.png"
+            ln -s ${./wlogout/icons/suspend.png} "$out/icons/suspend.png"
+          ''
+        else
+          null;
+    in
+    mkMerge [
+    {
+      xdg.configFile.hypr.source = ./hyprland;
     # xdg.configFile.waybar.source = ./waybar;
     xdg.configFile."dunst/dunstrc".text = ''
       [global]
-      frame_color = "${theme.hex "text"}"
-      separator_color= frame
       font = "JetBrains Mono Regular 11"
       corner_radius = 10
       offset = 5x5
@@ -31,29 +115,18 @@ in
       frame_width = 2
       width = 300
       height = 100
-
-      [urgency_low]
-      background = "${theme.hex "base"}"
-      foreground = "${theme.hex "text"}"
-
-      [urgency_normal]
-      background = "${theme.hex "base"}"
-      foreground = "${theme.hex "text"}"
-
-      [urgency_critical]
-      background = "${theme.hex "base"}"
-      foreground = "${theme.hex "text"}"
-      frame_color = "${theme.hex "peach"}"
     '';
     xdg.configFile.mpv.source = ./mpv;
-    xdg.configFile.rofi.source = ./rofi;
-    xdg.configFile.wlogout.source = ./wlogout;
+    xdg.configFile.rofi.source =
+      if rofiWrapperDir != null then rofiWrapperDir else throw "theme.apps.rofi must use asset+import provider";
+    xdg.configFile.wlogout.source =
+      if wlogoutWrapperDir != null then wlogoutWrapperDir else throw "theme.apps.wlogout must use asset+import provider";
     xdg.configFile.avizo.source = ./avizo;
     xdg.configFile."xsettingsd/xsettingsd.conf".text = ''
-      Net/ThemeName "${theme.gtk.themeName}"
-      Net/IconThemeName "${theme.gtk.iconThemeName}"
-      Gtk/CursorThemeName "${theme.cursor.gtkName}"
-      Gtk/CursorThemeSize ${toString theme.cursor.size}
+      Net/ThemeName "${gtkThemeName}"
+      Net/IconThemeName "${gtkIconThemeName}"
+      Gtk/CursorThemeName "${cursorGtkName}"
+      Gtk/CursorThemeSize ${toString cursorSize}
       Gtk/FontName "JetBrains Mono 11"
       Xft/Antialias 1
       Xft/Hinting 1
@@ -66,39 +139,36 @@ in
     xdg.configFile."gtk-3.0/gtk.css".source = ./gtk-3.0/gtk.css;
     xdg.configFile."gtk-3.0/settings.ini".text = ''
       [Settings]
-      gtk-theme-name=${theme.gtk.themeName}
-      gtk-icon-theme-name=${theme.gtk.iconThemeName}
+      gtk-theme-name=${gtkThemeName}
+      gtk-icon-theme-name=${gtkIconThemeName}
       gtk-font-name=JetBrains Mono 11
-      gtk-cursor-theme-name=${theme.cursor.gtkName}
-      gtk-cursor-theme-size=${toString theme.cursor.size}
+      gtk-cursor-theme-name=${cursorGtkName}
+      gtk-cursor-theme-size=${toString cursorSize}
     '';
     xdg.configFile."gtk-4.0/gtk.css".source = ./gtk-4.0/gtk.css;
     xdg.configFile."gtk-4.0/settings.ini".text = ''
       [Settings]
-      gtk-theme-name=${theme.gtk.themeName}
-      gtk-icon-theme-name=${theme.gtk.iconThemeName}
+      gtk-theme-name=${gtkThemeName}
+      gtk-icon-theme-name=${gtkIconThemeName}
       gtk-font-name=JetBrains Mono 11
-      gtk-cursor-theme-name=${theme.cursor.gtkName}
-      gtk-cursor-theme-size=${toString theme.cursor.size}
+      gtk-cursor-theme-name=${cursorGtkName}
+      gtk-cursor-theme-size=${toString cursorSize}
     '';
     xdg.configFile.autostart.source = ./autostart;
     xdg.configFile.swappy.source = ./swappy;
     xdg.configFile.zellij.source = ./zellij;
     xdg.configFile."Kvantum/kvantum.kvconfig".text = ''
       [General]
-      theme=${theme.gtk.kvantumThemeName}
+      theme=${kvantumThemeName}
     '';
-    xdg.configFile."Kvantum/Catppuccin-Macchiato-Standard-Teal-dark#/Catppuccin-Macchiato-Standard-Teal-dark#.kvconfig".source = ./Kvantum + "/Catppuccin-Macchiato-Standard-Teal-dark#/Catppuccin-Macchiato-Standard-Teal-dark#.kvconfig";
-    xdg.configFile."Kvantum/Catppuccin-Teal-Dark#/Catppuccin-Teal-Dark#.kvconfig".source = ./Kvantum + "/Catppuccin-Teal-Dark#/Catppuccin-Teal-Dark#.kvconfig";
-    xdg.configFile."Kvantum/Adwaita#/Adwaita#.kvconfig".source = ./Kvantum + "/Adwaita#/Adwaita#.kvconfig";
     home.file.".icons".source = ./.icons;
     home.file.".gtkrc-2.0".text = ''
-      gtk-theme-name="${theme.gtk.themeName}"
-      gtk-icon-theme-name="${theme.gtk.iconThemeName}"
-      gtk-cursor-theme-name="${theme.cursor.gtkName}"
+      gtk-theme-name="${gtkThemeName}"
+      gtk-icon-theme-name="${gtkIconThemeName}"
+      gtk-cursor-theme-name="${cursorGtkName}"
       gtk-font-name="JetBrains Mono 11"
       gtk-menu-images=0
-      gtk-cursor-theme-size=${toString theme.cursor.size}
+      gtk-cursor-theme-size=${toString cursorSize}
       gtk-button-images=0
       gtk-xft-antialias=1
       gtk-xft-hinting=1
@@ -109,7 +179,11 @@ in
     home.file.".face".source = ./.face;
 
     programs.waybar.enable = true;
-    programs.waybar.style = builtins.readFile ./waybar/style.css;
+    programs.waybar.style =
+      if waybarProvider != null && waybarProvider.type == "asset+import" then
+        resolveWrapperText waybarProvider
+      else
+        throw "theme.apps.waybar must use asset+import provider";
     programs.waybar.settings =
       # Double Bar Config
       [
@@ -199,7 +273,7 @@ in
           };
 
           "hyprland/submap" = {
-            format = "<span color='${theme.hex "green"}'>Mode:</span> {}";
+            format = "<span color='${waybarColors.green}'>Mode:</span> {}";
             tooltip = false;
           };
 
@@ -240,11 +314,11 @@ in
               on-scroll = 1;
               on-click-right = "mode";
               format = {
-                months = "<span color='${theme.hex "rosewater"}'><b>{}</b></span>";
-                days = "<span color='${theme.hex "text"}'><b>{}</b></span>";
-                weeks = "<span color='${theme.hex "mauve"}'><b>W{}</b></span>";
-                weekdays = "<span color='${theme.hex "green"}'><b>{}</b></span>";
-                today = "<span color='${theme.hex "teal"}'><b><u>{}</u></b></span>";
+                months = "<span color='${waybarColors.rosewater}'><b>{}</b></span>";
+                days = "<span color='${waybarColors.text}'><b>{}</b></span>";
+                weeks = "<span color='${waybarColors.mauve}'><b>W{}</b></span>";
+                weekdays = "<span color='${waybarColors.green}'><b>{}</b></span>";
+                today = "<span color='${waybarColors.teal}'><b><u>{}</u></b></span>";
               };
             };
           };
@@ -265,11 +339,11 @@ in
               on-scroll = 1;
               on-click-right = "mode";
               format = {
-                months = "<span color='${theme.hex "rosewater"}'><b>{}</b></span>";
-                days = "<span color='${theme.hex "text"}'><b>{}</b></span>";
-                weeks = "<span color='${theme.hex "mauve"}'><b>W{}</b></span>";
-                weekdays = "<span color='${theme.hex "green"}'><b>{}</b></span>";
-                today = "<span color='${theme.hex "teal"}'><b><u>{}</u></b></span>";
+                months = "<span color='${waybarColors.rosewater}'><b>{}</b></span>";
+                days = "<span color='${waybarColors.text}'><b>{}</b></span>";
+                weeks = "<span color='${waybarColors.mauve}'><b>W{}</b></span>";
+                weekdays = "<span color='${waybarColors.green}'><b>{}</b></span>";
+                today = "<span color='${waybarColors.teal}'><b><u>{}</u></b></span>";
               };
             };
           };
@@ -319,9 +393,9 @@ in
               "󰤨"
             ];
             format-disconnected = "󰤫 Disconnected";
-            tooltip-format = "wifi <span color='#ee99a0'>off</span>";
-            tooltip-format-wifi = "SSID: {essid}({signalStrength}%) {frequency} MHz\nInterface: {ifname}\nIP: {ipaddr}\nGW: {gwaddr}\n\n<span color='${theme.hex "green"}'>{bandwidthUpBits}</span>\t<span color='${theme.hex "maroon"}'>{bandwidthDownBits}</span>\t<span color='${theme.hex "mauve"}'>󰹹{bandwidthTotalBits}</span>";
-            tooltip-format-disconnected = "<span color='#ed8796'>disconnected</span>";
+            tooltip-format = "wifi <span color='${waybarColors.maroon}'>off</span>";
+            tooltip-format-wifi = "SSID: {essid}({signalStrength}%) {frequency} MHz\nInterface: {ifname}\nIP: {ipaddr}\nGW: {gwaddr}\n\n<span color='${waybarColors.green}'>{bandwidthUpBits}</span>\t<span color='${waybarColors.maroon}'>{bandwidthDownBits}</span>\t<span color='${waybarColors.mauve}'>󰹹{bandwidthTotalBits}</span>";
+            tooltip-format-disconnected = "<span color='${waybarColors.red}'>disconnected</span>";
             # format-ethernet = "󰈀 {ipaddr}/{cidr}";
             # format-linked = "󰈀 {ifname} (No IP)";
             # tooltip-format-ethernet = "Interface: {ifname}\nIP: {ipaddr}\nGW: {gwaddr}\nNetmask: {netmask}\nCIDR: {cidr}\n\n<span color='#a6da95'>{bandwidthUpBits}</span>\t<span color='#ee99a0'>{bandwidthDownBits}</span>\t<span color='#c6a0f6'>󰹹{bandwidthTotalBits}</span>";
@@ -406,8 +480,8 @@ in
               activated = "󰛐";
               deactivated = "󰛑";
             };
-            tooltip-format-activated = "idle-inhibitor <span color='${theme.hex "green"}'>on</span>";
-            tooltip-format-deactivated = "idle-inhibitor <span color='#ee99a0'>off</span>";
+            tooltip-format-activated = "idle-inhibitor <span color='${waybarColors.green}'>on</span>";
+            tooltip-format-deactivated = "idle-inhibitor <span color='${waybarColors.maroon}'>off</span>";
             start-activated = true;
           };
 
@@ -458,7 +532,7 @@ in
           };
 
           user = {
-            format = " <span color='${theme.hex "teal"}'>{user}</span> (up <span color='${theme.hex "pink"}'>{work_d} d</span> <span color='${theme.hex "blue"}'>{work_H} h</span> <span color='${theme.hex "yellow"}'>{work_M} min</span> <span color='${theme.hex "green"}'>↑</span>)";
+            format = " <span color='${waybarColors.teal}'>{user}</span> (up <span color='${waybarColors.pink}'>{work_d} d</span> <span color='${waybarColors.blue}'>{work_H} h</span> <span color='${waybarColors.yellow}'>{work_M} min</span> <span color='${waybarColors.green}'>↑</span>)";
             icon = true;
           };
         }
@@ -654,5 +728,18 @@ in
           };
         }
       ];
-  };
+    }
+    (lib.optionalAttrs (waybarAssetSource != null) {
+      xdg.configFile."${waybarProvider.target}".source = waybarAssetSource;
+    })
+    (lib.optionalAttrs (dunstAssetSource != null) {
+      xdg.configFile."${dunstProvider.target}".source = dunstAssetSource;
+    })
+    (lib.optionalAttrs (rofiAssetSource != null) {
+      xdg.configFile."${rofiProvider.target}".source = rofiAssetSource;
+    })
+    (lib.optionalAttrs (wlogoutAssetSource != null) {
+      xdg.configFile."${wlogoutProvider.target}".source = wlogoutAssetSource;
+    })
+  ]);
 }

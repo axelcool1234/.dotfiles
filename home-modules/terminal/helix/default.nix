@@ -3,6 +3,7 @@
   pkgs,
   lib,
   config,
+  themes,
   theme,
   username,
   hostname,
@@ -12,6 +13,7 @@ with lib;
 let
   program = "helix";
   program-module = config.modules.${program};
+  helixProvider = themes.helpers.getAppProvider theme "helix";
 in
 {
   options.modules.${program} = {
@@ -27,8 +29,9 @@ in
         includeGrammarIf = grammar: grammar.name != "bovex";
       };
       extraPackages = [ pkgs.nixd ];
-      settings = {
-        theme = theme.helix.themeName;
+      settings = lib.optionalAttrs (helixProvider != null && helixProvider.options ? themeName) {
+        theme = helixProvider.options.themeName;
+      } // {
         editor = {
           scrolloff = 8;
           auto-pairs = false;
