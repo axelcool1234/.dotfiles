@@ -3,14 +3,6 @@ let
   templates = import ../../themes { inherit lib theme; };
 in
 {
-  home.sessionVariables = {
-    DOTFILES_THEME_FAMILY = theme.selection.family;
-    DOTFILES_THEME_FLAVOR = theme.selection.flavor;
-    DOTFILES_THEME_ACCENT = theme.selection.accent;
-    NVIM_COLORSCHEME = theme.neovim.colorscheme;
-    FZF_DEFAULT_OPTS = theme.fzf.defaultOpts;
-  };
-
   xdg.configFile = {
     "dotfiles-theme/hyprland.conf".text = templates.hyprland;
     "dotfiles-theme/waybar.css".text = templates.waybar;
