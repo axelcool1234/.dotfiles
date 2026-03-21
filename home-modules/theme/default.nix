@@ -33,6 +33,29 @@ let
     else
       throw "theme.data.${name} is required";
 
+  renderCssColorVariables = colors:
+    lib.concatStringsSep "\n" (
+      lib.mapAttrsToList (name: value: "@define-color ${name} ${value};") colors
+    );
+
+  renderRasiColorVariables = colors:
+    ''
+      * {
+      ${lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (name: value: "  ${name}: ${value};") colors
+      )}
+      }
+    '';
+
+  renderFzfNu = defaultOpts:
+    let
+      normalizedOpts = lib.removePrefix "$FZF_DEFAULT_OPTS " defaultOpts;
+    in
+    ''
+      let extra_fzf_opts = ${builtins.toJSON normalizedOpts}
+      $env.FZF_DEFAULT_OPTS = ([($env.FZF_DEFAULT_OPTS? | default "") $extra_fzf_opts] | where {|x| $x != "" } | str join " ")
+    '';
+
   mkFileTarget = target: source: {
     "${target}".source = source;
   };
@@ -44,17 +67,36 @@ let
   wlogoutThemeText =
     if isAppEnabled theme "wlogout"
       && wlogoutProvider != null
-      && wlogoutProvider.options ? colors then
-      let
-        colors = wlogoutProvider.options.colors;
-      in
-      ''
-        @define-color overlay ${colors.overlay};
-        @define-color text ${colors.text};
-        @define-color surface0 ${colors.surface0};
-        @define-color base ${colors.base};
-        @define-color accent ${colors.accent};
-      ''
+      && wlogoutProvider.type == "template"
+      && wlogoutProvider.options ? text then
+      wlogoutProvider.options.text
+    else
+      null;
+
+  waybarThemeText =
+    if isAppEnabled theme "waybar"
+      && waybarProvider != null
+      && waybarProvider.type == "template"
+      && waybarProvider.options ? colors then
+      renderCssColorVariables waybarProvider.options.colors
+    else
+      null;
+
+  rofiThemeText =
+    if isAppEnabled theme "rofi"
+      && rofiProvider != null
+      && rofiProvider.type == "template"
+      && rofiProvider.options ? colors then
+      renderRasiColorVariables rofiProvider.options.colors
+    else
+      null;
+
+  fzfThemeText =
+    if isAppEnabled theme "fzf"
+      && fzfProvider != null
+      && fzfProvider.type == "template"
+      && fzfProvider.options ? defaultOpts then
+      renderFzfNu fzfProvider.options.defaultOpts
     else
       null;
 
@@ -66,7 +108,6 @@ let
   btopProvider = getAppProvider theme "btop";
   zathuraProvider = getAppProvider theme "zathura";
   fishProvider = getAppProvider theme "fish";
-  nushellProvider = getAppProvider theme "nushell";
   fzfProvider = getAppProvider theme "fzf";
   helixProvider = getAppProvider theme "helix";
   yaziProvider = getAppProvider theme "yazi";
@@ -91,9 +132,19 @@ let
     else
       null;
 
-  hyprlandTemplateText =
-    if isAppEnabled theme "hyprland" then
+  hyprlandThemeSource =
+    if isAppEnabled theme "hyprland"
+      && hyprlandProvider != null
+      && hyprlandProvider.type == "asset" then
       requireAssetSource "hyprland" hyprlandProvider
+    else
+      null;
+
+  hyprlandThemeText =
+    if isAppEnabled theme "hyprland"
+      && hyprlandProvider != null
+      && hyprlandProvider.type == "template" then
+      hyprlandProvider.options.text
     else
       null;
 
@@ -116,7 +167,7 @@ let
   yaziThemeSource =
     if isAppEnabled theme "yazi" && yaziSyntectText != null then
       pkgs.runCommandLocal "dotfiles-yazi-theme.toml" { } ''
-        sed -E 's#^([[:space:]]*syntect_theme[[:space:]]*=[[:space:]]*).*$#\1"./${yaziSyntectFileName}"#' \
+        sed -E 's|^[[:space:]]*#?[[:space:]]*syntect_theme[[:space:]]*=[[:space:]]*.*$|syntect_theme = "./${yaziSyntectFileName}"|' \
           ${requireAssetSource "yazi" yaziProvider} > "$out"
       ''
     else if isAppEnabled theme "yazi" then
@@ -137,16 +188,19 @@ in
     {
       "dotfiles-theme/wallpaper.png".source = requireThemeData "wallpaper";
     }
-    // lib.optionalAttrs (hyprlandTemplateText != null) (mkFileTarget "dotfiles-theme/hyprland.conf" hyprlandTemplateText)
-    // lib.optionalAttrs (isAppEnabled theme "waybar") (mkFileTarget "dotfiles-theme/waybar.css" (requireAssetSource "waybar" waybarProvider))
-    // lib.optionalAttrs (isAppEnabled theme "rofi") (mkFileTarget "dotfiles-theme/rofi.rasi" (requireAssetSource "rofi" rofiProvider))
+    // lib.optionalAttrs (hyprlandThemeSource != null) (mkFileTarget "dotfiles-theme/hyprland.conf" hyprlandThemeSource)
+    // lib.optionalAttrs (hyprlandThemeText != null) (mkFileText "dotfiles-theme/hyprland.conf" hyprlandThemeText)
+    // lib.optionalAttrs (waybarThemeText != null) (mkFileText "dotfiles-theme/waybar.css" waybarThemeText)
+    // lib.optionalAttrs (waybarThemeText == null && isAppEnabled theme "waybar") (mkFileTarget "dotfiles-theme/waybar.css" (requireAssetSource "waybar" waybarProvider))
+    // lib.optionalAttrs (rofiThemeText != null) (mkFileText "dotfiles-theme/rofi.rasi" rofiThemeText)
+    // lib.optionalAttrs (rofiThemeText == null && isAppEnabled theme "rofi") (mkFileTarget "dotfiles-theme/rofi.rasi" (requireAssetSource "rofi" rofiProvider))
     // lib.optionalAttrs (wlogoutThemeText != null) (mkFileText "dotfiles-theme/wlogout.css" wlogoutThemeText)
     // lib.optionalAttrs (isAppEnabled theme "kitty") (mkFileTarget "dotfiles-theme/kitty.conf" (requireAssetSource "kitty" kittyProvider))
     // lib.optionalAttrs (isAppEnabled theme "btop") (mkFileTarget "dotfiles-theme/btop.theme" (requireAssetSource "btop" btopProvider))
     // lib.optionalAttrs (isAppEnabled theme "zathura") (mkFileTarget "dotfiles-theme/zathura" (requireAssetSource "zathura" zathuraProvider))
     // lib.optionalAttrs (fishThemeScript != null) (mkFileTarget "dotfiles-theme/fish.fish" fishThemeScript)
-    // lib.optionalAttrs (isAppEnabled theme "nushell") (mkFileTarget "dotfiles-theme/nushell.nu" (requireAssetSource "nushell" nushellProvider))
-    // lib.optionalAttrs (isAppEnabled theme "fzf") (mkFileTarget "dotfiles-theme/fzf.nu" (requireAssetSource "fzf" fzfProvider))
+    // lib.optionalAttrs (fzfThemeText != null) (mkFileText "dotfiles-theme/fzf.nu" fzfThemeText)
+    // lib.optionalAttrs (fzfThemeText == null && isAppEnabled theme "fzf") (mkFileTarget "dotfiles-theme/fzf.nu" (requireAssetSource "fzf" fzfProvider))
     // lib.optionalAttrs (isAppEnabled theme "helix") (mkFileTarget "helix/themes/${helixProvider.options.themeName}.toml" (requireAssetSource "helix" helixProvider))
     // lib.optionalAttrs (yaziThemeSource != null) (mkFileTarget "yazi/theme.toml" yaziThemeSource)
     // lib.optionalAttrs (yaziSyntectText != null) (mkFileTarget yaziSyntectTarget yaziSyntectText)

@@ -329,6 +329,12 @@ let
           options = {
             themeName = gtkThemeName;
             iconThemeName = "Colloid-${accent}-dark";
+            iconPackage = {
+              attrPath = [ "colloid-icon-theme" ];
+              override = {
+                colorVariants = [ accent ];
+              };
+            };
             package = {
               attrPath = [ "catppuccin-gtk" ];
               override = {
@@ -491,21 +497,17 @@ let
       wlogout = mkApp {
         # Wlogout uses a wrapper plus a generated palette fragment matching the old local
         # variable-file contract rather than the full upstream stylesheet.
-        provider = mkAssetImportProvider {
-          package = githubPackage {
-            repo = "catppuccin/wlogout";
-            rev = "b51d7189efb414fc76cb6c08f27c0c69706b9f78";
-          };
-          source = "themes/${variant}/${accent}.css";
+        provider = mkTemplateProvider {
           target = "dotfiles-theme/wlogout.css";
-          wrapperFile = ../wrappers/catppuccin/wlogout/style.css;
-          wrapperTarget = "wlogout/style.css";
-          options.colors = {
-            overlay = getRgba { data.palette = palettes.${variant}; } "base" 0.7;
-            text = "#${palettes.${variant}.text}";
-            surface0 = "#${palettes.${variant}.surface0}";
-            base = "#${palettes.${variant}.base}";
-            accent = "#${palettes.${variant}.${accent}}";
+          options = {
+            wrapperFile = ../wrappers/catppuccin/wlogout/style.css;
+            text = ''
+              @define-color overlay ${getRgba { data.palette = palettes.${variant}; } "base" 0.7};
+              @define-color text #${palettes.${variant}.text};
+              @define-color surface0 #${palettes.${variant}.surface0};
+              @define-color base #${palettes.${variant}.base};
+              @define-color accent #${palettes.${variant}.${accent}};
+            '';
           };
         };
       };

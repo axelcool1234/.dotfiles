@@ -1,5 +1,6 @@
 {
   pkgs,
+  lib,
   themes,
   theme ? null,
   ...
@@ -7,6 +8,12 @@
 
 let
   inherit (themes.helpers) getAppProvider;
+
+  normalizeConsoleColor = color:
+    if lib.hasPrefix "#" color then
+      lib.removePrefix "#" color
+    else
+      color;
 
   resolvePkgsAttr = spec:
     let
@@ -26,6 +33,15 @@ let
       gtkProvider.options.themeName
     else
       throw "theme.apps.gtk.provider.options.themeName is required";
+
+  gtkIconThemeSpec =
+    if gtkProvider != null
+      && gtkProvider.type == "module"
+      && gtkProvider.options ? iconPackage
+      && gtkProvider.options.iconPackage != null then
+      gtkProvider.options.iconPackage
+    else
+      null;
 
   cursorName =
     if cursorProvider != null && cursorProvider.type == "module" && cursorProvider.options ? name then
@@ -73,7 +89,7 @@ let
       && kvantumProvider.options.package != null then
       kvantumProvider.options.package
     else
-      throw "theme.apps.kvantum.provider.options.package is required";
+      null;
 
   cursorThemeSpec =
     if cursorProvider != null
@@ -86,15 +102,14 @@ let
 
   gtkThemePkg = resolvePkgsAttr gtkThemeSpec;
 
-  kvantumThemePkg = resolvePkgsAttr kvantumThemeSpec;
+  gtkIconThemePkg =
+    if gtkIconThemeSpec != null then resolvePkgsAttr gtkIconThemeSpec else null;
+
+  kvantumThemePkg =
+    if kvantumThemeSpec != null then resolvePkgsAttr kvantumThemeSpec else null;
 
   cursorThemePkg = resolvePkgsAttr cursorThemeSpec;
 
-  accent =
-    if theme != null && theme.source != null && theme.source ? accent then
-      theme.source.accent
-    else
-      throw "theme.source.accent is required";
 in
 {
   # Enable Theme
@@ -110,26 +125,22 @@ in
     earlySetup = true;
     colors =
       if consoleProvider != null && consoleProvider.type == "module" && consoleProvider.options ? colors then
-        consoleProvider.options.colors
+        map normalizeConsoleColor consoleProvider.options.colors
       else
         throw "theme.apps.console.provider.options.colors is required";
   };
 
   # Override packages
   nixpkgs.config.packageOverrides = pkgs: {
-    colloid-icon-theme = pkgs.colloid-icon-theme.override { colorVariants = [ accent ]; };
-  } // {
     discord = pkgs.discord.override {
       withOpenASAR = true;
       withTTS = true;
     };
   };
 
-  environment.systemPackages = with pkgs; [
-    numix-icon-theme-circle
-    colloid-icon-theme
-  ]
+  environment.systemPackages = with pkgs; [ ]
   ++ pkgs.lib.optionals (gtkThemePkg != null) [ gtkThemePkg ]
+  ++ pkgs.lib.optionals (gtkIconThemePkg != null) [ gtkIconThemePkg ]
   ++ pkgs.lib.optionals (kvantumThemePkg != null) [ kvantumThemePkg ]
   ++ pkgs.lib.optionals (cursorThemePkg != null) [ cursorThemePkg ]
   ++ [

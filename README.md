@@ -119,6 +119,16 @@ For more information, I learned how to do this from this [discussion](https://ww
   - Information about using nix-shell with the unstable channel. I need to figure out how to make this easier to deal with.
 
 # TODO:
+- Fix Discord not getting themes at all (for either catppuccin or tokyonight)
+- Fix btop not getting themes at all (for either catppuccin or tokyonight)
+- Investigate Spicetify and see if it is themed correctly (for both catppuccin and tokyonight)
+- `home-modules/theme/default.nix` needs some cleaning up. There's a couple of post-processing functions done on certain
+provided themes that *probably* should be done elsewhere in `themes/`.
+  - Scour `home-modules` and ensure all theme pre and post processing is moved out and into `themes/` somewhere.
+  - Figure out what to do with all of the if checks done to see if a given provider is valid. It is all over the place now.
+- Determine how to override *some* parts of a theme derived from a repo. For example, I dislike that my icons are usually
+white on the side waybar for `tokyonight` theme. Additionally, Helix having "|" be very white makes it nigh unusable.
+- Scratchpads and pypr need some fixing.
 - Switch from Git and LazyGit to Jujutsu and LazyJJ
 - Add direnv to workflow
 - Explore harps for my Helix fork (https://github.com/helix-editor/helix/commit/b24129030653bc3e0a5f37f1d04cb2b88583e6bb)

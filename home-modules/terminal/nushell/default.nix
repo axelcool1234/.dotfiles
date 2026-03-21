@@ -4,6 +4,15 @@ let
   program = "nushell";
   program-module = config.modules.${program};
   neovimProvider = themes.helpers.getAppProvider theme "neovim";
+  nushellProvider = themes.helpers.getAppProvider theme "nushell";
+
+  nushellTheme =
+    if nushellProvider != null && nushellProvider.type == "template" && nushellProvider.options ? text then
+      { text = nushellProvider.options.text; }
+    else if nushellProvider != null && nushellProvider.type == "asset" then
+      { source = themes.helpers.resolveAssetSource nushellProvider; }
+    else
+      null;
   configNu = ''
     #--- Environment Variables ---#
     $env.EDITOR = "hx"
@@ -64,10 +73,14 @@ let
 
     # Catpuccin Theme
     const THEME_NU = "~/.config/dotfiles-theme/nushell.nu"
-    source $THEME_NU
+    if ($THEME_NU | path exists) {
+        source $THEME_NU
+    }
 
     const FZF_THEME_NU = "~/.config/dotfiles-theme/fzf.nu"
-    source $FZF_THEME_NU
+    if ($FZF_THEME_NU | path exists) {
+        source $FZF_THEME_NU
+    }
 
     #--- Custom Commands ---#
     use hhx.nu
@@ -97,6 +110,8 @@ in
       "${program}/config.nu".text = configNu;
       "${program}/hhx.nu".source = ./hhx.nu;
       "${program}/command-not-found.nu".source = ./command-not-found.nu;
+    } // lib.optionalAttrs (nushellTheme != null) {
+      "dotfiles-theme/nushell.nu" = nushellTheme;
     };
   };
 }

@@ -37,13 +37,17 @@ let
     else
       throw "theme.data.palette is required";
 
+  # Normalize palette entries to bare rrggbb hex for internal conversions.
+  normalizeHex = color:
+    if lib.hasPrefix "#" color then lib.removePrefix "#" color else color;
+
   # Read one palette color as a CSS hex string.
-  getHex = themeBundle: name: "#${(getPalette themeBundle).${name}}";
+  getHex = themeBundle: name: "#${normalizeHex (getPalette themeBundle).${name}}";
 
   # Read one palette color as a CSS rgba() string.
   getRgba = themeBundle: name: alpha:
     let
-      color = (getPalette themeBundle).${name};
+      color = normalizeHex (getPalette themeBundle).${name};
       red = pairToInt (builtins.substring 0 2 color);
       green = pairToInt (builtins.substring 2 2 color);
       blue = pairToInt (builtins.substring 4 2 color);

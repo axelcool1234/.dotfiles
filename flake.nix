@@ -65,7 +65,7 @@
     }@inputs:
     let
       themes = import ./themes { lib = nixpkgs.lib; };
-      theme = themes.families.catppuccin.mk { };
+      theme = themes.families.tokyonight.mk { };
 
       # NixOS Configuration
       mkSystem =

@@ -12,11 +12,35 @@ let
   program-module = config.modules.${program};
   spicePkgs = inputs.spicetify-nix.legacyPackages.x86_64-linux;
   spicetifyProvider = themes.helpers.getAppProvider theme "spicetify";
+  spicetifyThemeSource =
+    if spicetifyProvider != null && spicetifyProvider.type == "asset" then
+      themes.helpers.resolveAssetSource spicetifyProvider
+    else
+      null;
   spicetifyThemePkg =
     if spicetifyProvider == null || spicetifyProvider.type != "package" then
       null
     else
       builtins.foldl' (acc: name: builtins.getAttr name acc) spicePkgs.themes spicetifyProvider.attrPath;
+
+  spicetifyTheme =
+    if spicetifyThemePkg != null then
+      spicetifyThemePkg
+    else if spicetifyThemeSource != null then
+      {
+        name = spicetifyProvider.options.name;
+        src = spicetifyThemeSource;
+        injectCss = spicetifyProvider.options.injectCss or true;
+        injectThemeJs = spicetifyProvider.options.injectThemeJs or true;
+        replaceColors = spicetifyProvider.options.replaceColors or true;
+        homeConfig = spicetifyProvider.options.homeConfig or true;
+        overwriteAssets = spicetifyProvider.options.overwriteAssets or false;
+        additionalCss = spicetifyProvider.options.additionalCss or "";
+        extraCommands = spicetifyProvider.options.extraCommands or "";
+        extraPkgs = spicetifyProvider.options.extraPkgs or [ ];
+      }
+    else
+      null;
 in
 {
   imports = [
@@ -41,9 +65,9 @@ in
       ];
       #windowManagerPatch = true;
       #spotifyPackage = (pkgs.callPackage ../../pkgs/spotify-adblock.nix { });
-    } // lib.optionalAttrs (spicetifyThemePkg != null) {
-      theme = spicetifyThemePkg;
-      colorScheme = spicetifyProvider.options.colorScheme;
+    } // lib.optionalAttrs (spicetifyTheme != null) {
+      theme = spicetifyTheme;
+      colorScheme = spicetifyProvider.options.colorScheme or "";
     };
   };
 }

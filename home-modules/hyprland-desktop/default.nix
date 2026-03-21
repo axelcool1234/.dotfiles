@@ -20,6 +20,16 @@ in
     let
       inherit (themes.helpers) getAppProvider resolveAssetSource resolveWrapperText;
 
+      providerWrapperFile = provider:
+        if provider == null then
+          null
+        else if provider ? wrapperFile && provider.wrapperFile != null then
+          provider.wrapperFile
+        else if provider.options ? wrapperFile && provider.options.wrapperFile != null then
+          provider.options.wrapperFile
+        else
+          null;
+
       waybarProvider = getAppProvider theme "waybar";
       dunstProvider = getAppProvider theme "dunst";
       rofiProvider = getAppProvider theme "rofi";
@@ -53,42 +63,47 @@ in
           throw "theme.apps.cursor.provider.options.size is required";
 
       kvantumThemeName =
-        if kvantumProvider != null && kvantumProvider.type == "module" && kvantumProvider.options ? themeName then
+        if kvantumProvider != null && kvantumProvider.options ? themeName then
           kvantumProvider.options.themeName
         else
           throw "theme.apps.kvantum.provider.options.themeName is required";
 
       waybarAssetSource = resolveAssetSource waybarProvider;
       dunstAssetSource = resolveAssetSource dunstProvider;
+      kvantumAssetSource =
+        if kvantumProvider != null && kvantumProvider.type == "asset" then
+          resolveAssetSource kvantumProvider
+        else
+          null;
       rofiAssetSource = resolveAssetSource rofiProvider;
       wlogoutAssetSource =
-        if wlogoutProvider != null && wlogoutProvider.options ? colors then
+        if wlogoutProvider != null && wlogoutProvider.type == "template" then
           null
         else
           resolveAssetSource wlogoutProvider;
 
       waybarColors =
         if waybarProvider != null
-          && waybarProvider.type == "asset+import"
+          && builtins.elem waybarProvider.type [ "asset+import" "template" ]
           && waybarProvider.options ? colors then
           waybarProvider.options.colors
         else
           throw "theme.apps.waybar.provider.options.colors is required";
 
       rofiWrapperDir =
-        if rofiProvider != null && rofiProvider.type == "asset+import" then
+        if rofiProvider != null && builtins.elem rofiProvider.type [ "asset+import" "template" ] then
           pkgs.runCommandLocal "rofi-config-dir" { } ''
             mkdir -p "$out"
-            ln -s ${rofiProvider.wrapperFile} "$out/config.rasi"
+            ln -s ${providerWrapperFile rofiProvider} "$out/config.rasi"
           ''
         else
           null;
 
       wlogoutWrapperDir =
-        if wlogoutProvider != null && wlogoutProvider.type == "asset+import" then
+        if wlogoutProvider != null && builtins.elem wlogoutProvider.type [ "asset+import" "template" ] then
           pkgs.runCommandLocal "wlogout-config-dir" { } ''
             mkdir -p "$out/icons"
-            ln -s ${wlogoutProvider.wrapperFile} "$out/style.css"
+            ln -s ${providerWrapperFile wlogoutProvider} "$out/style.css"
             ln -s ${./wlogout/layout} "$out/layout"
             ln -s ${./wlogout/icons/hibernate.png} "$out/icons/hibernate.png"
             ln -s ${./wlogout/icons/lock.png} "$out/icons/lock.png"
@@ -182,6 +197,8 @@ in
     programs.waybar.style =
       if waybarProvider != null && waybarProvider.type == "asset+import" then
         resolveWrapperText waybarProvider
+      else if waybarProvider != null && waybarProvider.type == "template" then
+        builtins.readFile (providerWrapperFile waybarProvider)
       else
         throw "theme.apps.waybar must use asset+import provider";
     programs.waybar.settings =
@@ -734,6 +751,9 @@ in
     })
     (lib.optionalAttrs (dunstAssetSource != null) {
       xdg.configFile."${dunstProvider.target}".source = dunstAssetSource;
+    })
+    (lib.optionalAttrs (kvantumAssetSource != null) {
+      xdg.configFile."${kvantumProvider.target}".source = kvantumAssetSource;
     })
     (lib.optionalAttrs (rofiAssetSource != null) {
       xdg.configFile."${rofiProvider.target}".source = rofiAssetSource;

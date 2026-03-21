@@ -43,8 +43,6 @@ That is why the bundle has both:
 - `apps`
   How each app receives that family's theme.
 
-The `apps` field is not a side detail. It is one of the main parts of the bundle.
-
 ## What Lives Here
 
 - [`default.nix`](/home/axelcool1234/.dotfiles/themes/default.nix)
@@ -54,7 +52,7 @@ The `apps` field is not a side detail. It is one of the main parts of the bundle
   Shared constructors and helper functions used by families and realizers.
 
 - [`families/`](/home/axelcool1234/.dotfiles/themes/families)
-  Theme family definitions. Right now Catppuccin is the only implemented family.
+  Theme family definitions. Right now Catppuccin and TokyoNight are implemented.
 
   A family file usually exports both:
 
@@ -319,12 +317,12 @@ Useful places to look when changing behavior:
   Example of a manual app-specific template realization.
 
 - [`home-modules/terminal/lazygit/default.nix`](/home/axelcool1234/.dotfiles/home-modules/terminal/lazygit/default.nix)
-  Example of merging a fetched upstream theme asset with a small generated base config.
+  Example of consuming an upstream theme asset directly as the app's real config.
 
 ## Catppuccin Notes
 
 [`families/catppuccin.nix`](/home/axelcool1234/.dotfiles/themes/families/catppuccin.nix)
-is the reference implementation for the current model.
+is the most complete reference implementation for the current model.
 
 It intentionally prefers upstream assets where they exist:
 
@@ -338,6 +336,36 @@ It intentionally prefers upstream assets where they exist:
 
 The only intentional manual app right now is `code`, because there is no widely used
 upstream Catppuccin config asset for it in the same way as the others.
+
+[`families/tokyonight.nix`](/home/axelcool1234/.dotfiles/themes/families/tokyonight.nix)
+is the second family. It currently focuses on the upstream dark variants (`night`,
+`storm`, and `moon`) and prefers the `tokyonight.nvim` extras where possible.
+
+TokyoNight also mixes in a few practical desktop fallbacks so it can fit the current
+desktop module assumptions:
+
+- a generic cursor theme via `pkgs.bibata-cursors`
+- local palette-derived fragments for `hyprland`, `rofi`, `waybar`, `wlogout`, `fzf`,
+  `code`, `starship`, and `nushell` where the upstream repos do not currently ship the
+  exact format this repo expects
+- GTK and icons via `pkgs.tokyonight-gtk-theme`
+- Kvantum via `0xsch1zo/Kvantum-Tokyo-Night`
+- GRUB via `mino29/tokyo-night-grub`
+- Spicetify via the `Base` theme from `stronk-dev/Tokyo-Night-Linux`
+
+TokyoNight currently has a few caveats compared with Catppuccin:
+
+- the family currently targets only the dark variants: `night`, `storm`, and `moon`
+- several apps are still realized from local palette-driven fragments rather than a
+  single upstream TokyoNight asset source: `hyprland`, `rofi`, `waybar`, `wlogout`,
+  `fzf`, `code`, `starship`, and `nushell`
+- the cursor setup is a pragmatic fallback (`Bibata-Modern-Ice`) rather than a
+  TokyoNight-specific cursor theme
+- GTK, Kvantum, GRUB, and Spicetify come from different upstreams than the main
+  `tokyonight.nvim` editor/terminal extras
+
+So TokyoNight is usable today, but it is still a more mixed family than Catppuccin:
+more local glue, fewer fully aligned upstream assets.
 
 Other notable current choices:
 
