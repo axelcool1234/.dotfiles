@@ -20,7 +20,7 @@ in
     programs.${program} = {
       enable = true; # Enable Nixcord (It also installs Discord)
       vesktop.enable = true; # Vesktop
-      dorion.enable = true; # Dorion
+      dorion.enable = false; # Dorion
       quickCss = ''
         @import url("file://${config.xdg.configHome}/dotfiles-theme/discord.css");
       '';
