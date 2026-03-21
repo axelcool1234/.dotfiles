@@ -1,6 +1,7 @@
 { ... }:
 {
   imports = [
+    ./theme
     ./hyprland-desktop
     ./terminal/wezterm
     ./terminal/kitty
@@ -22,6 +23,7 @@
     ./terminal/lazygit
     ./terminal/nix-tools
     ./programs/firefox
+    ./programs/code
     ./programs/glide
     ./programs/nixcord
     ./programs/spicetify

@@ -2,6 +2,7 @@
   inputs,
   lib,
   config,
+  theme,
   ...
 }:
 with lib;
@@ -9,6 +10,11 @@ let
   program = "spicetify";
   program-module = config.modules.${program};
   spicePkgs = inputs.spicetify-nix.legacyPackages.x86_64-linux;
+  spicetifyThemePkg =
+    if theme.integrations.spicetifyThemePackage == null then
+      null
+    else
+      builtins.foldl' (acc: name: builtins.getAttr name acc) spicePkgs.themes theme.integrations.spicetifyThemePackage.attrPath;
 in
 {
   imports = [
@@ -25,8 +31,6 @@ in
       ];
     programs.${program} = {
       enable = true; # Enable Spicetify (It also installs Spotify)
-      theme = spicePkgs.themes.catppuccin;
-      colorScheme = "mocha";
       enabledExtensions = with spicePkgs.extensions; [
         adblock
         shuffle
@@ -35,6 +39,9 @@ in
       ];
       #windowManagerPatch = true;
       #spotifyPackage = (pkgs.callPackage ../../pkgs/spotify-adblock.nix { });
+    } // lib.optionalAttrs (spicetifyThemePkg != null) {
+      theme = spicetifyThemePkg;
+      colorScheme = theme.integrations.spicetifyThemePackage.colorScheme;
     };
   };
 }

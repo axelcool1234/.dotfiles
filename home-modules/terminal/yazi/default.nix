@@ -14,6 +14,5 @@ in
       enableNushellIntegration = true;
       shellWrapperName = "yy"; # TODO: This should be removed eventually when I update `home.stateVersion` in `flake.nix`
     };
-    xdg.configFile.${program}.source = ./.;
   };
 }

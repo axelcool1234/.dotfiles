@@ -41,6 +41,9 @@
     firefox.enable = true;
     glide-browser.enable = true;
 
+    # LLM CLI
+    code.enable = true;
+
     # PDF Viewer
     zathura.enable = true;
 
@@ -74,7 +77,6 @@
 
     # LLM CLIs
     inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex
-    inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.code
 
     # --- programming language specific --- #
     # Nix

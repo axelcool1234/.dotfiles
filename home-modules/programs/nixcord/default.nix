@@ -21,10 +21,11 @@ in
       enable = true; # Enable Nixcord (It also installs Discord)
       vesktop.enable = true; # Vesktop
       dorion.enable = true; # Dorion
+      quickCss = ''
+        @import url("file://${config.xdg.configHome}/dotfiles-theme/discord.css");
+      '';
       config = {
-        themeLinks = [
-          "https://catppuccin.github.io/discord/dist/catppuccin-mocha.theme.css"
-        ];
+        useQuickCss = true;
         frameless = true;
         plugins = {
           oneko.enable = true;

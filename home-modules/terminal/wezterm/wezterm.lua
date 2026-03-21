@@ -81,7 +81,7 @@ end)
 return {
   -- max_fps = 165, 
   enable_wayland = true;
-  color_scheme = 'Tokyo Night',
+  colors = dofile(os.getenv("HOME") .. "/.config/dotfiles-theme/wezterm.lua"),
   font = wezterm.font 'JetBrains Mono',
   font_size = 10.0,
   leader = { key = 'b', mods = 'CTRL'},

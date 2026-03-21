@@ -64,12 +64,16 @@
       ...
     }@inputs:
     let
+      theme = import ./themes/catppuccin-macchiato.nix;
+
       # NixOS Configuration
       mkSystem =
         nixpkgsInput: system: username: hostname:
         nixpkgsInput.lib.nixosSystem {
           system = system;
-          specialArgs = { inherit inputs username hostname; };
+          specialArgs = {
+            inherit inputs username hostname theme;
+          };
           modules = [
             { networking.hostName = hostname; }
             ./hosts/${hostname}/configuration.nix
@@ -86,7 +90,9 @@
             config.allowUnfree = true;
             config.allowUnfreePredicate = (_: true);
           };
-          extraSpecialArgs = { inherit inputs username hostname; };
+          extraSpecialArgs = {
+            inherit inputs username hostname theme;
+          };
           modules = [
             {
               # Some imported Home Manager modules consult nixpkgs.config

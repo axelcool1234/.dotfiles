@@ -59,8 +59,8 @@ def --env y [...args] {
 }
 
 # Catpuccin Theme
-source ($nu.default-config-dir | path join "catppuccin_macchiato.nu")
-# source ($nu.default-config-dir | path join "catppuccin_mocha.nu")
+const THEME_NU = "~/.config/dotfiles-theme/nushell.nu"
+source $THEME_NU
 
 #--- Custom Commands ---#
 use hhx.nu

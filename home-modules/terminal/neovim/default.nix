@@ -1,13 +1,15 @@
-{
-  pkgs,
-  lib,
-  config,
-  ...
-}:
+{ pkgs, lib, config, theme, ... }:
 with lib;
 let
   program = "neovim";
   program-module = config.modules.${program};
+  neovimThemePlugin =
+    if theme.integrations.neovimThemePlugin == null then
+      null
+    else
+      builtins.foldl' (acc: name: builtins.getAttr name acc) pkgs.vimPlugins theme.integrations.neovimThemePlugin.attrPath;
+
+  themePlugins = lib.optionals (neovimThemePlugin != null) [ neovimThemePlugin ];
 in
 {
   options.modules.${program} = {
@@ -95,11 +97,7 @@ in
 
         # Fun
         presence-nvim
-
-        # Themes
-        catppuccin-nvim
-        tokyonight-nvim
-      ];
+      ] ++ themePlugins;
     };
   };
 }

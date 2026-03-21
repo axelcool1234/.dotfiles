@@ -3,6 +3,7 @@
   lib,
   config,
   hostname,
+  theme,
   ...
 }:
 with lib;
@@ -17,27 +18,98 @@ in
   config = mkIf program-module.enable {
     xdg.configFile.hypr.source = ./hyprland;
     # xdg.configFile.waybar.source = ./waybar;
-    xdg.configFile.dunst.source = ./dunst;
+    xdg.configFile."dunst/dunstrc".text = ''
+      [global]
+      frame_color = "${theme.hex "text"}"
+      separator_color= frame
+      font = "JetBrains Mono Regular 11"
+      corner_radius = 10
+      offset = 5x5
+      origin = top-right
+      notification_limit = 8
+      gap_size = 7
+      frame_width = 2
+      width = 300
+      height = 100
+
+      [urgency_low]
+      background = "${theme.hex "base"}"
+      foreground = "${theme.hex "text"}"
+
+      [urgency_normal]
+      background = "${theme.hex "base"}"
+      foreground = "${theme.hex "text"}"
+
+      [urgency_critical]
+      background = "${theme.hex "base"}"
+      foreground = "${theme.hex "text"}"
+      frame_color = "${theme.hex "peach"}"
+    '';
     xdg.configFile.mpv.source = ./mpv;
     xdg.configFile.rofi.source = ./rofi;
     xdg.configFile.wlogout.source = ./wlogout;
     xdg.configFile.avizo.source = ./avizo;
-    xdg.configFile.xsettingsd.source = ./xsettingsd;
+    xdg.configFile."xsettingsd/xsettingsd.conf".text = ''
+      Net/ThemeName "${theme.gtk.themeName}"
+      Net/IconThemeName "${theme.gtk.iconThemeName}"
+      Gtk/CursorThemeName "${theme.cursor.gtkName}"
+      Gtk/CursorThemeSize ${toString theme.cursor.size}
+      Gtk/FontName "JetBrains Mono 11"
+      Xft/Antialias 1
+      Xft/Hinting 1
+      Xft/HintStyle "hintslight"
+    '';
     xdg.configFile.xfce4.source = ./xfce4;
     xdg.configFile.wpaperd.source = ./wpaperd;
     xdg.configFile.Thunar.source = ./Thunar;
-    xdg.configFile."gtk-3.0".source = ./gtk-3.0;
-    xdg.configFile."gtk-4.0".source = ./gtk-4.0;
+    xdg.configFile."gtk-3.0/bookmarks".source = ./gtk-3.0/bookmarks;
+    xdg.configFile."gtk-3.0/gtk.css".source = ./gtk-3.0/gtk.css;
+    xdg.configFile."gtk-3.0/settings.ini".text = ''
+      [Settings]
+      gtk-theme-name=${theme.gtk.themeName}
+      gtk-icon-theme-name=${theme.gtk.iconThemeName}
+      gtk-font-name=JetBrains Mono 11
+      gtk-cursor-theme-name=${theme.cursor.gtkName}
+      gtk-cursor-theme-size=${toString theme.cursor.size}
+    '';
+    xdg.configFile."gtk-4.0/gtk.css".source = ./gtk-4.0/gtk.css;
+    xdg.configFile."gtk-4.0/settings.ini".text = ''
+      [Settings]
+      gtk-theme-name=${theme.gtk.themeName}
+      gtk-icon-theme-name=${theme.gtk.iconThemeName}
+      gtk-font-name=JetBrains Mono 11
+      gtk-cursor-theme-name=${theme.cursor.gtkName}
+      gtk-cursor-theme-size=${toString theme.cursor.size}
+    '';
     xdg.configFile.autostart.source = ./autostart;
     xdg.configFile.swappy.source = ./swappy;
     xdg.configFile.zellij.source = ./zellij;
-    xdg.configFile.Kvantum.source = ./Kvantum;
+    xdg.configFile."Kvantum/kvantum.kvconfig".text = ''
+      [General]
+      theme=${theme.gtk.kvantumThemeName}
+    '';
+    xdg.configFile."Kvantum/Catppuccin-Macchiato-Standard-Teal-dark#/Catppuccin-Macchiato-Standard-Teal-dark#.kvconfig".source = ./Kvantum + "/Catppuccin-Macchiato-Standard-Teal-dark#/Catppuccin-Macchiato-Standard-Teal-dark#.kvconfig";
+    xdg.configFile."Kvantum/Catppuccin-Teal-Dark#/Catppuccin-Teal-Dark#.kvconfig".source = ./Kvantum + "/Catppuccin-Teal-Dark#/Catppuccin-Teal-Dark#.kvconfig";
+    xdg.configFile."Kvantum/Adwaita#/Adwaita#.kvconfig".source = ./Kvantum + "/Adwaita#/Adwaita#.kvconfig";
     home.file.".icons".source = ./.icons;
-    home.file.".gtkrc-2.0".source = ./.gtkrc-2.0;
+    home.file.".gtkrc-2.0".text = ''
+      gtk-theme-name="${theme.gtk.themeName}"
+      gtk-icon-theme-name="${theme.gtk.iconThemeName}"
+      gtk-cursor-theme-name="${theme.cursor.gtkName}"
+      gtk-font-name="JetBrains Mono 11"
+      gtk-menu-images=0
+      gtk-cursor-theme-size=${toString theme.cursor.size}
+      gtk-button-images=0
+      gtk-xft-antialias=1
+      gtk-xft-hinting=1
+      gtk-xft-hintstyle="hintslight"
+      gtk-xft-rgba="none"
+      gtk-xft-dpi=98304
+    '';
     home.file.".face".source = ./.face;
 
     programs.waybar.enable = true;
-    programs.waybar.style = ./waybar/style.css;
+    programs.waybar.style = builtins.readFile ./waybar/style.css;
     programs.waybar.settings =
       # Double Bar Config
       [
@@ -127,7 +199,7 @@ in
           };
 
           "hyprland/submap" = {
-            format = "<span color='#a6da95'>Mode:</span> {}";
+            format = "<span color='${theme.hex "green"}'>Mode:</span> {}";
             tooltip = false;
           };
 
@@ -168,11 +240,11 @@ in
               on-scroll = 1;
               on-click-right = "mode";
               format = {
-                months = "<span color='#f4dbd6'><b>{}</b></span>";
-                days = "<span color='#cad3f5'><b>{}</b></span>";
-                weeks = "<span color='#c6a0f6'><b>W{}</b></span>";
-                weekdays = "<span color='#a6da95'><b>{}</b></span>";
-                today = "<span color='#8bd5ca'><b><u>{}</u></b></span>";
+                months = "<span color='${theme.hex "rosewater"}'><b>{}</b></span>";
+                days = "<span color='${theme.hex "text"}'><b>{}</b></span>";
+                weeks = "<span color='${theme.hex "mauve"}'><b>W{}</b></span>";
+                weekdays = "<span color='${theme.hex "green"}'><b>{}</b></span>";
+                today = "<span color='${theme.hex "teal"}'><b><u>{}</u></b></span>";
               };
             };
           };
@@ -193,11 +265,11 @@ in
               on-scroll = 1;
               on-click-right = "mode";
               format = {
-                months = "<span color='#f4dbd6'><b>{}</b></span>";
-                days = "<span color='#cad3f5'><b>{}</b></span>";
-                weeks = "<span color='#c6a0f6'><b>W{}</b></span>";
-                weekdays = "<span color='#a6da95'><b>{}</b></span>";
-                today = "<span color='#8bd5ca'><b><u>{}</u></b></span>";
+                months = "<span color='${theme.hex "rosewater"}'><b>{}</b></span>";
+                days = "<span color='${theme.hex "text"}'><b>{}</b></span>";
+                weeks = "<span color='${theme.hex "mauve"}'><b>W{}</b></span>";
+                weekdays = "<span color='${theme.hex "green"}'><b>{}</b></span>";
+                today = "<span color='${theme.hex "teal"}'><b><u>{}</u></b></span>";
               };
             };
           };
@@ -248,7 +320,7 @@ in
             ];
             format-disconnected = "󰤫 Disconnected";
             tooltip-format = "wifi <span color='#ee99a0'>off</span>";
-            tooltip-format-wifi = "SSID: {essid}({signalStrength}%) {frequency} MHz\nInterface: {ifname}\nIP: {ipaddr}\nGW: {gwaddr}\n\n<span color='#a6da95'>{bandwidthUpBits}</span>\t<span color='#ee99a0'>{bandwidthDownBits}</span>\t<span color='#c6a0f6'>󰹹{bandwidthTotalBits}</span>";
+            tooltip-format-wifi = "SSID: {essid}({signalStrength}%) {frequency} MHz\nInterface: {ifname}\nIP: {ipaddr}\nGW: {gwaddr}\n\n<span color='${theme.hex "green"}'>{bandwidthUpBits}</span>\t<span color='${theme.hex "maroon"}'>{bandwidthDownBits}</span>\t<span color='${theme.hex "mauve"}'>󰹹{bandwidthTotalBits}</span>";
             tooltip-format-disconnected = "<span color='#ed8796'>disconnected</span>";
             # format-ethernet = "󰈀 {ipaddr}/{cidr}";
             # format-linked = "󰈀 {ifname} (No IP)";
@@ -334,7 +406,7 @@ in
               activated = "󰛐";
               deactivated = "󰛑";
             };
-            tooltip-format-activated = "idle-inhibitor <span color='#a6da95'>on</span>";
+            tooltip-format-activated = "idle-inhibitor <span color='${theme.hex "green"}'>on</span>";
             tooltip-format-deactivated = "idle-inhibitor <span color='#ee99a0'>off</span>";
             start-activated = true;
           };
@@ -386,7 +458,7 @@ in
           };
 
           user = {
-            format = " <span color='#8bd5ca'>{user}</span> (up <span color='#f5bde6'>{work_d} d</span> <span color='#8aadf4'>{work_H} h</span> <span color='#eed49f'>{work_M} min</span> <span color='#a6da95'>↑</span>)";
+            format = " <span color='${theme.hex "teal"}'>{user}</span> (up <span color='${theme.hex "pink"}'>{work_d} d</span> <span color='${theme.hex "blue"}'>{work_H} h</span> <span color='${theme.hex "yellow"}'>{work_M} min</span> <span color='${theme.hex "green"}'>↑</span>)";
             icon = true;
           };
         }

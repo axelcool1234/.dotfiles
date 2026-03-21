@@ -1,15 +1,17 @@
+@import "../dotfiles-theme/wlogout.css";
+
 * {
   background-image: none;
 }
 
 window {
-  background-color: rgba(36, 39, 58, 0.7);
+  background-color: @overlay;
 }
 
 button {
   margin: 8px;
-  color: #cad3f5;
-  background-color: #363a4f;
+  color: @text;
+  background-color: @surface0;
   border-radius: 20px;
   border-style: solid;
   border-width: 2px;
@@ -21,8 +23,8 @@ button {
 button:active,
 button:focus,
 button:hover {
-  color: #8bd5ca;
-  background-color: #24273a;
+  color: @accent;
+  background-color: @base;
   outline-style: none;
 }
 

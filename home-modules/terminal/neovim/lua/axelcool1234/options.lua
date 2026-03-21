@@ -1,4 +1,4 @@
-vim.cmd.colorscheme "tokyonight-night"
+vim.cmd.colorscheme(os.getenv("NVIM_COLORSCHEME") or "default")
 
 vim.opt.guicursor = ""
 

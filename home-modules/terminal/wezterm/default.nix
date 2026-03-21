@@ -1,4 +1,9 @@
-{ lib, config, ... }:
+{
+  pkgs,
+  lib,
+  config,
+  ...
+}:
 with lib;
 let
   program = "wezterm";
@@ -11,7 +16,7 @@ in
   config = mkIf program-module.enable {
     programs.${program} = {
       enable = true;
-      package = inputs.wezterm.packages.${pkgs.system}.default;
+      package = pkgs.wezterm;
     };
     xdg.configFile.${program}.source = ./.;
   };

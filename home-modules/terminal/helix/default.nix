@@ -3,6 +3,7 @@
   pkgs,
   lib,
   config,
+  theme,
   username,
   hostname,
   ...
@@ -27,7 +28,7 @@ in
       };
       extraPackages = [ pkgs.nixd ];
       settings = {
-        theme = "tokyonight";
+        theme = theme.helix.themeName;
         editor = {
           scrolloff = 8;
           auto-pairs = false;

@@ -1,8 +1,10 @@
-{ stdenv, fetchFromGitHub }:
+{ stdenv, fetchFromGitHub, theme }:
 
 stdenv.mkDerivation rec {
     pname = "catppuccin-grub";
     version = "0";
+
+    themeDir = "catppuccin-${theme.selection.flavor}-grub-theme";
 
     src = fetchFromGitHub {
         owner = "catppuccin";
@@ -12,6 +14,6 @@ stdenv.mkDerivation rec {
    };
 
    installPhase = ''
-        cp -r src/catppuccin-macchiato-grub-theme $out
+        cp -r src/${themeDir} $out
    '';
 }
