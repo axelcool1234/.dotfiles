@@ -16,6 +16,10 @@
 //
 // Try typing `glide.` and see what you can do!
 
+glide.prefs.set("layout.css.prefers-color-scheme.content-override", 0); // Force dark background for web content
+glide.prefs.set("extensions.activeThemeID", "firefox-compact-dark@mozilla.org"); // Firefox default dark mode
+// glide.prefs.set("general.smoothScroll", false);
+
 glide.excmds.create({
   name: "nix",
   description: "Search NixOS packages on search.nixos.org",
@@ -54,8 +58,37 @@ glide.keymaps.set("normal", "t", async () => {
     ],
   });
 }, { description: "Search Google" });
-//
 
+glide.keymaps.set(
+  "normal",
+  "<C-w>v",
+  async ({ tab_id }) => {
+    const all_tabs = await glide.tabs.query({});
+    const current_index = all_tabs.findIndex((t) =>
+      t.id === tab_id
+    );
+    const other = all_tabs[current_index + 1];
+    if (!other) {
+      throw new Error("No next tab");
+    }
+    glide.unstable.split_views.create([tab_id, other]);
+  },
+  {
+    description:
+      "Create a split view with the tab to the right",
+  },
+);
+
+glide.keymaps.set(
+  "normal",
+  "<C-w>q",
+  async ({ tab_id }) => {
+    glide.unstable.split_views.separate(tab_id);
+  },
+  {
+    description: "Close the split view for the current tab",
+  },
+);
 
 glide.keymaps.set("normal", "H", "tab_prev");
 glide.keymaps.set("normal", "L", "tab_next");

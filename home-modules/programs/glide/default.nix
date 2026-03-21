@@ -36,6 +36,7 @@ in
           listToAttrs [
             (extension "ublock-origin" "uBlock0@raymondhill.net")
             (extension "adaptive-tab-bar-colour" "ATBC@EasonWong")
+            (extension "view-page-archive" "{d07ccf11-c0cd-4938-a265-2a4d6ad01189}")
           ];
         # To add additional extensions, find it on addons.mozilla.org, find
         # the short ID in the url (like https://addons.mozilla.org/en-US/firefox/addon/!SHORT_ID!/)
