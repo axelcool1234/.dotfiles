@@ -128,6 +128,7 @@ provided themes that *probably* should be done elsewhere in `themes/`.
   - Figure out what to do with all of the if checks done to see if a given provider is valid. It is all over the place now.
 - Determine how to override *some* parts of a theme derived from a repo. For example, I dislike that my icons are usually
 white on the side waybar for `tokyonight` theme. Additionally, Helix having "|" be very white makes it nigh unusable.
+- Figure out how to allow Stylix.
 - Scratchpads and pypr need some fixing.
 - Switch from Git and LazyGit to Jujutsu and LazyJJ
 - Add direnv to workflow

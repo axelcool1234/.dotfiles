@@ -118,12 +118,6 @@ let
     };
   };
 
-  titleCase = s:
-    let
-      len = builtins.stringLength s;
-    in
-    if len == 0 then s else "${lib.toUpper (builtins.substring 0 1 s)}${builtins.substring 1 (len - 1) s}";
-
   variantTitle = variant:
     {
       night = "Night";
@@ -147,13 +141,14 @@ let
     iconVariants = if variant == "moon" then [ "Moon" ] else [ "Dark" ];
   };
 
+  # Map Tokyonight colors to Catppuccin color format
   semanticPaletteFor = raw: {
-    rosewater = raw.fg;
+    rosewater = raw.yellow;
     flamingo = raw.orange;
     pink = raw.magenta2;
-    mauve = raw.magenta;
-    red = raw.red;
-    maroon = raw.red1;
+    mauve = raw.purple;
+    red = raw.red1;
+    maroon = raw.red;
     peach = raw.orange;
     yellow = raw.yellow;
     green = raw.green;
@@ -161,7 +156,7 @@ let
     sky = raw.cyan;
     sapphire = raw.blue1;
     blue = raw.blue;
-    lavender = raw.purple;
+    lavender = raw.magenta;
     text = raw.fg;
     subtext1 = raw.fg_dark;
     subtext0 = raw.dark5;
@@ -170,8 +165,8 @@ let
     overlay0 = raw.dark3;
     surface2 = raw.terminal_black;
     surface1 = raw.bg_highlight;
-    surface0 = raw.bg_dark;
-    base = raw.bg;
+    surface0 = raw.bg; # still unsure if this swap with base looks good
+    base = raw.bg_dark; # still unsure if this swap with surface0 looks good
     mantle = raw.bg_dark;
     crust = raw.bg_dark1;
   };
@@ -286,14 +281,13 @@ let
       };
 
       helix = mkApp {
-        provider = mkAssetProvider {
-          package = githubPackage {
-            repo = "folke/tokyonight.nvim";
-            rev = "5da1b76e64daf4c5d410f06bcb6b9cb640da7dfd";
-          };
-          source = "extras/helix/tokyonight_${variant}.toml";
-          target = "helix/themes/tokyonight_${variant}.toml";
-          options.themeName = "tokyonight_${variant}";
+        provider = mkModuleProvider {
+          module = "programs.helix.theme";
+          options.themeName =
+            if variant == "night" then
+              "tokyonight"
+            else
+              "tokyonight_${variant}";
         };
       };
 

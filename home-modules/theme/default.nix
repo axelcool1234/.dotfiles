@@ -201,7 +201,7 @@ in
     // lib.optionalAttrs (fishThemeScript != null) (mkFileTarget "dotfiles-theme/fish.fish" fishThemeScript)
     // lib.optionalAttrs (fzfThemeText != null) (mkFileText "dotfiles-theme/fzf.nu" fzfThemeText)
     // lib.optionalAttrs (fzfThemeText == null && isAppEnabled theme "fzf") (mkFileTarget "dotfiles-theme/fzf.nu" (requireAssetSource "fzf" fzfProvider))
-    // lib.optionalAttrs (isAppEnabled theme "helix") (mkFileTarget "helix/themes/${helixProvider.options.themeName}.toml" (requireAssetSource "helix" helixProvider))
+    // lib.optionalAttrs (helixProvider != null && helixProvider.type == "asset") (mkFileTarget "helix/themes/${helixProvider.options.themeName}.toml" (requireAssetSource "helix" helixProvider))
     // lib.optionalAttrs (yaziThemeSource != null) (mkFileTarget "yazi/theme.toml" yaziThemeSource)
     // lib.optionalAttrs (yaziSyntectText != null) (mkFileTarget yaziSyntectTarget yaziSyntectText)
     // lib.foldl' (acc: aliasTarget: acc // mkFileTarget aliasTarget yaziSyntectText) { } (
