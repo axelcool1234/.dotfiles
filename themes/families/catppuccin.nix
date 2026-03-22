@@ -1,8 +1,7 @@
-{ lib, helpers }:
+{ constructors, internal, lib }:
 let
-  inherit (helpers)
+  inherit (constructors)
     githubPackage
-    getRgba
     mkApp
     mkAssetImportProvider
     mkAssetProvider
@@ -12,6 +11,7 @@ let
     mkThemeBundle
     mkTemplateProvider
     ;
+  inherit (internal) getRgba;
 
   # Family-level identity used by all Catppuccin bundles.
   familyMeta = {
@@ -26,136 +26,136 @@ let
   # family-specific derived values even when their primary theme asset is upstream.
   palettes = {
     latte = {
-      rosewater = "dc8a78";
-      flamingo = "dd7878";
-      pink = "ea76cb";
-      mauve = "8839ef";
-      red = "d20f39";
-      maroon = "e64553";
-      peach = "fe640b";
-      yellow = "df8e1d";
-      green = "40a02b";
-      teal = "179299";
-      sky = "04a5e5";
-      sapphire = "209fb5";
-      blue = "1e66f5";
-      lavender = "7287fd";
-      text = "4c4f69";
-      subtext1 = "5c5f77";
-      subtext0 = "6c6f85";
-      overlay2 = "7c7f93";
-      overlay1 = "8c8fa1";
-      overlay0 = "9ca0b0";
-      surface2 = "acb0be";
-      surface1 = "bcc0cc";
-      surface0 = "ccd0da";
-      base = "eff1f5";
-      mantle = "e6e9ef";
-      crust = "dce0e8";
-      "helix.cursorline" = "e8ecf1";
-      "helix.secondary_cursor" = "e1a99d";
-      "helix.secondary_cursor_select" = "97a7fb";
-      "helix.secondary_cursor_normal" = "e1a99d";
-      "helix.secondary_cursor_insert" = "74b867";
+      rosewater = "#dc8a78";
+      flamingo = "#dd7878";
+      pink = "#ea76cb";
+      mauve = "#8839ef";
+      red = "#d20f39";
+      maroon = "#e64553";
+      peach = "#fe640b";
+      yellow = "#df8e1d";
+      green = "#40a02b";
+      teal = "#179299";
+      sky = "#04a5e5";
+      sapphire = "#209fb5";
+      blue = "#1e66f5";
+      lavender = "#7287fd";
+      text = "#4c4f69";
+      subtext1 = "#5c5f77";
+      subtext0 = "#6c6f85";
+      overlay2 = "#7c7f93";
+      overlay1 = "#8c8fa1";
+      overlay0 = "#9ca0b0";
+      surface2 = "#acb0be";
+      surface1 = "#bcc0cc";
+      surface0 = "#ccd0da";
+      base = "#eff1f5";
+      mantle = "#e6e9ef";
+      crust = "#dce0e8";
+      "helix.cursorline" = "#e8ecf1";
+      "helix.secondary_cursor" = "#e1a99d";
+      "helix.secondary_cursor_select" = "#97a7fb";
+      "helix.secondary_cursor_normal" = "#e1a99d";
+      "helix.secondary_cursor_insert" = "#74b867";
     };
     frappe = {
-      rosewater = "f2d5cf";
-      flamingo = "eebebe";
-      pink = "f4b8e4";
-      mauve = "ca9ee6";
-      red = "e78284";
-      maroon = "ea999c";
-      peach = "ef9f76";
-      yellow = "e5c890";
-      green = "a6d189";
-      teal = "81c8be";
-      sky = "99d1db";
-      sapphire = "85c1dc";
-      blue = "8caaee";
-      lavender = "babbf1";
-      text = "c6d0f5";
-      subtext1 = "b5bfe2";
-      subtext0 = "a5adce";
-      overlay2 = "949cbb";
-      overlay1 = "838ba7";
-      overlay0 = "737994";
-      surface2 = "626880";
-      surface1 = "51576d";
-      surface0 = "414559";
-      base = "303446";
-      mantle = "292c3c";
-      crust = "232634";
-      "helix.cursorline" = "3b3f52";
-      "helix.secondary_cursor" = "b8a5a6";
-      "helix.secondary_cursor_select" = "9192be";
-      "helix.secondary_cursor_normal" = "b8a5a6";
-      "helix.secondary_cursor_insert" = "83a275";
+      rosewater = "#f2d5cf";
+      flamingo = "#eebebe";
+      pink = "#f4b8e4";
+      mauve = "#ca9ee6";
+      red = "#e78284";
+      maroon = "#ea999c";
+      peach = "#ef9f76";
+      yellow = "#e5c890";
+      green = "#a6d189";
+      teal = "#81c8be";
+      sky = "#99d1db";
+      sapphire = "#85c1dc";
+      blue = "#8caaee";
+      lavender = "#babbf1";
+      text = "#c6d0f5";
+      subtext1 = "#b5bfe2";
+      subtext0 = "#a5adce";
+      overlay2 = "#949cbb";
+      overlay1 = "#838ba7";
+      overlay0 = "#737994";
+      surface2 = "#626880";
+      surface1 = "#51576d";
+      surface0 = "#414559";
+      base = "#303446";
+      mantle = "#292c3c";
+      crust = "#232634";
+      "helix.cursorline" = "#3b3f52";
+      "helix.secondary_cursor" = "#b8a5a6";
+      "helix.secondary_cursor_select" = "#9192be";
+      "helix.secondary_cursor_normal" = "#b8a5a6";
+      "helix.secondary_cursor_insert" = "#83a275";
     };
     macchiato = {
-      rosewater = "f4dbd6";
-      flamingo = "f0c6c6";
-      pink = "f5bde6";
-      mauve = "c6a0f6";
-      red = "ed8796";
-      maroon = "ee99a0";
-      peach = "f5a97f";
-      yellow = "eed49f";
-      green = "a6da95";
-      teal = "8bd5ca";
-      sky = "91d7e3";
-      sapphire = "7dc4e4";
-      blue = "8aadf4";
-      lavender = "b7bdf8";
-      text = "cad3f5";
-      subtext1 = "b8c0e0";
-      subtext0 = "a5adcb";
-      overlay2 = "939ab7";
-      overlay1 = "8087a2";
-      overlay0 = "6e738d";
-      surface2 = "5b6078";
-      surface1 = "494d64";
-      surface0 = "363a4f";
-      base = "24273a";
-      mantle = "1e2030";
-      crust = "181926";
-      "helix.cursorline" = "303347";
-      "helix.secondary_cursor" = "b6a6a7";
-      "helix.secondary_cursor_select" = "8b91bf";
-      "helix.secondary_cursor_normal" = "b6a6a7";
-      "helix.secondary_cursor_insert" = "80a57a";
+      rosewater = "#f4dbd6";
+      flamingo = "#f0c6c6";
+      pink = "#f5bde6";
+      mauve = "#c6a0f6";
+      red = "#ed8796";
+      maroon = "#ee99a0";
+      peach = "#f5a97f";
+      yellow = "#eed49f";
+      green = "#a6da95";
+      teal = "#8bd5ca";
+      sky = "#91d7e3";
+      sapphire = "#7dc4e4";
+      blue = "#8aadf4";
+      lavender = "#b7bdf8";
+      text = "#cad3f5";
+      subtext1 = "#b8c0e0";
+      subtext0 = "#a5adcb";
+      overlay2 = "#939ab7";
+      overlay1 = "#8087a2";
+      overlay0 = "#6e738d";
+      surface2 = "#5b6078";
+      surface1 = "#494d64";
+      surface0 = "#363a4f";
+      base = "#24273a";
+      mantle = "#1e2030";
+      crust = "#181926";
+      "helix.cursorline" = "#303347";
+      "helix.secondary_cursor" = "#b6a6a7";
+      "helix.secondary_cursor_select" = "#8b91bf";
+      "helix.secondary_cursor_normal" = "#b6a6a7";
+      "helix.secondary_cursor_insert" = "#80a57a";
     };
     mocha = {
-      rosewater = "f5e0dc";
-      flamingo = "f2cdcd";
-      pink = "f5c2e7";
-      mauve = "cba6f7";
-      red = "f38ba8";
-      maroon = "eba0ac";
-      peach = "fab387";
-      yellow = "f9e2af";
-      green = "a6e3a1";
-      teal = "94e2d5";
-      sky = "89dceb";
-      sapphire = "74c7ec";
-      blue = "89b4fa";
-      lavender = "b4befe";
-      text = "cdd6f4";
-      subtext1 = "bac2de";
-      subtext0 = "a6adc8";
-      overlay2 = "9399b2";
-      overlay1 = "7f849c";
-      overlay0 = "6c7086";
-      surface2 = "585b70";
-      surface1 = "45475a";
-      surface0 = "313244";
-      base = "1e1e2e";
-      mantle = "181825";
-      crust = "11111b";
-      "helix.cursorline" = "2a2b3c";
-      "helix.secondary_cursor" = "b5a6a8";
-      "helix.secondary_cursor_select" = "878ec0";
-      "helix.secondary_cursor_normal" = "b5a6a8";
-      "helix.secondary_cursor_insert" = "7ea87f";
+      rosewater = "#f5e0dc";
+      flamingo = "#f2cdcd";
+      pink = "#f5c2e7";
+      mauve = "#cba6f7";
+      red = "#f38ba8";
+      maroon = "#eba0ac";
+      peach = "#fab387";
+      yellow = "#f9e2af";
+      green = "#a6e3a1";
+      teal = "#94e2d5";
+      sky = "#89dceb";
+      sapphire = "#74c7ec";
+      blue = "#89b4fa";
+      lavender = "#b4befe";
+      text = "#cdd6f4";
+      subtext1 = "#bac2de";
+      subtext0 = "#a6adc8";
+      overlay2 = "#9399b2";
+      overlay1 = "#7f849c";
+      overlay0 = "#6c7086";
+      surface2 = "#585b70";
+      surface1 = "#45475a";
+      surface0 = "#313244";
+      base = "#1e1e2e";
+      mantle = "#181825";
+      crust = "#11111b";
+      "helix.cursorline" = "#2a2b3c";
+      "helix.secondary_cursor" = "#b5a6a8";
+      "helix.secondary_cursor_select" = "#878ec0";
+      "helix.secondary_cursor_normal" = "#b5a6a8";
+      "helix.secondary_cursor_insert" = "#7ea87f";
     };
   };
 
@@ -189,6 +189,7 @@ let
       flavorTitle = titleCase variant;
       accentTitle = titleCase accent;
       familyTitle = "Catppuccin";
+      palette = palettes.${variant};
 
       cursorName = "${familyTitle}-${flavorTitle}-${accentTitle}";
       gtkThemeName = "${familyTitle}-${flavorTitle}-Standard-${accentTitle}-dark";
@@ -264,27 +265,27 @@ let
         # Code is the one intentionally manual app in this family.
         provider = mkTemplateProvider {
           options.colors = {
-            primary = "#${palettes.${variant}.blue}";
-            secondary = "#${palettes.${variant}.green}";
-            background = "#${palettes.${variant}.base}";
-            foreground = "#${palettes.${variant}.text}";
-            border = "#${palettes.${variant}.surface1}";
-            border_focused = "#${palettes.${variant}.overlay0}";
-            selection = "#${palettes.${variant}.surface0}";
-            cursor = "#${palettes.${variant}.rosewater}";
-            success = "#${palettes.${variant}.green}";
-            warning = "#${palettes.${variant}.yellow}";
-            error = "#${palettes.${variant}.red}";
-            info = "#${palettes.${variant}.sky}";
-            text = "#${palettes.${variant}.text}";
-            text_dim = "#${palettes.${variant}.subtext0}";
-            text_bright = "#${palettes.${variant}.rosewater}";
-            keyword = "#${palettes.${variant}.mauve}";
-            string = "#${palettes.${variant}.green}";
-            comment = "#${palettes.${variant}.overlay1}";
-            function = "#${palettes.${variant}.blue}";
-            spinner = "#${palettes.${variant}.sapphire}";
-            progress = "#${palettes.${variant}.blue}";
+            primary = palettes.${variant}.blue;
+            secondary = palettes.${variant}.green;
+            background = palettes.${variant}.base;
+            foreground = palettes.${variant}.text;
+            border = palettes.${variant}.surface1;
+            border_focused = palettes.${variant}.overlay0;
+            selection = palettes.${variant}.surface0;
+            cursor = palettes.${variant}.rosewater;
+            success = palettes.${variant}.green;
+            warning = palettes.${variant}.yellow;
+            error = palettes.${variant}.red;
+            info = palettes.${variant}.sky;
+            text = palettes.${variant}.text;
+            text_dim = palettes.${variant}.subtext0;
+            text_bright = palettes.${variant}.rosewater;
+            keyword = palettes.${variant}.mauve;
+            string = palettes.${variant}.green;
+            comment = palettes.${variant}.overlay1;
+            function = palettes.${variant}.blue;
+            spinner = palettes.${variant}.sapphire;
+            progress = palettes.${variant}.blue;
           };
         };
       };
@@ -479,18 +480,7 @@ let
           target = "dotfiles-theme/waybar.css";
           wrapperFile = ../wrappers/catppuccin/waybar/style.css;
           wrapperTarget = "waybar/style.css";
-          options.colors = {
-            green = "#${palettes.${variant}.green}";
-            rosewater = "#${palettes.${variant}.rosewater}";
-            text = "#${palettes.${variant}.text}";
-            mauve = "#${palettes.${variant}.mauve}";
-            teal = "#${palettes.${variant}.teal}";
-            maroon = "#${palettes.${variant}.maroon}";
-            red = "#${palettes.${variant}.red}";
-            pink = "#${palettes.${variant}.pink}";
-            blue = "#${palettes.${variant}.blue}";
-            yellow = "#${palettes.${variant}.yellow}";
-          };
+          options.colors = palette;
         };
       };
 
@@ -503,10 +493,10 @@ let
             wrapperFile = ../wrappers/catppuccin/wlogout/style.css;
             text = ''
               @define-color overlay ${getRgba { data.palette = palettes.${variant}; } "base" 0.7};
-              @define-color text #${palettes.${variant}.text};
-              @define-color surface0 #${palettes.${variant}.surface0};
-              @define-color base #${palettes.${variant}.base};
-              @define-color accent #${palettes.${variant}.${accent}};
+              @define-color text ${palettes.${variant}.text};
+              @define-color surface0 ${palettes.${variant}.surface0};
+              @define-color base ${palettes.${variant}.base};
+              @define-color accent ${palettes.${variant}.${accent}};
             '';
           };
         };
@@ -580,31 +570,13 @@ let
   # Shared derived data that is still useful outside individual app records.
   mkData = source: wallpaper:
     let
-      inherit (source) variant accent;
-
+      inherit (source) variant;
       palette = palettes.${variant};
-      flavorTitle = titleCase variant;
-      accentTitle = titleCase accent;
-      familyTitle = familyMeta.title;
-      cursorName = "${familyTitle}-${flavorTitle}-${accentTitle}";
     in
     {
       inherit palette;
       inherit wallpaper;
-      cursor = {
-        name = cursorName;
-        gtkName = "${cursorName}-Cursors";
-        size = 24;
-      };
-      gtk = {
-        themeName = "${familyTitle}-${flavorTitle}-Standard-${accentTitle}-dark";
-        iconThemeName = "Colloid-${accent}-dark";
-      };
     };
-
-  source = mkSource { };
-  apps = mkApps source;
-  data = mkData source defaultWallpaper;
 
   # Public constructor for a selected Catppuccin bundle.
   mk = {
@@ -631,6 +603,5 @@ let
 in
 {
   meta = familyMeta;
-  inherit data;
-  inherit apps mk mkApps mkData mkSource source;
+  inherit mk;
 }

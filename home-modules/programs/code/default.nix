@@ -3,7 +3,6 @@
   pkgs,
   lib,
   config,
-  themes,
   theme,
   ...
 }:
@@ -12,7 +11,7 @@ let
   program = "code";
   program-module = config.modules.${program};
   tomlFormat = pkgs.formats.toml { };
-  codeProvider = themes.helpers.getAppProvider theme "code";
+  codeProvider = theme.providerFor "code";
   codeColors =
     if codeProvider != null && codeProvider.type == "template" then
       codeProvider.options.colors

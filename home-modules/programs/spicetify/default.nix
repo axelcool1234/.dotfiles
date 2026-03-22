@@ -2,7 +2,6 @@
   inputs,
   lib,
   config,
-  themes,
   theme,
   ...
 }:
@@ -11,12 +10,8 @@ let
   program = "spicetify";
   program-module = config.modules.${program};
   spicePkgs = inputs.spicetify-nix.legacyPackages.x86_64-linux;
-  spicetifyProvider = themes.helpers.getAppProvider theme "spicetify";
-  spicetifyThemeSource =
-    if spicetifyProvider != null && spicetifyProvider.type == "asset" then
-      themes.helpers.resolveAssetSource spicetifyProvider
-    else
-      null;
+  spicetifyProvider = theme.providerFor "spicetify";
+  spicetifyThemeSource = theme.resolveAssetSource spicetifyProvider;
   spicetifyThemePkg =
     if spicetifyProvider == null || spicetifyProvider.type != "package" then
       null

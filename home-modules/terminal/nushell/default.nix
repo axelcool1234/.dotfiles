@@ -1,16 +1,16 @@
-{ lib, config, themes, theme, ... }:
+{ lib, config, theme, ... }:
 with lib;
 let
   program = "nushell";
   program-module = config.modules.${program};
-  neovimProvider = themes.helpers.getAppProvider theme "neovim";
-  nushellProvider = themes.helpers.getAppProvider theme "nushell";
+  neovimProvider = theme.providerFor "neovim";
+  nushellProvider = theme.providerFor "nushell";
 
   nushellTheme =
     if nushellProvider != null && nushellProvider.type == "template" && nushellProvider.options ? text then
       { text = nushellProvider.options.text; }
-    else if nushellProvider != null && nushellProvider.type == "asset" then
-      { source = themes.helpers.resolveAssetSource nushellProvider; }
+    else if theme.resolveAssetSource nushellProvider != null then
+      { source = theme.resolveAssetSource nushellProvider; }
     else
       null;
   configNu = ''

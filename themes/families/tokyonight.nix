@@ -1,8 +1,7 @@
-{ lib, helpers }:
+{ constructors, internal, lib }:
 let
-  inherit (helpers)
+  inherit (constructors)
     githubPackage
-    getRgba
     mkApp
     mkAssetProvider
     mkFamilySource
@@ -11,11 +10,14 @@ let
     mkTemplateProvider
     mkThemeBundle
     ;
+  inherit (internal) getRgba;
 
   familyMeta = {
     id = "tokyonight";
     title = "Tokyo Night";
   };
+
+  cursorThemeName = "ComixCursors-Opaque-Blue";
 
   defaultWallpaper = ../../wallpapers/nixos-catppuccin.png;
 
@@ -187,11 +189,6 @@ let
       palette = semanticPaletteFor raw;
       gtkThemeName = gtkThemeNameFor variant;
       gtkIconThemeName = gtkIconThemeNameFor variant;
-      fzfDefaultOpts = {
-        night = ''$FZF_DEFAULT_OPTS --highlight-line --info=inline-right --ansi --layout=reverse --border=none --color=bg+:#283457 --color=bg:#16161e --color=border:#27a1b9 --color=fg:#c0caf5 --color=gutter:#16161e --color=header:#ff9e64 --color=hl+:#2ac3de --color=hl:#2ac3de --color=info:#545c7e --color=marker:#ff007c --color=pointer:#ff007c --color=prompt:#2ac3de --color=query:#c0caf5:regular --color=scrollbar:#27a1b9 --color=separator:#ff9e64 --color=spinner:#ff007c'';
-        storm = ''$FZF_DEFAULT_OPTS --highlight-line --info=inline-right --ansi --layout=reverse --border=none --color=bg+:#2e3c64 --color=bg:#1f2335 --color=border:#29a4bd --color=fg:#c0caf5 --color=gutter:#1f2335 --color=header:#ff9e64 --color=hl+:#2ac3de --color=hl:#2ac3de --color=info:#545c7e --color=marker:#ff007c --color=pointer:#ff007c --color=prompt:#2ac3de --color=query:#c0caf5:regular --color=scrollbar:#29a4bd --color=separator:#ff9e64 --color=spinner:#ff007c'';
-        moon = ''$FZF_DEFAULT_OPTS --highlight-line --info=inline-right --ansi --layout=reverse --border=none --color=bg+:#2d3f76 --color=bg:#1e2030 --color=border:#589ed7 --color=fg:#c8d3f5 --color=gutter:#1e2030 --color=header:#ff966c --color=hl+:#65bcff --color=hl:#65bcff --color=info:#545c7e --color=marker:#ff007c --color=pointer:#ff007c --color=prompt:#65bcff --color=query:#c8d3f5:regular --color=scrollbar:#589ed7 --color=separator:#ff966c --color=spinner:#ff007c'';
-      }.${variant};
     in
     {
       btop = mkApp {
@@ -292,8 +289,13 @@ let
       };
 
       fzf = mkApp {
-        provider = mkTemplateProvider {
-          options.defaultOpts = fzfDefaultOpts;
+        provider = mkAssetProvider {
+          package = githubPackage {
+            repo = "folke/tokyonight.nvim";
+            rev = "5da1b76e64daf4c5d410f06bcb6b9cb640da7dfd";
+          };
+          source = "extras/fzf/tokyonight_${variant}.sh";
+          target = "dotfiles-theme/fzf.nu";
         };
       };
 
@@ -327,11 +329,14 @@ let
         provider = mkModuleProvider {
           module = "desktop.cursor";
           options = {
-            name = "Bibata-Modern-Ice";
-            gtkName = "Bibata-Modern-Ice";
+            name = cursorThemeName;
+            gtkName = cursorThemeName;
             size = 24;
             package = {
-              attrPath = [ "bibata-cursors" ];
+              attrPath = [
+                "comixcursors"
+                "Opaque_Blue"
+              ];
             };
           };
         };
@@ -586,9 +591,9 @@ let
             ''
               ${hyprlandColors}
 
-              env = HYPRCURSOR_THEME,Bibata-Modern-Ice
+              env = HYPRCURSOR_THEME,${cursorThemeName}
               env = HYPRCURSOR_SIZE,24
-              env = XCURSOR_THEME,Bibata-Modern-Ice
+              env = XCURSOR_THEME,${cursorThemeName}
               env = XCURSOR_SIZE,24
             '';
         };
@@ -635,16 +640,7 @@ let
     in
     {
       inherit palette wallpaper;
-      cursor = {
-        name = "Bibata-Modern-Ice";
-        gtkName = "Bibata-Modern-Ice";
-        size = 24;
-      };
     };
-
-  source = mkSource { };
-  apps = mkApps source;
-  data = mkData source defaultWallpaper;
 
   mk = {
     source ? { },
@@ -668,6 +664,5 @@ let
 in
 {
   meta = familyMeta;
-  inherit data;
-  inherit apps mk mkApps mkData mkSource source;
+  inherit mk;
 }

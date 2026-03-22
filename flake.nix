@@ -64,8 +64,8 @@
       ...
     }@inputs:
     let
-      themes = import ./themes { lib = nixpkgs.lib; };
-      theme = themes.families.tokyonight.mk { };
+      themeLib = import ./themes { lib = nixpkgs.lib; };
+      theme = themeLib.withRuntime (themeLib.families.tokyonight.mk { });
 
       # NixOS Configuration
       mkSystem =
@@ -73,7 +73,7 @@
         nixpkgsInput.lib.nixosSystem {
           system = system;
           specialArgs = {
-            inherit inputs username hostname themes theme;
+            inherit inputs username hostname theme;
           };
           modules = [
             { networking.hostName = hostname; }
@@ -92,7 +92,7 @@
             config.allowUnfreePredicate = (_: true);
           };
           extraSpecialArgs = {
-            inherit inputs username hostname themes theme;
+            inherit inputs username hostname theme;
           };
           modules = [
             {

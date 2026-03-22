@@ -1,9 +1,9 @@
-{ pkgs, lib, config, themes, theme, ... }:
+{ pkgs, lib, config, theme, ... }:
 with lib;
 let
   program = "neovim";
   program-module = config.modules.${program};
-  neovimProvider = themes.helpers.getAppProvider theme "neovim";
+  neovimProvider = theme.providerFor "neovim";
   neovimThemePlugin =
     if neovimProvider == null || neovimProvider.type != "package" then
       null

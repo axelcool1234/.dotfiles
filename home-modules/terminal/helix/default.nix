@@ -3,7 +3,6 @@
   pkgs,
   lib,
   config,
-  themes,
   theme,
   username,
   hostname,
@@ -13,7 +12,7 @@ with lib;
 let
   program = "helix";
   program-module = config.modules.${program};
-  helixProvider = themes.helpers.getAppProvider theme "helix";
+  helixProvider = theme.providerFor "helix";
 in
 {
   options.modules.${program} = {

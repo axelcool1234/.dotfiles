@@ -1,13 +1,12 @@
 {
   pkgs,
   lib,
-  themes,
   theme ? null,
   ...
 }:
 
 let
-  inherit (themes.helpers) getAppProvider;
+  inherit (theme) providerFor;
 
   normalizeConsoleColor = color:
     if lib.hasPrefix "#" color then
@@ -22,11 +21,11 @@ let
     in
     if spec ? override then nested.override spec.override else nested;
 
-  gtkProvider = getAppProvider theme "gtk";
-  kvantumProvider = getAppProvider theme "kvantum";
-  cursorProvider = getAppProvider theme "cursor";
-  qtProvider = getAppProvider theme "qt";
-  consoleProvider = getAppProvider theme "console";
+  gtkProvider = providerFor "gtk";
+  kvantumProvider = providerFor "kvantum";
+  cursorProvider = providerFor "cursor";
+  qtProvider = providerFor "qt";
+  consoleProvider = providerFor "console";
 
   gtkThemeName =
     if gtkProvider != null && gtkProvider.type == "module" && gtkProvider.options ? themeName then

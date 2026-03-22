@@ -1,14 +1,10 @@
-{ lib, config, themes, theme, ... }:
+{ lib, config, theme, ... }:
 with lib;
 let
   program = "starship";
   program-module = config.modules.${program};
-  starshipProvider = themes.helpers.getAppProvider theme "starship";
-  starshipThemeSource =
-    if starshipProvider != null && starshipProvider.type == "asset" then
-      themes.helpers.resolveAssetSource starshipProvider
-    else
-      null;
+  starshipProvider = theme.providerFor "starship";
+  starshipThemeSource = theme.resolveAssetSource starshipProvider;
 
   starshipThemeText =
     if starshipProvider != null

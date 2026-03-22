@@ -1,104 +1,164 @@
 # Themes
 
-`themes/` is the canonical theme library for this dotfiles repo.
+`themes/` is the theme library for this dotfiles repo.
 
-The important idea is that a theme is just data. The family files in this directory do
-not directly configure programs. Instead, they describe:
+The key design idea is:
 
-- what theme is selected
-- how each app receives that theme
-- any small bits of shared derived data that are still needed locally
+- `themeLib` is the library and API for defining and consuming themes.
+- `theme` is the selected concrete theme bundle for the current system.
 
-The Home Manager and NixOS modules outside this directory then realize that plan into
-actual config files, package choices, or copied upstream assets.
+Theme family files do not directly configure programs. They describe theme data and
+per-app delivery strategies. NixOS and Home Manager modules outside this directory then
+realize that data into package selections, generated config files, and copied upstream
+assets.
 
-## Core Idea
+## Mental Model
 
-A **theme bundle** is the concrete result of selecting a theme **family** and then
-describing how individual **apps** receive that theme.
+At a high level, the flow is:
+
+```text
+themeLib
+  -> theme family
+  -> selected theme bundle
+  -> runtime-enriched theme object
+  -> consumer modules
+  -> concrete config files and packages
+```
 
 In this repo:
 
-- a **family** is something like Catppuccin
-- the family chooses a **source** such as `variant = "mocha"` and `accent = "teal"`
-- the family also defines an `apps` map describing how each app gets themed
-
-So a theme bundle is best thought of as:
-
-```text
-family selection
-  +
-per-app delivery records
-  +
-small shared derived data
-  =
-theme bundle
-```
-
-That is why the bundle has both:
-
-- `source`
-  Which member of the family was selected.
-
-- `apps`
-  How each app receives that family's theme.
-
-## What Lives Here
-
-- [`default.nix`](/home/axelcool1234/.dotfiles/themes/default.nix)
-  Public entrypoint. Imports helpers and all theme families.
-
-- [`lib.nix`](/home/axelcool1234/.dotfiles/themes/lib.nix)
-  Shared constructors and helper functions used by families and realizers.
-
-- [`families/`](/home/axelcool1234/.dotfiles/themes/families)
-  Theme family definitions. Right now Catppuccin and TokyoNight are implemented.
-
-  A family file usually exports both:
-
-  - constructor functions such as `mk`, `mkSource`, `mkApps`, and `mkData`
-  - a default precomputed `source`, `apps`, and `data` for the family's default selection
-
-- [`wrappers/`](/home/axelcool1234/.dotfiles/themes/wrappers)
-  Small static wrapper files for apps that want an existing config to `@import` or
-  `source` an upstream asset rather than replacing the whole config.
-
-## Naming Conventions
-
-The current naming in the codebase is:
-
-- `themes`
-  The library of family definitions and helper functions.
+- `themeLib`
+  The imported library from `./themes`.
 
 - `theme`
-  The selected theme bundle passed through flake `specialArgs`.
+  The selected bundle, enriched with runtime helpers such as `theme.providerFor` and
+  `theme.resolveAssetSource`.
 
-- `apps.<name>.provider`
-  The per-app delivery record.
+- `theme.apps.<name>.provider`
+  The delivery record for one app.
 
-`provider` is not a perfect name. Conceptually it really means "how this app receives
-its theme".
+So the library is intentionally split into:
 
-## Public Shape
+- declaration APIs for building theme data
+- internal theme math and bundle helpers
+- provider resolution helpers
+- runtime access helpers bound to one selected theme
 
-Import the theme library from the flake and choose a family bundle:
+## Definitions
+
+These are the most important terms used throughout this library.
+
+- `themeLib`
+  The global theme library imported from `./themes`.
+
+- `theme`
+  The selected concrete theme bundle, usually enriched with `withRuntime` before it is
+  passed to consumer modules.
+
+- `family`
+  A theme family implementation such as Catppuccin or Tokyo Night.
+
+- `source`
+  The family-selection record describing which member of a family was chosen, such as
+  `variant = "mocha"` or `accent = "teal"`.
+
+- `app`
+  The logical theme target identified by a key under `theme.apps`, such as `"gtk"`,
+  `"waybar"`, `"spicetify"`, or `"grub"`.
+
+- `app record`
+  The full record stored under `theme.apps.<name>`, usually containing `enable`,
+  `provider`, and optional notes.
+
+- `provider`
+  The delivery record stored under `theme.apps.<name>.provider`. It describes how one
+  app receives its theme.
+
+- `options`
+  The provider-specific payload consumed by the realizer or consumer module for that
+  provider.
+
+- `consumer`
+  A module outside `themes/` that takes the selected `theme`, reads one or more app
+  providers from it, and consumes that bundle data to produce concrete results such as
+  generated config files, copied assets, package selections, or module options. In this
+  repo, consumer modules primarily live under `home-modules/` and `nixos-modules/`.
+
+The short version is:
+
+```text
+app = what thing is being themed?
+provider = how does that thing receive its theme?
+```
+
+## Directory Structure
+
+- [`default.nix`](/home/axelcool1234/.dotfiles/themes/default.nix)
+  Public entrypoint for the library. The intended top-level API is:
+  `families` and `withRuntime`.
+
+- [`constructors.nix`](/home/axelcool1234/.dotfiles/themes/constructors.nix)
+  Pure constructors for theme bundles, theme sources, providers, app records, and
+  GitHub-backed package descriptors.
+
+- [`internal.nix`](/home/axelcool1234/.dotfiles/themes/internal.nix)
+  Theme-internal helpers such as palette access and rgba conversion.
+
+- [`resolvers.nix`](/home/axelcool1234/.dotfiles/themes/resolvers.nix)
+  Helpers that turn provider descriptors into concrete files or paths.
+
+- [`accessors.nix`](/home/axelcool1234/.dotfiles/themes/accessors.nix)
+  Runtime helpers bound to one selected `theme`, such as `providerFor`,
+  `requireModuleOption`, and `providerWrapperFile`.
+
+- [`families/`](/home/axelcool1234/.dotfiles/themes/families)
+  Theme family implementations such as Catppuccin and Tokyo Night.
+
+- [`wrappers/`](/home/axelcool1234/.dotfiles/themes/wrappers)
+  Small local wrapper configs that import upstream assets or generated fragments.
+
+## Top-Level API
+
+Import the library and choose a theme family:
 
 ```nix
 let
-  themes = import ./themes { inherit lib; };
-  theme = themes.families.catppuccin.mk {
+  themeLib = import ./themes { inherit lib; };
+
+  theme = themeLib.withRuntime (themeLib.families.catppuccin.mk {
     source = {
       variant = "mocha";
       accent = "teal";
     };
-  };
+  });
 in
 {
   # Pass `theme` through flake specialArgs.
 }
 ```
 
-The selected bundle has this shape:
+In the current flake, `themeLib` stays local to `flake.nix` and is used to build the
+selected `theme`. Consumer modules only receive `theme`.
+
+`themeLib` intentionally exposes:
+
+- `families`
+- `withRuntime`
+
+`withRuntime` takes a plain theme bundle and returns a runtime-enriched `theme` object.
+
+That runtime object keeps the original theme bundle shape and also adds helper methods
+used by consumer modules.
+
+The lower-level files under `themes/` (such as `accessors.nix` and `resolvers.nix`) still
+exist as internal structure for better maintenance, but they are not the main public API
+of the library. The idea is a user constructs a theme bundle with `families`, enriches
+it with `withRuntime`, and then passes around the resulting `theme` runtime object to
+consumers.
+
+## Theme Bundle Shape
+
+Before runtime enrichment, a theme bundle has this shape:
 
 ```nix
 {
@@ -110,87 +170,122 @@ The selected bundle has this shape:
 ```
 
 - `meta`
-  Human-oriented metadata like family title and title-cased variant names.
+  Human-oriented metadata like family title and title-cased names.
 
 - `source`
-  The selected family member: family id, variant, accent, and mode.
+  The selected family member, such as `family = "catppuccin"`,
+  `variant = "mocha"`, `accent = "teal"`, `mode = "dark"`.
 
 - `apps`
-  Per-app delivery records describing how each app receives the selected family theme.
+  Per-app theme delivery records.
 
 - `data`
-  Shared derived values that are still useful outside the app records, such as the
-  wallpaper path. This should stay small. If a value only matters to one app, it should
-  usually live in that app's own record instead.
+  Small shared derived values that are still useful outside individual app records.
 
 As a rule of thumb:
 
-- if a value is only used by one app, keep it on that app's `provider.options`
-- if multiple realizers need it, keep it in `data`
-- if upstream already ships the thing you need, prefer an upstream asset over derived data
+- if a value is only used by one app, keep it on that app's provider/options
+- if several consumers need it, keep it in `data`
+- if upstream already ships the file you need, prefer an asset over derived data
 
-## Family Exports
+## Runtime Theme Shape
 
-A family object such as `themes.families.catppuccin` is not itself the final theme
-bundle. It is a small API for building one.
+After `themeLib.withRuntime`, the selected `theme` still has `meta`, `source`, `apps`,
+and `data`, but also gains runtime helpers.
 
-The most important export is:
+Common examples:
 
-- `mk`
-  Builds the final theme bundle.
+- `theme.providerFor "starship"`
+  Returns the enabled provider for one app, or `null`.
 
-Families may also expose lower-level helpers:
+- `theme.providerOption provider "colors"`
+  Reads one provider option. Most runtime access helpers accept either an app name or
+  an already-bound provider value.
 
-- `mkSource`
-  Builds the family-selection record.
+- `theme.requireModuleOption "gtk" "themeName"`
+  Reads one required option from a module-backed provider or throws.
 
-- `mkApps`
-  Builds the per-app delivery records for a given selection.
+- `theme.requireModuleOption gtkProvider "themeName"`
+  The same helper also accepts a provider directly when that provider is already in
+  scope.
 
-- `mkData`
-  Builds any remaining shared derived data for a given selection.
+- `theme.resolveAssetSource "grub"`
+  Resolves an app's provider into an upstream asset path, or returns `null`.
 
-And many family files also expose precomputed defaults:
+- `theme.resolveWrapperText provider`
+  Reads the wrapper file contents for an asset+import provider, or returns `null`.
 
-- `source`
-- `apps`
-- `data`
+The runtime theme is the thing consumer modules should normally use.
 
-Those are just the default results of calling the lower-level constructors with the
-family's default selection.
+### Runtime Helper Input Style
 
-So if you see code like:
+Most runtime helpers are overloaded to accept either:
 
-```nix
-source = mkSource { };
-apps = mkApps source;
-data = mkData source defaultWallpaper;
-```
+- an app key like `"grub"`
+- or an already-bound provider such as `grubProvider`
 
-that means:
+Rule of thumb:
 
-- `mkSource { }` builds the default family selection
-- `mkApps source` builds the default app records for that selection
-- `mkData source ...` builds the default shared data for that selection
-
-The final bundle is still the thing returned by `mk`.
-
-## App Records
-
-The `apps` attribute is where the family says, app by app, what the delivery strategy is.
+- if you do not already have the provider, pass the app name
+- if you already have the provider in scope, pass the provider to avoid resolving it a
+  second time
 
 Examples:
 
-- `theme.apps.starship`
-  says how Starship receives Catppuccin.
+```nix
+theme.resolveAssetSource "grub"
+theme.resolveAssetSource grubProvider
 
-- `theme.apps.kvantum`
-  says how Kvantum receives Catppuccin.
+theme.requireModuleOption "gtk" "themeName"
+theme.requireModuleOption gtkProvider "themeName"
 
-- `theme.apps.code`
-  says how the local Code config receives Catppuccin.
+theme.providerOption "waybar" "colors"
+theme.providerOption waybarProvider "colors"
+```
 
-Each entry under `apps` has this general shape:
+## Family API
+
+A family under `themeLib.families` is not itself the final bundle. It is a small API
+for building one.
+
+The intended public family exports are:
+
+- `mk`
+  Build a final theme bundle.
+
+- `meta`
+  Family-level metadata such as the family id and title.
+
+- So the public family shape is intentionally small:
+
+```nix
+{
+  meta = { ... };
+  mk = ...;
+}
+```
+
+Family files may still contain lower-level helpers like `mkSource`, `mkApps`, and
+`mkData` internally as implementation structure, but those are not part of the intended
+public API.
+
+So the expected usage is:
+
+```nix
+theme = themeLib.withRuntime (themeLib.families.catppuccin.mk {
+  source = {
+    variant = "mocha";
+    accent = "teal";
+  };
+});
+```
+
+The family internals remain free to change as long as `mk` continues to return the same
+theme bundle shape.
+
+## App Delivery Records
+
+Each entry under `theme.apps` has this general shape:
 
 ```nix
 {
@@ -200,209 +295,169 @@ Each entry under `apps` has this general shape:
 }
 ```
 
+The provider says how that app receives its theme.
+
 ### Provider Kinds
 
-These names are the current contract between the theme families and the realizing
-modules.
-
-- family files construct app entries with a specific provider kind
-- helper functions such as [`getAppProvider`](/home/axelcool1234/.dotfiles/themes/lib.nix)
-  return those provider records to consumers
-- realizing modules branch on `provider.type` to decide how to materialize the theme
-
-So these are more than just documentation. They are implementation-level conventions the
-current modules rely on. That said, some of those checks are still somewhat brittle and
-may be generalized later if more theme families are added.
+These are the current provider kinds used by the library and by the realizing modules.
 
 - `module`
-  A NixOS or Home Manager module consumes structured options from the theme.
-  This is typically used for things like qt, GTK, NixOS Module console colors.
+  A consumer module reads structured options from the provider.
 
 - `package`
-  The app wants a package or plugin from a package set such as `pkgs.vimPlugins`.
+  The app wants a package or plugin from a package set.
 
 - `asset`
-  Copy an upstream asset file or directory into place.
+  Copy or link one upstream asset file or directory.
 
 - `asset+import`
-  Copy an upstream asset, but keep a small repo-local wrapper config that imports it.
+  Use an upstream asset plus a small local wrapper file.
 
 - `template`
-  The consuming module renders some local text directly from provider options.
+  Generate text from provider options.
 
 - `stylix`
-  Reserved for apps themed directly by Stylix.
+  Reserved for direct Stylix-backed theming.
 
 - `custom`
-  Reserved for fully custom local-file-backed app handling. 
+  Reserved for fully custom local-file-backed handling.
 
-## Source Kinds
+### Source Kinds
 
-Theme bundles also carry a top-level `source.type`. These names are also defined in
-[`themes/lib.nix`](/home/axelcool1234/.dotfiles/themes/lib.nix).
+Theme bundles also carry a top-level `source.type`.
 
 - `family`
-  A source selected from a known family such as Catppuccin.
+  A source selected from a known family.
 
 - `stylix`
-  Reserved for a future source driven directly by Stylix.
+  Reserved for a future Stylix-driven source.
 
-### Typical Examples
+## Library Layer Responsibilities
 
-- `asset`
-  Discord CSS, Hyprland theme fragments, Yazi themes, Zathura themes.
+This is the intended boundary between the main files in `themes/`.
 
-- `asset+import`
-  Waybar, Rofi, and Wlogout, where this repo keeps a tiny wrapper config but imports an
-  upstream asset or locally generated palette fragment.
+### `constructors.nix`
 
-- `module`
-  GTK, Kvantum, Qt, cursors, console colors, or WezTerm builtin scheme selection.
+Use this layer when you are:
 
-- `package`
-  Neovim plugins and Spicetify themes.
+- building bundle records
+- building provider records
+- building source records
 
-- `template`
-  Small generated local config, such as the `code` theme section.
+Do not put runtime bundle access or file resolution logic here.
 
-## How Realization Works
+### `internal.nix`
 
-This directory does not write files by itself.
+Use this layer for:
 
-The actual realization points are:
+- palette helpers
+- bundle-internal helper logic
+- conversions like `getRgba`
 
-- [`home-modules/theme/default.nix`](/home/axelcool1234/.dotfiles/home-modules/theme/default.nix)
-  Realizes shared theme assets such as wallpapers, copied config fragments, and a few
-  tiny generated files.
+This layer is mostly for misc such as family implementations
+and low-level theme internals.
 
-- [`home-modules/hyprland-desktop/default.nix`](/home/axelcool1234/.dotfiles/home-modules/hyprland-desktop/default.nix)
-  Uses theme app records for desktop-adjacent config like Dunst, Waybar markup colors,
-  Rofi, Wlogout, GTK, and Kvantum.
+### `resolvers.nix`
 
-- [`nixos-modules/hyprland/theme.nix`](/home/axelcool1234/.dotfiles/nixos-modules/hyprland/theme.nix)
-  Uses theme app records for system-side desktop settings like Qt, cursors, and console
-  colors.
+Use this layer for:
 
-- App-specific modules such as [`home-modules/terminal/starship/default.nix`](/home/axelcool1234/.dotfiles/home-modules/terminal/starship/default.nix) or [`home-modules/programs/code/default.nix`](/home/axelcool1234/.dotfiles/home-modules/programs/code/default.nix)
-  Pull their own app record and realize it locally.
+- turning provider descriptors into concrete asset paths
+- reading wrapper-file text
 
-In other words, the flow is:
+This layer is provider-oriented, not theme-selection-oriented.
 
-```text
-themes/families/catppuccin.nix
-  -> returns a theme bundle
-  -> flake passes that bundle as `theme`
-  -> modules inspect `theme.apps.<app>.provider`
-  -> modules copy assets, choose packages, or render tiny fragments
+### `accessors.nix`
+
+Use this layer for:
+
+- reading from one selected `theme`
+- checking whether apps are enabled
+- reading required provider options
+- finding wrapper files
+
+This layer is for runtime consumption of a selected theme bundle.
+
+### `withRuntime`
+
+Use this when you want the ergonomic runtime API on `theme`.
+You can't do much without it.
+
+It currently composes:
+
+- accessor helpers bound to the selected theme
+- resolver helpers bound as convenience methods on the selected theme
+
+## Consumer Side
+
+Modules outside `themes/` should usually consume:
+
+- `theme`
+  for runtime access like `theme.providerFor` or `theme.resolveAssetSource`
+
+That means most modules should prefer:
+
+```nix
+provider = theme.providerFor "starship";
+source = theme.resolveAssetSource provider;
 ```
 
-The `themes/` directory is deliberately dumb about side effects. It describes; the app
-modules (such as those in `home-modules`) realize.
+or, when the provider is not needed separately:
 
-## Current Realizers
+```nix
+source = theme.resolveAssetSource "grub";
+```
 
-Useful places to look when changing behavior:
+And similarly for required options:
 
-- [`home-modules/theme/default.nix`](/home/axelcool1234/.dotfiles/home-modules/theme/default.nix)
-  Shared asset realization. This is the closest thing to a general theme dispatcher.
+```nix
+themeName = theme.requireModuleOption "gtk" "themeName";
+```
 
-- [`home-modules/hyprland-desktop/default.nix`](/home/axelcool1234/.dotfiles/home-modules/hyprland-desktop/default.nix)
-  Desktop integration glue. It consumes provider options for Dunst, Waybar colors,
-  Rofi, Wlogout, GTK, Kvantum, and cursor-related settings.
+or, if the provider is already needed for nearby logic:
 
-- [`nixos-modules/hyprland/theme.nix`](/home/axelcool1234/.dotfiles/nixos-modules/hyprland/theme.nix)
-  System-side desktop realization such as Qt and console colors.
+```nix
+gtkProvider = theme.providerFor "gtk";
+themeName = theme.requireModuleOption gtkProvider "themeName";
+```
 
-- [`home-modules/programs/code/default.nix`](/home/axelcool1234/.dotfiles/home-modules/programs/code/default.nix)
-  Example of a manual app-specific template realization.
+In the current flake setup, consumer modules only receive `theme`. `themeLib` stays
+local to `flake.nix` and is used there to build the selected runtime theme only.
 
-- [`home-modules/terminal/lazygit/default.nix`](/home/axelcool1234/.dotfiles/home-modules/terminal/lazygit/default.nix)
-  Example of consuming an upstream theme asset directly as the app's real config.
+## Realization Layer
 
-## Catppuccin Notes
+The theme library intentionally stops at theme data plus runtime helpers.
 
-[`families/catppuccin.nix`](/home/axelcool1234/.dotfiles/themes/families/catppuccin.nix)
-is the most complete reference implementation for the current model.
+The actual writing of config files happens elsewhere, mainly in:
 
-It intentionally prefers upstream assets where they exist:
+- [home-modules/theme/default.nix](/home/axelcool1234/.dotfiles/home-modules/theme/default.nix)
+  Orchestrates theme realization into XDG files.
 
-- `starship` from `catppuccin/starship`
-- `lazygit` from `catppuccin/lazygit`
-- `fzf` from `catppuccin/fzf`
-- `hyprland` from `catppuccin/hyprland`
-- `yazi` from `catppuccin/yazi`
-- `yazi` syntect theme from `catppuccin/bat`
-- `grub` from `catppuccin/grub`
+- [home-modules/theme/realizers.nix](/home/axelcool1234/.dotfiles/home-modules/theme/realizers.nix)
+  Contains text/file realization helpers used by that module.
 
-The only intentional manual app right now is `code`, because there is no widely used
-upstream Catppuccin config asset for it in the same way as the others.
+So the architecture is:
 
-[`families/tokyonight.nix`](/home/axelcool1234/.dotfiles/themes/families/tokyonight.nix)
-is the second family. It currently focuses on the upstream dark variants (`night`,
-`storm`, and `moon`) and prefers the `tokyonight.nvim` extras where possible.
+```text
+themeLib
+  -> families produce bundle data
+  -> withRuntime enriches the selected bundle
+  -> home-manager/nixos modules consume theme
+  -> realizers materialize files
+```
 
-TokyoNight also mixes in a few practical desktop fallbacks so it can fit the current
-desktop module assumptions:
+## Future Directions
 
-- a generic cursor theme via `pkgs.bibata-cursors`
-- local palette-derived fragments for `hyprland`, `rofi`, `waybar`, `wlogout`, `fzf`,
-  `code`, `starship`, and `nushell` where the upstream repos do not currently ship the
-  exact format this repo expects
-- GTK and icons via `pkgs.tokyonight-gtk-theme`
-- Kvantum via `0xsch1zo/Kvantum-Tokyo-Night`
-- GRUB via `mino29/tokyo-night-grub`
-- Spicetify via the `Base` theme from `stronk-dev/Tokyo-Night-Linux`
+The current split leaves room for future work without collapsing layers together:
 
-TokyoNight currently has a few caveats compared with Catppuccin:
+- more families
+- Stylix-backed theme sources and providers
+- richer accessor helpers for module-heavy consumers
+- more reusable realizers outside the main theme realizer module
 
-- the family currently targets only the dark variants: `night`, `storm`, and `moon`
-- several apps are still realized from local palette-driven fragments rather than a
-  single upstream TokyoNight asset source: `hyprland`, `rofi`, `waybar`, `wlogout`,
-  `fzf`, `code`, `starship`, and `nushell`
-- the cursor setup is a pragmatic fallback (`Bibata-Modern-Ice`) rather than a
-  TokyoNight-specific cursor theme
-- GTK, Kvantum, GRUB, and Spicetify come from different upstreams than the main
-  `tokyonight.nvim` editor/terminal extras
+The main rule is to keep responsibilities separate:
 
-So TokyoNight is usable today, but it is still a more mixed family than Catppuccin:
-more local glue, fewer fully aligned upstream assets.
-
-Other notable current choices:
-
-- Wlogout still uses a local generated palette fragment because the wrapper expects a
-  tiny `@define-color` file rather than the full upstream stylesheet. The reason for
-  this is because it looks nicer.
-
-## Adding An App
-
-When adding a new app or cleaning up an old one, use this order:
-
-1. Check whether upstream already ships a stable Catppuccin asset.
-2. If yes, prefer `asset`, `asset+import`, or `package`.
-3. If no, decide whether the app can consume structured options from a module.
-4. Only fall back to `template` when the app really needs a small local generated config.
-5. Keep app-only values in `provider.options`, not in `data`.
-
-## Troubleshooting
-
-- If `resolveAssetSource` returns `null`, check that the GitHub package reference has a
-  pinned `rev`.
-
-- If Home Manager activation fails because a user file already exists, prefer merging or
-  narrowly managing only the themed fragment instead of clobbering the whole file.
-
-- If a wrapper starts looking more important than the imported asset, that is a sign the
-  provider split is wrong and should be revisited.
-
-- If a field in `data` only exists to support one app, it should probably be removed and
-  moved into that app's `provider.options`.
-
-## Cleanup Rules
-
-When touching this system, prefer these rules:
-
-- If an app can use a stable upstream asset, prefer that over duplicating local theme data.
-- If a value is only consumed by one app, keep it on that app's provider options.
-- Keep `data` small and shared.
-- Keep wrappers tiny. If a wrapper starts carrying the real theme logic, that's probably
-a bad sign.
+- declaration in `constructors`
+- internal theme logic in `internal`
+- provider resolution in `resolvers`
+- selected-theme reads in `accessors`
+- file generation in `home-modules/theme/realizers.nix`

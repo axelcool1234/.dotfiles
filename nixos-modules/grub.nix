@@ -1,11 +1,6 @@
-{ lib, config, themes, theme, ... }:
+{ lib, config, theme, ... }:
 let
-  grubProvider = themes.helpers.getAppProvider theme "grub";
-  grubThemePackage =
-    if grubProvider != null && grubProvider.type == "asset" then
-      themes.helpers.resolveAssetSource grubProvider
-    else
-      null;
+  grubThemePackage = theme.resolveAssetSource "grub";
 in
 {
   options = {

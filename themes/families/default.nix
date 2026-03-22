@@ -1,10 +1,10 @@
-{ lib, helpers }:
+{ constructors, internal, lib }:
 {
   catppuccin = import ./catppuccin.nix {
-    inherit lib helpers;
+    inherit constructors internal lib;
   };
 
   tokyonight = import ./tokyonight.nix {
-    inherit lib helpers;
+    inherit constructors internal lib;
   };
 }

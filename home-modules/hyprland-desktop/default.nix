@@ -3,7 +3,6 @@
   lib,
   config,
   hostname,
-  themes,
   theme ? null,
   ...
 }:
@@ -18,55 +17,33 @@ in
   };
   config = mkIf program-module.enable (
     let
-      inherit (themes.helpers) getAppProvider resolveAssetSource resolveWrapperText;
+      inherit (theme)
+        providerFor
+        providerOption
+        providerWrapperFile
+        resolveAssetSource
+        resolveWrapperText
+        requireModuleOption
+        requireProviderOption
+        ;
 
-      providerWrapperFile = provider:
-        if provider == null then
-          null
-        else if provider ? wrapperFile && provider.wrapperFile != null then
-          provider.wrapperFile
-        else if provider.options ? wrapperFile && provider.options.wrapperFile != null then
-          provider.options.wrapperFile
-        else
-          null;
+      waybarProvider = providerFor "waybar";
+      dunstProvider = providerFor "dunst";
+      rofiProvider = providerFor "rofi";
+      wlogoutProvider = providerFor "wlogout";
+      gtkProvider = providerFor "gtk";
+      kvantumProvider = providerFor "kvantum";
+      cursorProvider = providerFor "cursor";
 
-      waybarProvider = getAppProvider theme "waybar";
-      dunstProvider = getAppProvider theme "dunst";
-      rofiProvider = getAppProvider theme "rofi";
-      wlogoutProvider = getAppProvider theme "wlogout";
-      gtkProvider = getAppProvider theme "gtk";
-      kvantumProvider = getAppProvider theme "kvantum";
-      cursorProvider = getAppProvider theme "cursor";
+      gtkThemeName = requireModuleOption gtkProvider "themeName";
 
-      gtkThemeName =
-        if gtkProvider != null && gtkProvider.type == "module" && gtkProvider.options ? themeName then
-          gtkProvider.options.themeName
-        else
-          throw "theme.apps.gtk.provider.options.themeName is required";
+      gtkIconThemeName = requireModuleOption gtkProvider "iconThemeName";
 
-      gtkIconThemeName =
-        if gtkProvider != null && gtkProvider.type == "module" && gtkProvider.options ? iconThemeName then
-          gtkProvider.options.iconThemeName
-        else
-          throw "theme.apps.gtk.provider.options.iconThemeName is required";
+      cursorGtkName = requireModuleOption cursorProvider "gtkName";
 
-      cursorGtkName =
-        if cursorProvider != null && cursorProvider.type == "module" && cursorProvider.options ? gtkName then
-          cursorProvider.options.gtkName
-        else
-          throw "theme.apps.cursor.provider.options.gtkName is required";
+      cursorSize = requireModuleOption cursorProvider "size";
 
-      cursorSize =
-        if cursorProvider != null && cursorProvider.type == "module" && cursorProvider.options ? size then
-          cursorProvider.options.size
-        else
-          throw "theme.apps.cursor.provider.options.size is required";
-
-      kvantumThemeName =
-        if kvantumProvider != null && kvantumProvider.options ? themeName then
-          kvantumProvider.options.themeName
-        else
-          throw "theme.apps.kvantum.provider.options.themeName is required";
+      kvantumThemeName = requireProviderOption kvantumProvider "themeName";
 
       waybarAssetSource = resolveAssetSource waybarProvider;
       dunstAssetSource = resolveAssetSource dunstProvider;
@@ -85,8 +62,8 @@ in
       waybarColors =
         if waybarProvider != null
           && builtins.elem waybarProvider.type [ "asset+import" "template" ]
-          && waybarProvider.options ? colors then
-          waybarProvider.options.colors
+          && providerOption waybarProvider "colors" != null then
+          providerOption waybarProvider "colors"
         else
           throw "theme.apps.waybar.provider.options.colors is required";
 

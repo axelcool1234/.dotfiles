@@ -1,12 +1,14 @@
-{ pkgs, lib, config, themes, theme, ... }:
+{ pkgs, lib, config, theme, ... }:
 with lib;
 let
   program = "lazygit";
   program-module = config.modules.${program};
-  lazygitProvider = themes.helpers.getAppProvider theme "lazygit";
   lazygitThemeSource =
-    if lazygitProvider != null && lazygitProvider.type == "asset" then
-      themes.helpers.resolveAssetSource lazygitProvider
+    let
+      source = theme.resolveAssetSource "lazygit";
+    in
+    if source != null then
+      source
     else
       throw "theme.apps.lazygit must fetch an upstream theme asset";
 in
