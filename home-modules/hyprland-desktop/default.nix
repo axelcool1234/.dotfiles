@@ -95,7 +95,6 @@ in
     mkMerge [
     {
       xdg.configFile.hypr.source = ./hyprland;
-    # xdg.configFile.waybar.source = ./waybar;
     xdg.configFile."dunst/dunstrc".text = ''
       [global]
       font = "JetBrains Mono Regular 11"

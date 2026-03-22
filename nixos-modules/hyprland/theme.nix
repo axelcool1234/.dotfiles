@@ -6,7 +6,10 @@
 }:
 
 let
-  inherit (theme) providerFor;
+  inherit (theme)
+    moduleOption
+    requireModuleOption
+    ;
 
   normalizeConsoleColor = color:
     if lib.hasPrefix "#" color then
@@ -21,92 +24,27 @@ let
     in
     if spec ? override then nested.override spec.override else nested;
 
-  gtkProvider = providerFor "gtk";
-  kvantumProvider = providerFor "kvantum";
-  cursorProvider = providerFor "cursor";
-  qtProvider = providerFor "qt";
-  consoleProvider = providerFor "console";
+  resolveOptionalPkgsSpec = spec:
+    if spec != null then resolvePkgsAttr spec else null;
 
-  gtkThemeName =
-    if gtkProvider != null && gtkProvider.type == "module" && gtkProvider.options ? themeName then
-      gtkProvider.options.themeName
-    else
-      throw "theme.apps.gtk.provider.options.themeName is required";
+  gtkThemeName = requireModuleOption "gtk" "themeName";
+  gtkIconThemeSpec = moduleOption "gtk" "iconPackage";
 
-  gtkIconThemeSpec =
-    if gtkProvider != null
-      && gtkProvider.type == "module"
-      && gtkProvider.options ? iconPackage
-      && gtkProvider.options.iconPackage != null then
-      gtkProvider.options.iconPackage
-    else
-      null;
+  cursorName = requireModuleOption "cursor" "name";
+  cursorSize = requireModuleOption "cursor" "size";
 
-  cursorName =
-    if cursorProvider != null && cursorProvider.type == "module" && cursorProvider.options ? name then
-      cursorProvider.options.name
-    else
-      throw "theme.apps.cursor.provider.options.name is required";
+  qtEnabled = requireModuleOption "qt" "enable";
+  qtPlatformTheme = requireModuleOption "qt" "platformTheme";
+  qtStyle = requireModuleOption "qt" "style";
+  consoleColors = requireModuleOption "console" "colors";
 
-  cursorSize =
-    if cursorProvider != null && cursorProvider.type == "module" && cursorProvider.options ? size then
-      cursorProvider.options.size
-    else
-      throw "theme.apps.cursor.provider.options.size is required";
-
-  qtEnabled =
-    if qtProvider != null && qtProvider.type == "module" && qtProvider.options ? enable then
-      qtProvider.options.enable
-    else
-      throw "theme.apps.qt.provider.options.enable is required";
-
-  qtPlatformTheme =
-    if qtProvider != null && qtProvider.type == "module" && qtProvider.options ? platformTheme then
-      qtProvider.options.platformTheme
-    else
-      throw "theme.apps.qt.provider.options.platformTheme is required";
-
-  qtStyle =
-    if qtProvider != null && qtProvider.type == "module" && qtProvider.options ? style then
-      qtProvider.options.style
-    else
-      throw "theme.apps.qt.provider.options.style is required";
-
-  gtkThemeSpec =
-    if gtkProvider != null
-      && gtkProvider.type == "module"
-      && gtkProvider.options ? package
-      && gtkProvider.options.package != null then
-      gtkProvider.options.package
-    else
-      throw "theme.apps.gtk.provider.options.package is required";
-
-  kvantumThemeSpec =
-    if kvantumProvider != null
-      && kvantumProvider.type == "module"
-      && kvantumProvider.options ? package
-      && kvantumProvider.options.package != null then
-      kvantumProvider.options.package
-    else
-      null;
-
-  cursorThemeSpec =
-    if cursorProvider != null
-      && cursorProvider.type == "module"
-      && cursorProvider.options ? package
-      && cursorProvider.options.package != null then
-      cursorProvider.options.package
-    else
-      throw "theme.apps.cursor.provider.options.package is required";
+  gtkThemeSpec = requireModuleOption "gtk" "package";
+  kvantumThemeSpec = moduleOption "kvantum" "package";
+  cursorThemeSpec = requireModuleOption "cursor" "package";
 
   gtkThemePkg = resolvePkgsAttr gtkThemeSpec;
-
-  gtkIconThemePkg =
-    if gtkIconThemeSpec != null then resolvePkgsAttr gtkIconThemeSpec else null;
-
-  kvantumThemePkg =
-    if kvantumThemeSpec != null then resolvePkgsAttr kvantumThemeSpec else null;
-
+  gtkIconThemePkg = resolveOptionalPkgsSpec gtkIconThemeSpec;
+  kvantumThemePkg = resolveOptionalPkgsSpec kvantumThemeSpec;
   cursorThemePkg = resolvePkgsAttr cursorThemeSpec;
 
 in
@@ -122,11 +60,7 @@ in
   qt.style = qtStyle;
   console = {
     earlySetup = true;
-    colors =
-      if consoleProvider != null && consoleProvider.type == "module" && consoleProvider.options ? colors then
-        map normalizeConsoleColor consoleProvider.options.colors
-      else
-        throw "theme.apps.console.provider.options.colors is required";
+    colors = map normalizeConsoleColor consoleColors;
   };
 
   # Override packages
@@ -137,17 +71,9 @@ in
     };
   };
 
-  environment.systemPackages = with pkgs; [ ]
+  environment.systemPackages = [ ]
   ++ pkgs.lib.optionals (gtkThemePkg != null) [ gtkThemePkg ]
   ++ pkgs.lib.optionals (gtkIconThemePkg != null) [ gtkIconThemePkg ]
   ++ pkgs.lib.optionals (kvantumThemePkg != null) [ kvantumThemePkg ]
-  ++ pkgs.lib.optionals (cursorThemePkg != null) [ cursorThemePkg ]
-  ++ [
-
-    # gnome.gnome-tweaks
-    # gnome.gnome-shell
-    # gnome.gnome-shell-extensions
-    # xsettingsd
-    # themechanger
-  ];
+  ++ pkgs.lib.optionals (cursorThemePkg != null) [ cursorThemePkg ];
 }
