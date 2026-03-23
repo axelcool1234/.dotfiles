@@ -88,11 +88,14 @@
 
     # Gui/Programs
     slack
-    (callPackage ./pkgs/ns.nix { })
-    (callPackage ./pkgs/restart-waybar.nix { })
 
     # LLM CLIs
     inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex
+
+    # Scripts
+    (callPackage ./pkgs/ns.nix { })
+    (callPackage ./pkgs/ts.nix { ns = callPackage ./pkgs/ns.nix { }; })
+    (callPackage ./pkgs/restart-waybar.nix { })
 
     # --- programming language specific --- #
     # Nix

@@ -95,15 +95,7 @@
         let
           pkgs = mkPkgs nixpkgsInput system;
         in
-        # themeLib.withRuntime (themeLib.stylix.mk {
-        #   source.base16Scheme = "${pkgs.base16-schemes}/share/themes/gruvbox-dark-hard.yaml";
-        # });
-        themeLib.withRuntime (themeLib.families.catppuccin.mk {
-          source = {
-            variant = "mocha";
-            accent = "teal";
-          };
-        });
+        import ./themes/selected_theme.nix { inherit themeLib pkgs; };
 
       # Build one NixOS system configuration.
       # Inputs:

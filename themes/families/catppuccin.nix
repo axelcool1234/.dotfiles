@@ -17,6 +17,24 @@ let
     title = "Catppuccin";
   };
 
+  variants = [ "latte" "frappe" "macchiato" "mocha" ];
+  accents = [
+    "rosewater"
+    "flamingo"
+    "pink"
+    "mauve"
+    "red"
+    "maroon"
+    "peach"
+    "yellow"
+    "green"
+    "teal"
+    "sky"
+    "sapphire"
+    "blue"
+    "lavender"
+  ];
+
   # Default wallpaper used unless the caller overrides it in `mk`.
   defaultWallpaper = ../../wallpapers/nixos-catppuccin.png;
 
@@ -577,5 +595,5 @@ let
 in
 {
   meta = familyMeta;
-  inherit mk;
+  inherit accents mk variants;
 }

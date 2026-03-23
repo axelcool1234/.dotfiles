@@ -16,6 +16,9 @@ let
     title = "Tokyo Night";
   };
 
+  accents = [ ];
+  variants = [ "night" "storm" "moon" ];
+
   cursorThemeName = "ComixCursors-Opaque-Blue";
 
   defaultWallpaper = ../../wallpapers/nixos-catppuccin.png;
@@ -533,5 +536,5 @@ let
 in
 {
   meta = familyMeta;
-  inherit mk;
+  inherit accents mk variants;
 }
