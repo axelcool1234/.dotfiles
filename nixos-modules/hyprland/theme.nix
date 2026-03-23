@@ -7,17 +7,17 @@
 
 let
   inherit (theme)
-    isHandledByStylix
-    providerFor
-    moduleOption
-    requireModuleOption
+    ifNotHandledByStylix
+    lookupProvider
+    lookupProviderOption
+    requireProviderOption
     ;
 
-  gtkProvider = providerFor "gtk";
-  cursorProvider = providerFor "cursor";
-  qtProvider = providerFor "qt";
-  consoleProvider = providerFor "console";
-  kvantumProvider = providerFor "kvantum";
+  gtkProvider = lookupProvider "gtk";
+  cursorProvider = lookupProvider "cursor";
+  qtProvider = lookupProvider "qt";
+  consoleProvider = lookupProvider "console";
+  kvantumProvider = lookupProvider "kvantum";
 
   normalizeConsoleColor = color:
     if lib.hasPrefix "#" color then
@@ -35,20 +35,20 @@ let
   resolveOptionalPkgsSpec = spec:
     if spec != null then resolvePkgsAttr spec else null;
 
-  gtkThemeName = if isHandledByStylix gtkProvider then null else requireModuleOption gtkProvider "themeName";
-  gtkIconThemeSpec = if isHandledByStylix gtkProvider then null else moduleOption gtkProvider "iconPackage";
+  gtkThemeName = ifNotHandledByStylix gtkProvider (provider: requireProviderOption provider "themeName");
+  gtkIconThemeSpec = ifNotHandledByStylix gtkProvider (provider: lookupProviderOption provider "iconPackage");
 
-  cursorName = if isHandledByStylix cursorProvider then null else requireModuleOption cursorProvider "name";
-  cursorSize = if isHandledByStylix cursorProvider then null else requireModuleOption cursorProvider "size";
+  cursorName = ifNotHandledByStylix cursorProvider (provider: requireProviderOption provider "name");
+  cursorSize = ifNotHandledByStylix cursorProvider (provider: requireProviderOption provider "size");
 
-  qtEnabled = if isHandledByStylix qtProvider then null else requireModuleOption qtProvider "enable";
-  qtPlatformTheme = if isHandledByStylix qtProvider then null else requireModuleOption qtProvider "platformTheme";
-  qtStyle = if isHandledByStylix qtProvider then null else requireModuleOption qtProvider "style";
-  consoleColors = if isHandledByStylix consoleProvider then null else requireModuleOption consoleProvider "colors";
+  qtEnabled = ifNotHandledByStylix qtProvider (provider: requireProviderOption provider "enable");
+  qtPlatformTheme = ifNotHandledByStylix qtProvider (provider: requireProviderOption provider "platformTheme");
+  qtStyle = ifNotHandledByStylix qtProvider (provider: requireProviderOption provider "style");
+  consoleColors = ifNotHandledByStylix consoleProvider (provider: requireProviderOption provider "colors");
 
-  gtkThemeSpec = if isHandledByStylix gtkProvider then null else requireModuleOption gtkProvider "package";
-  kvantumThemeSpec = if isHandledByStylix kvantumProvider then null else moduleOption kvantumProvider "package";
-  cursorThemeSpec = if isHandledByStylix cursorProvider then null else requireModuleOption cursorProvider "package";
+  gtkThemeSpec = ifNotHandledByStylix gtkProvider (provider: requireProviderOption provider "package");
+  kvantumThemeSpec = ifNotHandledByStylix kvantumProvider (provider: lookupProviderOption provider "package");
+  cursorThemeSpec = ifNotHandledByStylix cursorProvider (provider: requireProviderOption provider "package");
 
   gtkThemePkg = resolveOptionalPkgsSpec gtkThemeSpec;
   gtkIconThemePkg = resolveOptionalPkgsSpec gtkIconThemeSpec;
@@ -58,14 +58,6 @@ let
 in
 lib.mkMerge [
   {
-    # Override packages
-    nixpkgs.config.packageOverrides = pkgs: {
-      discord = pkgs.discord.override {
-        withOpenASAR = true;
-        withTTS = true;
-      };
-    };
-
     environment.systemPackages = [ ]
     ++ pkgs.lib.optionals (gtkThemePkg != null) [ gtkThemePkg ]
     ++ pkgs.lib.optionals (gtkIconThemePkg != null) [ gtkIconThemePkg ]

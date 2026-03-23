@@ -31,8 +31,8 @@ In this repo:
   The imported library from `./themes`.
 
 - `theme`
-  The selected bundle, enriched with runtime helpers such as `theme.providerFor` and
-  `theme.resolveAssetSource`.
+  The selected bundle, enriched with runtime helpers such as `theme.lookupProvider` and
+  `theme.lookupAssetSource`.
 
 - `theme.apps.<name>.provider`
   The delivery record for one app.
@@ -104,12 +104,13 @@ provider = how does that thing receive its theme?
 - [`internal.nix`](/home/axelcool1234/.dotfiles/themes/internal.nix)
   Theme-internal helpers such as palette access and rgba conversion.
 
-- [`resolvers.nix`](/home/axelcool1234/.dotfiles/themes/resolvers.nix)
-  Helpers that turn provider descriptors into concrete files or paths.
-
 - [`accessors.nix`](/home/axelcool1234/.dotfiles/themes/accessors.nix)
-  Runtime helpers bound to one selected `theme`, such as `providerFor`,
-  `requireModuleOption`, and `providerWrapperFile`.
+  Runtime helpers bound to one selected `theme`, such as `lookupProvider`,
+  `requireProviderOption`, and `lookupProviderOption`.
+
+- [`runtime.nix`](/home/axelcool1234/.dotfiles/themes/runtime.nix)
+  Runtime enrichment via `withRuntime` (giving the bundle a bunch of methods).
+  Gives the theme accessors (from `accessors.nix`) and asset-resolution.
 
 - [`families/`](/home/axelcool1234/.dotfiles/themes/families)
   Theme family implementations such as Catppuccin and Tokyo Night.
@@ -117,9 +118,6 @@ provider = how does that thing receive its theme?
 - [`stylix.nix`](/home/axelcool1234/.dotfiles/themes/stylix.nix)
   Builder for Stylix-backed theme bundles, where the bundle only needs to describe the
   custom apps this repo still manages locally.
-
-- [`wrappers/`](/home/axelcool1234/.dotfiles/themes/wrappers)
-  Small local wrapper configs that import upstream assets or generated fragments.
 
 ## Top-Level API
 
@@ -151,11 +149,13 @@ selected `theme`. Consumer modules only receive `theme`.
 - `withRuntime`
 
 `withRuntime` takes a plain theme bundle and returns a runtime-enriched `theme` object.
+Its implementation currently lives in [`runtime.nix`](/home/axelcool1234/.dotfiles/themes/runtime.nix),
+while [`default.nix`](/home/axelcool1234/.dotfiles/themes/default.nix) remains the public entrypoint that exports it.
 
 That runtime object keeps the original theme bundle shape and also adds helper methods
 used by consumer modules.
 
-The lower-level files under `themes/` (such as `accessors.nix` and `resolvers.nix`) still
+The lower-level files under `themes/` (such as `accessors.nix`) still
 exist as internal structure for better maintenance, but they are not the main public API
 of the library. The idea is a user constructs a theme bundle with `families`, enriches
 it with `withRuntime`, and then passes around the resulting `theme` runtime object to
@@ -213,25 +213,54 @@ and `data`, but also gains runtime helpers.
 
 Common examples:
 
-- `theme.providerFor "starship"`
+- `theme.lookupProvider "starship"`
   Returns the enabled provider for one app, or `null`.
 
-- `theme.providerOption provider "colors"`
-  Reads one provider option. Most runtime access helpers accept either an app name or
-  an already-bound provider value.
+- `theme.requireProvider "gtk"`
+  Returns one required provider record or throws when the provider is missing.
 
-- `theme.requireModuleOption "gtk" "themeName"`
-  Reads one required option from a module-backed provider or throws.
+- `theme.lookupProviderOption provider "colors"`
+  Reads one provider option, or `null`. Most runtime access helpers accept either
+  an app name or an already-bound provider value.
 
-- `theme.requireModuleOption gtkProvider "themeName"`
+- `theme.requireProviderOption "gtk" "themeName"`
+  Reads one required option from a provider or throws.
+
+- `theme.requireProviderOption gtkProvider "themeName"`
   The same helper also accepts a provider directly when that provider is already in
   scope.
 
-- `theme.resolveAssetSource "grub"`
+- `theme.providerIsAsset provider`
+  Checks whether a provider resolves to an asset provider.
+
+- `theme.providerIsStructured provider`
+  Checks whether a provider resolves to a structured provider.
+
+- `theme.matchProvider provider { ... }`
+  Matches on provider shape in one place instead of scattering raw `provider.type`
+  checks through consumer modules.
+
+- `theme.lookupAssetSource "grub"`
   Resolves an app's provider into an upstream asset path, or returns `null`.
 
-- `theme.resolveWrapperText provider`
-  Reads the wrapper file contents for an asset+import provider, or returns `null`.
+- `theme.requireAssetSource "grub"`
+  Resolves one required upstream asset path or throws when the provider is missing or
+  not asset-backed.
+
+- `theme.lookupStructuredOption "fzf" "defaultOpts"`
+  Reads one option only when the provider is structured, otherwise returns `null`.
+
+- `theme.requireStructuredOption "gtk" "themeName"`
+  Reads one required option from a structured provider or throws.
+
+- `theme.lookupThemeData "wallpaper"`
+  Reads one shared `theme.data` field and returns `null` when it is absent.
+
+- `theme.requireThemeData "fonts"`
+  Reads one required shared `theme.data` field or throws.
+
+- `theme.appEnabled "waybar"`
+  Checks whether an app entry exists on the selected theme bundle and is enabled.
 
 - `theme.isStylix`
   Indicates that the selected runtime theme was built from `themeLib.stylix.mk`.
@@ -265,15 +294,25 @@ Rule of thumb:
 Examples:
 
 ```nix
-theme.resolveAssetSource "grub"
-theme.resolveAssetSource grubProvider
+theme.lookupAssetSource "grub"
+theme.lookupAssetSource grubProvider
 
-theme.requireModuleOption "gtk" "themeName"
-theme.requireModuleOption gtkProvider "themeName"
+theme.requireProviderOption "gtk" "themeName"
+theme.requireProviderOption gtkProvider "themeName"
 
-theme.providerOption "waybar" "colors"
-theme.providerOption waybarProvider "colors"
+theme.lookupProviderOption "waybar" "colors"
+theme.lookupProviderOption waybarProvider "colors"
 ```
+
+Recommended naming convention:
+
+- `lookup*` helpers may return `null`
+- `require*` helpers throw when the value is missing
+
+Use `lookup*` / `require*` pairs consistently:
+
+- `lookup*` helpers may return `null`
+- `require*` helpers throw when the value is missing
 
 ## Family API
 
@@ -364,27 +403,23 @@ Each entry under `theme.apps` has this general shape:
 
 The provider says how that app receives its theme.
 
+For local, non-upstream theme payloads, the preferred shape is now structured data.
+Consumers can render final text or config fragments from that structured payload instead
+of requiring the theme layer to pre-render app-specific text.
+
 ### Provider Kinds
 
 These are the current provider kinds used by the library and by the realizing modules.
 
-- `module`
-  A consumer module reads structured options from the provider.
-
-- `package`
-  The app wants a package or plugin from a package set.
-
 - `asset`
   Copy or link one upstream asset file or directory.
 
-- `asset+import`
-  Use an upstream asset plus a small local wrapper file.
+- `structured`
+  Provide structured theme data such as colors, package attr paths, palette names,
+  colorschemes, or similar app-facing payloads that the consumer interprets.
 
-- `template`
-  Generate text from provider options.
-
-- `custom`
-  Reserved for fully custom local-file-backed handling.
+In practice, structured providers are the main "enum branch" for local theme data, while
+asset providers cover upstream file/directory payloads.
 
 ### Source Kinds
 
@@ -421,15 +456,6 @@ Use this layer for:
 This layer is mostly for misc such as family implementations
 and low-level theme internals.
 
-### `resolvers.nix`
-
-Use this layer for:
-
-- turning provider descriptors into concrete asset paths
-- reading wrapper-file text
-
-This layer is provider-oriented, not theme-selection-oriented.
-
 ### `accessors.nix`
 
 Use this layer for:
@@ -437,7 +463,6 @@ Use this layer for:
 - reading from one selected `theme`
 - checking whether apps are enabled
 - reading required provider options
-- finding wrapper files
 
 This layer is for runtime consumption of a selected theme bundle.
 
@@ -449,39 +474,49 @@ You can't do much without it.
 It currently composes:
 
 - accessor helpers bound to the selected theme
-- resolver helpers bound as convenience methods on the selected theme
+- asset-resolution helpers exposed as convenience methods on the selected theme
+
+### `runtime.nix`
+
+Use this layer for:
+
+- enriching a selected bundle with runtime helper methods
+- attaching source-mode flags like `isStylix`
+- resolving asset-backed providers into concrete store paths
+
+This layer is the implementation home of `withRuntime`.
 
 ## Consumer Side
 
 Modules outside `themes/` should usually consume:
 
 - `theme`
-  for runtime access like `theme.providerFor` or `theme.resolveAssetSource`
+  for runtime access like `theme.lookupProvider` or `theme.lookupAssetSource`
 
 That means most modules should prefer:
 
 ```nix
-provider = theme.providerFor "starship";
-source = theme.resolveAssetSource provider;
+provider = theme.lookupProvider "starship";
+source = theme.lookupAssetSource provider;
 ```
 
 or, when the provider is not needed separately:
 
 ```nix
-source = theme.resolveAssetSource "grub";
+source = theme.lookupAssetSource "grub";
 ```
 
 And similarly for required options:
 
 ```nix
-themeName = theme.requireModuleOption "gtk" "themeName";
+themeName = theme.requireProviderOption "gtk" "themeName";
 ```
 
 or, if the provider is already needed for nearby logic:
 
 ```nix
-gtkProvider = theme.providerFor "gtk";
-themeName = theme.requireModuleOption gtkProvider "themeName";
+gtkProvider = theme.lookupProvider "gtk";
+themeName = theme.requireProviderOption gtkProvider "themeName";
 ```
 
 In the current flake setup, consumer modules only receive `theme`. `themeLib` stays
@@ -491,13 +526,20 @@ local to `flake.nix` and is used there to build the selected runtime theme only.
 
 The theme library intentionally stops at theme data plus runtime helpers.
 
-The actual writing of config files happens elsewhere, mainly in:
+The actual writing of config files happens in the owning Home Manager and NixOS
+modules. Shared theme data stays in `theme`, but each app module decides how to
+turn that data into the concrete config files it owns.
+
+Examples in the current tree:
 
 - [home-modules/theme/default.nix](/home/axelcool1234/.dotfiles/home-modules/theme/default.nix)
-  Orchestrates theme realization into XDG files.
+  Realizes shared theme-level outputs such as the wallpaper handoff file.
 
-- [home-modules/theme/realizers.nix](/home/axelcool1234/.dotfiles/home-modules/theme/realizers.nix)
-  Contains text/file realization helpers used by that module.
+- [home-modules/programs/fzf/default.nix](/home/axelcool1234/.dotfiles/home-modules/programs/fzf/default.nix)
+  Converts structured or asset-backed FZF theme data into the Nushell handoff file.
+
+- [home-modules/programs/waybar/default.nix](/home/axelcool1234/.dotfiles/home-modules/programs/waybar/default.nix)
+  Realizes the shared Waybar CSS fragment while the module still owns the wrapper CSS.
 
 So the architecture is:
 
@@ -506,22 +548,13 @@ themeLib
   -> families produce bundle data
   -> withRuntime enriches the selected bundle
   -> home-manager/nixos modules consume theme
-  -> realizers materialize files
+  -> owning modules materialize files
 ```
-
-## Future Directions
-
-The current split leaves room for future work without collapsing layers together:
-
-- more families
-- richer Stylix support for custom app consumers
-- richer accessor helpers for module-heavy consumers
-- more reusable realizers outside the main theme realizer module
 
 The main rule is to keep responsibilities separate:
 
 - declaration in `constructors`
 - internal theme logic in `internal`
-- provider resolution in `resolvers`
+- runtime enrichment and provider resolution in `runtime.nix`
 - selected-theme reads in `accessors`
-- file generation in `home-modules/theme/realizers.nix`
+- file generation in the owning Home Manager or NixOS module

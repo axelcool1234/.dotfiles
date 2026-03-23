@@ -2,29 +2,41 @@
 {
   imports = [
     ./theme
-    ./hyprland-desktop
-    ./terminal/kitty
-    ./terminal/fish
-    ./terminal/nushell
-    ./terminal/starship
-    ./terminal/zoxide
-    ./terminal/ripgrep
-    ./terminal/fd
-    ./terminal/fzf
-    ./terminal/btop
-    ./terminal/fastfetch
-    ./terminal/neovim
-    ./terminal/helix
-    ./terminal/lean-highlighter
-    ./terminal/yazi
-    ./terminal/git
-    ./terminal/jujutsu
-    ./terminal/lazygit
-    ./terminal/nix-tools
+    ./desktops/hyprland
+    ./ui/gtk
+    ./ui/kvantum
+    ./programs/kitty
+    ./programs/fish
+    ./programs/nushell
+    ./programs/starship
+    ./programs/zoxide
+    ./programs/ripgrep
+    ./programs/fd
+    ./programs/fzf
+    ./programs/btop
+    ./programs/fastfetch
+    ./programs/avizo
+    ./programs/imv
+    ./programs/mpv
+    ./programs/neovim
+    ./programs/helix
+    ./programs/lean-highlighter
+    ./programs/yazi
+    ./programs/swappy
+    ./programs/thunar
+    ./programs/git
+    ./programs/jujutsu
+    ./programs/lazygit
+    ./programs/nix-tools
     ./programs/code
     ./programs/glide
     ./programs/nixcord
+    ./programs/dunst
+    ./programs/rofi
     ./programs/spicetify
+    ./programs/waybar
+    ./programs/wpaperd
+    ./programs/wlogout
     ./programs/zathura
   ];
 }

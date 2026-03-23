@@ -1,11 +1,10 @@
-{ internal, resolvers, theme }:
+{ internal, resolveAssetSource, theme }:
 let
   # Runtime access helpers bound to one selected theme bundle.
   # These functions are the consumer-side API for reading providers, required options,
   # and shared theme data from the selected `theme`.
 
   inherit (internal) isAppEnabled;
-  inherit (resolvers) resolveAssetSource;
 
   # Read the enabled provider for an app from a theme bundle.
   # Inputs:
@@ -18,14 +17,14 @@ let
 
   # Normalize one runtime helper input.
   # Inputs:
-  # - input: string|attrset, either app key or provider
+  # - input: string|attrset|null, either app key, provider, or null provider value
   # Output:
   # - attrset { app = string|null; provider = attrset|null; }
   resolveProviderInput = input:
     if builtins.isString input then
       {
         app = input;
-        provider = providerFor input;
+        provider = lookupProvider input;
       }
     else
       {
@@ -35,7 +34,7 @@ let
 
   # Build a human-readable label for error messages.
   # Inputs:
-  # - input: string|attrset, either app key or provider
+  # - input: string|attrset|null, either app key, provider, or null provider value
   # Output:
   # - string, provider label used in thrown error messages
   providerLabel = input:
@@ -52,7 +51,7 @@ let
   # - app: string, app key
   # Output:
   # - attrset|null, provider record
-  providerFor = app: getAppProvider theme app;
+  lookupProvider = app: getAppProvider theme app;
 
   # Check whether one app is enabled on the selected theme.
   # Inputs:
@@ -63,7 +62,7 @@ let
 
   # Require that an app/provider input resolves to a provider.
   # Inputs:
-  # - input: string|attrset, either app key or provider
+  # - input: string|attrset|null, either app key, provider, or null provider value
   # Output:
   # - attrset provider
   # - throws if the provider is null
@@ -78,7 +77,7 @@ let
 
   # Require that an app/provider input resolves to an upstream asset source.
   # Inputs:
-  # - input: string|attrset, either app key or provider
+  # - input: string|attrset|null, either app key, provider, or null provider value
   # Output:
   # - path, resolved asset path
   # - throws if the provider is missing or does not resolve
@@ -91,13 +90,12 @@ let
     else
       resolved;
 
-  # Require one shared data field from the selected theme bundle.
+  # Read one shared data field from the selected theme bundle.
   # Inputs:
   # - name: string, key under theme.data
   # Output:
-  # - arbitrary value from theme.data
-  # - throws if the key is missing
-  themeData = name:
+  # - arbitrary value|null from theme.data
+  lookupThemeData = name:
     if theme != null && theme ? data && builtins.hasAttr name theme.data then
       theme.data.${name}
     else
@@ -117,11 +115,11 @@ let
 
   # Read one provider option if it exists.
   # Inputs:
-  # - input: string|attrset, either app key or provider
+  # - input: string|attrset|null, either app key, provider, or null provider value
   # - name: string, option key
   # Output:
   # - arbitrary value|null
-  providerOption = input: name:
+  lookupProviderOption = input: name:
     let
       provider = (resolveProviderInput input).provider;
     in
@@ -132,98 +130,63 @@ let
 
   # Require one provider option regardless of provider type.
   # Inputs:
-  # - input: string|attrset, either app key or provider
+  # - input: string|attrset|null, either app key, provider, or null provider value
   # - name: string, option key
   # Output:
   # - arbitrary value
   # - throws if the option is missing
   requireProviderOption = input: name:
     let
-      value = providerOption input name;
+      value = lookupProviderOption input name;
     in
     if value != null then
       value
     else
       throw "${providerLabel input}.options.${name} is required";
 
-  # Read one option from a module-backed provider.
+  # Read one option from a structured-data provider.
   # Inputs:
-  # - input: string|attrset, either app key or provider
+  # - input: string|attrset|null, either app key, provider, or null provider value
   # - name: string, option key
   # Output:
   # - arbitrary value|null
-  moduleOption = input: name:
+  lookupStructuredOption = input: name:
     let
       provider = (resolveProviderInput input).provider;
     in
-    if provider != null && provider.type == "module" then
-      providerOption provider name
+    if provider != null && provider.type == "structured" then
+      lookupProviderOption provider name
     else
       null;
 
-  # Require one option from a module-backed provider.
+  # Require one option from a structured-data provider.
   # Inputs:
-  # - input: string|attrset, either app key or provider
+  # - input: string|attrset|null, either app key, provider, or null provider value
   # - name: string, option key
   # Output:
   # - arbitrary value
   # - throws if the option is missing
-  requireModuleOption = input: name:
+  requireStructuredOption = input: name:
     let
-      value = moduleOption input name;
+      value = lookupStructuredOption input name;
     in
     if value != null then
       value
     else
       throw "${providerLabel input}.options.${name} is required";
 
-  # Read one option from a template-backed provider.
-  # Inputs:
-  # - input: string|attrset, either app key or provider
-  # - name: string, option key
-  # Output:
-  # - arbitrary value|null
-  templateOption = input: name:
-    let
-      provider = (resolveProviderInput input).provider;
-    in
-    if provider != null && provider.type == "template" then
-      providerOption provider name
-    else
-      null;
-
-  # Read the wrapper file path for a provider.
-  # Inputs:
-  # - input: string|attrset, either app key or provider
-  # Output:
-  # - path|null
-  # Looks first at provider.wrapperFile, then at provider.options.wrapperFile.
-  providerWrapperFile = input:
-    let
-      provider = (resolveProviderInput input).provider;
-    in
-    if provider == null then
-      null
-    else if provider ? wrapperFile && provider.wrapperFile != null then
-      provider.wrapperFile
-    else if providerOption provider "wrapperFile" != null then
-      providerOption provider "wrapperFile"
-    else
-      null;
 in
 {
   inherit
     appEnabled
-    moduleOption
-    providerFor
-    providerOption
-    providerWrapperFile
-    themeData
+    lookupProvider
+    lookupProviderOption
+    lookupStructuredOption
+    lookupThemeData
     requireAssetSource
-    requireModuleOption
     requireProvider
     requireProviderOption
+    requireStructuredOption
     requireThemeData
-    templateOption
     ;
 }

@@ -4,7 +4,7 @@ let
   defaultWallpaper = ../wallpapers/nixos-catppuccin.png;
   inherit (constructors)
     mkApp
-    mkTemplateProvider
+    mkStructuredProvider
     mkThemeBundle
     ;
 
@@ -35,7 +35,7 @@ let
       lines = lib.splitString "\n" (builtins.readFile schemePath);
       parseLine = line:
         let
-          match = builtins.match ''[[:space:]]*(base[0-9A-F]{2}):[[:space:]]*"?(#[0-9A-Fa-f]{6})"?[[:space:]]*'' line;
+          match = builtins.match ''[[:space:]]*(base[0-9A-F]{2}):[[:space:]]*"?(#[0-9A-Fa-f]{6})"?([[:space:]]*#.*)?[[:space:]]*'' line;
         in
         if match == null then
           null
@@ -126,7 +126,7 @@ let
       ;
   in {
     code = mkApp {
-      provider = mkTemplateProvider {
+      provider = mkStructuredProvider {
         options = {
           stylix = true;
           colors = {
@@ -157,62 +157,42 @@ let
     };
 
     hyprland = mkApp {
-      provider = mkTemplateProvider {
+      provider = mkStructuredProvider {
         target = "dotfiles-theme/hyprland.conf";
         options = {
           stylix = true;
-          text =
-            let
-              hyprlandColors =
-                lib.concatStringsSep "\n\n" (
-                  lib.mapAttrsToList (name: value: ''
-                    ${"$" + name} = rgb(${lib.removePrefix "#" value})
-                    ${"$" + name}Alpha = ${lib.removePrefix "#" value}
-                  '') palette
-                );
-            in
-            ''
-              ${hyprlandColors}
-            '';
+          colors = palette;
         };
       };
     };
 
     rofi = mkApp {
-      provider = mkTemplateProvider {
+      provider = mkStructuredProvider {
         target = "dotfiles-theme/rofi.rasi";
         options = {
           stylix = true;
           colors = palette;
-          wrapperFile = ./wrappers/catppuccin/rofi/config.rasi;
         };
       };
     };
 
     waybar = mkApp {
-      provider = mkTemplateProvider {
+      provider = mkStructuredProvider {
         target = "dotfiles-theme/waybar.css";
         options = {
           stylix = true;
           colors = palette;
-          wrapperFile = ./wrappers/catppuccin/waybar/style.css;
         };
       };
     };
 
     wlogout = mkApp {
-      provider = mkTemplateProvider {
+      provider = mkStructuredProvider {
         target = "dotfiles-theme/wlogout.css";
         options = {
           stylix = true;
-          text = ''
-            @define-color overlay alpha(${palette.base}, 0.7);
-            @define-color text ${palette.text};
-            @define-color surface0 ${palette.surface0};
-            @define-color base ${palette.base};
-            @define-color accent ${palette.blue};
-          '';
-          wrapperFile = ./wrappers/catppuccin/wlogout/style.css;
+          colors = palette;
+          accentColor = palette.blue;
         };
       };
     };

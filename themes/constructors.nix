@@ -44,48 +44,6 @@
     }
     // extra;
 
-  # Describe an app themed through module options.
-  # Inputs:
-  # - module: string, consumer module identifier
-  # - package: attrset|null, optional package descriptor
-  # - attrPath: list of strings, optional package attribute path
-  # - options: attrset, module-facing payload
-  # - notes: list of strings
-  # Output:
-  # - attrset provider record with type = "module"
-  mkModuleProvider = {
-    module,
-    package ? null,
-    attrPath ? [ ],
-    options ? { },
-    notes ? [ ],
-  }:
-    {
-      type = "module";
-      inherit module package attrPath options notes;
-    };
-
-  # Describe an app themed by selecting a package or plugin.
-  # Inputs:
-  # - packageSet: string, package namespace to resolve from
-  # - attrPath: list of strings, package attribute path
-  # - package: attrset|null, optional upstream package descriptor
-  # - options: attrset, package consumer payload
-  # - notes: list of strings
-  # Output:
-  # - attrset provider record with type = "package"
-  mkPackageProvider = {
-    packageSet,
-    attrPath,
-    package ? null,
-    options ? { },
-    notes ? [ ],
-  }:
-    {
-      type = "package";
-      inherit packageSet attrPath package options notes;
-    };
-
   # Describe an app themed by copying a single upstream asset.
   # Inputs:
   # - package: attrset|null, upstream package/source descriptor
@@ -107,65 +65,25 @@
       inherit package source target options notes;
     };
 
-  # Describe an app themed by copying an asset plus a local wrapper config.
+  # Describe an app themed by providing structured local theme data.
   # Inputs:
-  # - package: attrset|null, upstream package/source descriptor
-  # - source: string, path inside the upstream source
-  # - target: string|null, target path for the upstream asset
-  # - wrapperFile: path, repo-local wrapper file
-  # - wrapperTarget: string, target path for the wrapper file
-  # - options: attrset, additional payload
+  # - target: string|null, optional target file path
+  # - package: attrset|null, optional upstream package/source descriptor
+  # - attrPath: list of strings, optional package attribute path used by consumers
+  # - options: attrset, structured consumer payload
   # - notes: list of strings
   # Output:
-  # - attrset provider record with type = "asset+import"
-  mkAssetImportProvider = {
+  # - attrset provider record with type = "structured"
+  mkStructuredProvider = {
+    target ? null,
     package ? null,
-    source,
-    target,
-    wrapperFile,
-    wrapperTarget,
+    attrPath ? [ ],
     options ? { },
     notes ? [ ],
   }:
     {
-      type = "asset+import";
-      inherit package source target wrapperFile wrapperTarget options notes;
-    };
-
-  # Describe an app themed by rendering a small local text template.
-  # Inputs:
-  # - target: string|null, target file path
-  # - options: attrset, template rendering payload
-  # - notes: list of strings
-  # Output:
-  # - attrset provider record with type = "template"
-  mkTemplateProvider = {
-    target ? null,
-    options ? { },
-    notes ? [ ],
-  }:
-    {
-      type = "template";
-      inherit target options notes;
-    };
-
-  # Describe an app themed by a fully custom local file.
-  # Inputs:
-  # - file: path, local custom file
-  # - target: string|null, target file path
-  # - options: attrset, additional payload
-  # - notes: list of strings
-  # Output:
-  # - attrset provider record with type = "custom"
-  mkCustomProvider = {
-    file,
-    target ? null,
-    options ? { },
-    notes ? [ ],
-  }:
-    {
-      type = "custom";
-      inherit file target options notes;
+      type = "structured";
+      inherit target package attrPath options notes;
     };
 
   # Build one app entry inside a theme bundle.

@@ -6,9 +6,9 @@ let
   themeFonts = theme.requireThemeData "fonts";
   fontPackages =
     lib.unique (
-      builtins.map resolvePkgsAttr (
+      map resolvePkgsAttr (
         builtins.filter (attrPath: attrPath != null) (
-          builtins.map (
+          map (
             fontSpec:
             if builtins.isAttrs fontSpec && fontSpec ? packageAttrPath then fontSpec.packageAttrPath else null
           ) (builtins.attrValues themeFonts)

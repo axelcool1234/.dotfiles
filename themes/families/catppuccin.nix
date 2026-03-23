@@ -4,13 +4,10 @@ let
   inherit (constructors)
     githubPackage
     mkApp
-    mkAssetImportProvider
     mkAssetProvider
     mkFamilySource
-    mkModuleProvider
-    mkPackageProvider
+    mkStructuredProvider
     mkThemeBundle
-    mkTemplateProvider
     ;
   inherit (internal) getRgba;
 
@@ -192,8 +189,9 @@ let
       familyTitle = "Catppuccin";
       palette = palettes.${variant};
 
-      cursorName = "${familyTitle}-${flavorTitle}-${accentTitle}";
-      gtkThemeName = "${familyTitle}-${flavorTitle}-Standard-${accentTitle}-dark";
+      cursorThemeName = "catppuccin-${variant}-${accent}-cursors";
+      gtkThemeName = "catppuccin-${variant}-${accent}-standard";
+      iconThemeName = "Colloid-${accentTitle}-${if variant == "latte" then "Light" else "Dark"}";
     in
     {
       # Upstream asset-based apps: copy or import shipped Catppuccin theme files.
@@ -264,7 +262,7 @@ let
 
       code = mkApp {
         # Code is the one intentionally manual app in this family.
-        provider = mkTemplateProvider {
+        provider = mkStructuredProvider {
           options.colors = {
             primary = palettes.${variant}.blue;
             secondary = palettes.${variant}.green;
@@ -326,11 +324,11 @@ let
 
       gtk = mkApp {
         # GTK/desktop integrations are package-backed rather than asset-backed.
-        provider = mkModuleProvider {
-          module = "desktop.gtk";
+        provider = mkStructuredProvider {
+          attrPath = [ "catppuccin-gtk" ];
           options = {
             themeName = gtkThemeName;
-            iconThemeName = "Colloid-${accent}-dark";
+            iconThemeName = iconThemeName;
             iconPackage = {
               attrPath = [ "colloid-icon-theme" ];
               override = {
@@ -350,8 +348,8 @@ let
       };
 
       kvantum = mkApp {
-        provider = mkModuleProvider {
-          module = "desktop.kvantum";
+        provider = mkStructuredProvider {
+          attrPath = [ "catppuccin-kvantum" ];
           options = {
             themeName = "catppuccin-${variant}-${accent}";
             package = {
@@ -365,11 +363,10 @@ let
       };
 
       cursor = mkApp {
-        provider = mkModuleProvider {
-          module = "desktop.cursor";
+        provider = mkStructuredProvider {
           options = {
-            name = cursorName;
-            gtkName = "${cursorName}-Cursors";
+            name = cursorThemeName;
+            gtkName = cursorThemeName;
             size = 24;
             package = {
               attrPath = [
@@ -382,21 +379,11 @@ let
       };
 
       qt = mkApp {
-        provider = mkModuleProvider {
-          module = "desktop.qt";
+        provider = mkStructuredProvider {
           options = {
             enable = true;
             platformTheme = "gtk2";
             style = "gtk2";
-          };
-        };
-      };
-
-      cursors = mkApp {
-        provider = mkModuleProvider {
-          module = "home.pointerCursor";
-          package = githubPackage {
-            repo = "catppuccin/cursors";
           };
         };
       };
@@ -413,8 +400,7 @@ let
       };
 
       neovim = mkApp {
-        provider = mkPackageProvider {
-          packageSet = "vimPlugins";
+        provider = mkStructuredProvider {
           attrPath = [ "catppuccin-nvim" ];
           package = githubPackage {
             repo = "catppuccin/nvim";
@@ -425,8 +411,7 @@ let
 
       console = mkApp {
         # Console colors are realized by the NixOS module, not copied into XDG config.
-        provider = mkModuleProvider {
-          module = "console.colors";
+        provider = mkStructuredProvider {
           options.colors = with palettes.${variant}; [
             base red green yellow blue pink teal text
             surface2 red green yellow blue pink teal subtext0
@@ -457,48 +442,36 @@ let
       };
 
       rofi = mkApp {
-        provider = mkAssetImportProvider {
+        provider = mkAssetProvider {
           package = githubPackage {
             repo = "catppuccin/rofi";
             rev = "71fb15577ccb091df2f4fc1f65710edbc61b5a53";
           };
           source = "themes/catppuccin-${variant}.rasi";
           target = "dotfiles-theme/rofi.rasi";
-          wrapperFile = ../wrappers/catppuccin/rofi/config.rasi;
-          wrapperTarget = "rofi/config.rasi";
         };
       };
 
       waybar = mkApp {
-        # Waybar keeps a local wrapper but also exposes a small shared color set for the
+        # Waybar also exposes a small shared color set for the
         # Hyprland desktop module's inline markup strings.
-        provider = mkAssetImportProvider {
+        provider = mkAssetProvider {
           package = githubPackage {
             repo = "catppuccin/waybar";
             rev = "ee8ed32b4f63e9c417249c109818dcc05a2e25da";
           };
           source = "themes/${variant}.css";
           target = "dotfiles-theme/waybar.css";
-          wrapperFile = ../wrappers/catppuccin/waybar/style.css;
-          wrapperTarget = "waybar/style.css";
           options.colors = palette;
         };
       };
 
       wlogout = mkApp {
-        # Wlogout uses a wrapper plus a generated palette fragment matching the old local
-        # variable-file contract rather than the full upstream stylesheet.
-        provider = mkTemplateProvider {
+        provider = mkStructuredProvider {
           target = "dotfiles-theme/wlogout.css";
           options = {
-            wrapperFile = ../wrappers/catppuccin/wlogout/style.css;
-            text = ''
-              @define-color overlay ${getRgba { data.palette = palettes.${variant}; } "base" 0.7};
-              @define-color text ${palettes.${variant}.text};
-              @define-color surface0 ${palettes.${variant}.surface0};
-              @define-color base ${palettes.${variant}.base};
-              @define-color accent ${palettes.${variant}.${accent}};
-            '';
+            colors = palettes.${variant};
+            accentColor = palettes.${variant}.${accent};
           };
         };
       };
@@ -558,8 +531,7 @@ let
       };
 
       spicetify = mkApp {
-        provider = mkPackageProvider {
-          packageSet = "spicetifyThemes";
+        provider = mkStructuredProvider {
           attrPath = [ "catppuccin" ];
           options = {
             colorScheme = variant;

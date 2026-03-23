@@ -11,14 +11,7 @@ let
   program = "code";
   program-module = config.modules.${program};
   tomlFormat = pkgs.formats.toml { };
-  codeProvider = theme.providerFor program;
-  codeColors =
-    if codeProvider != null && codeProvider.type == "template" && codeProvider.options ? colors then
-      codeProvider.options.colors
-    else if theme.isHandledByStylix codeProvider then
-      null
-    else
-      throw "theme.apps.code.provider.options.colors is required";
+  codeColors = theme.ifNotHandledByStylix program (provider: theme.requireStructuredOption provider "colors");
   # Code keeps user-specific state in ~/.code/config.toml, so we manage only the
   # [tui.theme] fragment and merge it during activation instead of replacing the file.
   codeThemeFragment =

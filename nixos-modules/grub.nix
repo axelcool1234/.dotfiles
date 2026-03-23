@@ -1,6 +1,6 @@
 { lib, config, theme, ... }:
 let
-  grubThemePackage = theme.resolveAssetSource "grub";
+  grubThemePackage = theme.lookupAssetSource "grub";
 in
 {
   options = {

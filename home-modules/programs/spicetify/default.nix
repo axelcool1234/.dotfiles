@@ -10,13 +10,20 @@ let
   program = "spicetify";
   program-module = config.modules.${program};
   spicePkgs = inputs.spicetify-nix.legacyPackages.x86_64-linux;
-  spicetifyProvider = theme.providerFor program;
-  spicetifyThemeSource = theme.resolveAssetSource spicetifyProvider;
-  spicetifyThemePkg =
-    if spicetifyProvider == null || spicetifyProvider.type != "package" then
-      null
-    else
-      builtins.foldl' (acc: name: builtins.getAttr name acc) spicePkgs.themes spicetifyProvider.attrPath;
+  spicetifyProvider = theme.lookupProvider program;
+  spicetifyThemeSource = theme.lookupAssetSource program;
+
+  # Spicetify can consume structured providers that point at one packaged theme
+  # under spicetify-nix, or fall back to asset-backed themes below.
+  spicetifyThemePkg = theme.matchProvider program {
+    null = null;
+    structured = provider:
+      if provider.attrPath == [ ] then
+        null
+      else
+        builtins.foldl' (acc: name: builtins.getAttr name acc) spicePkgs.themes provider.attrPath;
+    default = _: null;
+  };
 
   spicetifyTheme =
     if spicetifyThemePkg != null then

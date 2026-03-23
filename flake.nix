@@ -95,8 +95,14 @@
         let
           pkgs = mkPkgs nixpkgsInput system;
         in
-        themeLib.withRuntime (themeLib.stylix.mk {
-          source.base16Scheme = "${pkgs.base16-schemes}/share/themes/rose-pine-moon.yaml";
+        # themeLib.withRuntime (themeLib.stylix.mk {
+        #   source.base16Scheme = "${pkgs.base16-schemes}/share/themes/gruvbox-dark-hard.yaml";
+        # });
+        themeLib.withRuntime (themeLib.families.catppuccin.mk {
+          source = {
+            variant = "mocha";
+            accent = "teal";
+          };
         });
 
       # Build one NixOS system configuration.
@@ -105,17 +111,18 @@
       # - system: string, target system
       # - username: string, primary user name
       # - hostname: string, target host name
+      # - desktop: string, selected desktop/session id
       # Output:
       # - attrset, nixosSystem result
       mkSystem =
-        nixpkgsInput: system: username: hostname:
+        nixpkgsInput: system: username: hostname: desktop:
         let
           theme = mkTheme nixpkgsInput system;
         in
         nixpkgsInput.lib.nixosSystem {
           system = system;
           specialArgs = {
-            inherit inputs username hostname theme;
+            inherit inputs username hostname desktop theme;
           };
           modules = [
             { networking.hostName = hostname; }
@@ -133,17 +140,18 @@
       # - system: string, target system
       # - username: string, primary user name
       # - hostname: string, target host name
+      # - desktop: string, selected desktop/session id
       # Output:
       # - attrset, homeManagerConfiguration result
       mkHome =
-        nixpkgsInput: system: username: hostname:
+        nixpkgsInput: system: username: hostname: desktop:
         let
           theme = mkTheme nixpkgsInput system;
         in
         home-manager.lib.homeManagerConfiguration {
           pkgs = mkPkgs nixpkgsInput system;
           extraSpecialArgs = {
-            inherit inputs username hostname theme;
+            inherit inputs username hostname desktop theme;
           };
           modules = [
             {
@@ -167,14 +175,14 @@
     in
     {
       nixosConfigurations = {
-        #                    pkgs         Architecture     Username    Hostname
-        legion = mkSystem inputs.nixpkgs "x86_64-linux" "axelcool1234" "legion";
-        fermi = mkSystem inputs.nixpkgs "x86_64-linux" "axelcool1234" "fermi";
+        #                    pkgs         Architecture     Username    Hostname  Desktop
+        legion = mkSystem inputs.nixpkgs "x86_64-linux" "axelcool1234" "legion" "hyprland";
+        fermi = mkSystem inputs.nixpkgs "x86_64-linux" "axelcool1234" "fermi" "hyprland";
       };
       homeConfigurations = {
-        #                                 pkgs         Architecture     Username    Hostname
-        "axelcool1234@legion" = mkHome inputs.nixpkgs "x86_64-linux" "axelcool1234" "legion";
-        "axelcool1234@fermi" = mkHome inputs.nixpkgs "x86_64-linux" "axelcool1234" "fermi";
+        #                                 pkgs         Architecture     Username    Hostname  Desktop
+        "axelcool1234@legion" = mkHome inputs.nixpkgs "x86_64-linux" "axelcool1234" "legion" "hyprland";
+        "axelcool1234@fermi" = mkHome inputs.nixpkgs "x86_64-linux" "axelcool1234" "fermi" "hyprland";
       };
     };
 }

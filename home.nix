@@ -51,8 +51,22 @@
     # Music player
     spicetify.enable = true;
 
+    # Desktop UI
+    waybar.enable = true;
+    rofi.enable = true;
+    dunst.enable = true;
+    wlogout.enable = true;
+    gtk.enable = true;
+    kvantum.enable = true;
+    avizo.enable = true;
+    imv.enable = true;
+    mpv.enable = true;
+    swappy.enable = true;
+    thunar.enable = true;
+    wpaperd.enable = true;
+
     # Desktop configuration
-    hyprland.enable = true; # This configures a lot of the Hyprland services (like waybar and dunst)
+    hyprland.enable = true; # This configures the Hyprland session and desktop integrations
 
     # Messenger (Discord)
     nixcord.enable = true;
@@ -74,6 +88,7 @@
 
     # Gui/Programs
     slack
+    (callPackage ./pkgs/ns.nix { })
     (callPackage ./pkgs/restart-waybar.nix { })
 
     # LLM CLIs
