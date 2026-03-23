@@ -21,7 +21,6 @@
     ./terminal/jujutsu
     ./terminal/lazygit
     ./terminal/nix-tools
-    ./programs/firefox
     ./programs/code
     ./programs/glide
     ./programs/nixcord

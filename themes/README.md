@@ -95,7 +95,7 @@ provider = how does that thing receive its theme?
 
 - [`default.nix`](/home/axelcool1234/.dotfiles/themes/default.nix)
   Public entrypoint for the library. The intended top-level API is:
-  `families` and `withRuntime`.
+  `families`, `stylix`, and `withRuntime`.
 
 - [`constructors.nix`](/home/axelcool1234/.dotfiles/themes/constructors.nix)
   Pure constructors for theme bundles, theme sources, providers, app records, and
@@ -113,6 +113,10 @@ provider = how does that thing receive its theme?
 
 - [`families/`](/home/axelcool1234/.dotfiles/themes/families)
   Theme family implementations such as Catppuccin and Tokyo Night.
+
+- [`stylix.nix`](/home/axelcool1234/.dotfiles/themes/stylix.nix)
+  Builder for Stylix-backed theme bundles, where the bundle only needs to describe the
+  custom apps this repo still manages locally.
 
 - [`wrappers/`](/home/axelcool1234/.dotfiles/themes/wrappers)
   Small local wrapper configs that import upstream assets or generated fragments.
@@ -143,6 +147,7 @@ selected `theme`. Consumer modules only receive `theme`.
 `themeLib` intentionally exposes:
 
 - `families`
+- `stylix`
 - `withRuntime`
 
 `withRuntime` takes a plain theme bundle and returns a runtime-enriched `theme` object.
@@ -155,6 +160,10 @@ exist as internal structure for better maintenance, but they are not the main pu
 of the library. The idea is a user constructs a theme bundle with `families`, enriches
 it with `withRuntime`, and then passes around the resulting `theme` runtime object to
 consumers.
+
+Stylix is intentionally modeled separately from `families`. In Stylix mode, most apps
+are expected to be themed automatically by Stylix itself, and the bundle typically only
+defines the custom exceptions that this repo still wants to manage locally.
 
 ## Theme Bundle Shape
 
@@ -173,14 +182,23 @@ Before runtime enrichment, a theme bundle has this shape:
   Human-oriented metadata like family title and title-cased names.
 
 - `source`
-  The selected family member, such as `family = "catppuccin"`,
-  `variant = "mocha"`, `accent = "teal"`, `mode = "dark"`.
+  The selected theme source, such as `family = "catppuccin"`,
+  `variant = "mocha"`, `accent = "teal"`, `mode = "dark"` for family themes,
+  or `type = "stylix"` plus a concrete `base16Scheme` path for Stylix themes.
 
 - `apps`
   Per-app theme delivery records.
 
 - `data`
   Small shared derived values that are still useful outside individual app records.
+
+For example, the current Stylix builder stores concrete shared values such as:
+
+- `data.raw`
+  Parsed Base16 colors from the selected scheme file.
+
+- `data.palette`
+  The semantic palette derived from `data.raw` and reused by custom app providers.
 
 As a rule of thumb:
 
@@ -214,6 +232,20 @@ Common examples:
 
 - `theme.resolveWrapperText provider`
   Reads the wrapper file contents for an asset+import provider, or returns `null`.
+
+- `theme.isStylix`
+  Indicates that the selected runtime theme was built from `themeLib.stylix.mk`.
+
+- `theme.isHandledByStylix "helix"`
+  Indicates that an app is absent from the current Stylix bundle and should therefore be
+  treated as owned by Stylix rather than by this repo's local consumers.
+
+In other words, in Stylix mode a missing app provider usually means:
+
+```text
+this repo does not manage that app here
+Stylix is expected to handle it instead
+```
 
 The runtime theme is the thing consumer modules should normally use.
 
@@ -283,6 +315,41 @@ theme = themeLib.withRuntime (themeLib.families.catppuccin.mk {
 The family internals remain free to change as long as `mk` continues to return the same
 theme bundle shape.
 
+## Stylix API
+
+Stylix is a separate top-level builder, not a family.
+
+The intended public Stylix API is:
+
+- `themeLib.stylix.mk`
+  Build a Stylix-backed theme bundle.
+
+- `themeLib.stylix.meta`
+  Stylix-specific metadata.
+
+Typical usage:
+
+```nix
+let
+  pkgs = import nixpkgs {
+    inherit system;
+  };
+in
+theme = themeLib.withRuntime (themeLib.stylix.mk {
+  source.base16Scheme = "${pkgs.base16-schemes}/share/themes/rose-pine-moon.yaml";
+});
+```
+
+In the current flake, the Stylix theme is built per-system so it can use the concrete
+`${pkgs.base16-schemes}/share/themes/...` path for `source.base16Scheme`.
+
+In this mode:
+
+- Stylix is expected to handle most supported apps automatically
+- the bundle usually only defines the custom apps you still want this repo to manage
+- consumers should no-op when `theme.isHandledByStylix input` is true
+- a missing app provider is treated as "Stylix-owned" rather than as an error
+
 ## App Delivery Records
 
 Each entry under `theme.apps` has this general shape:
@@ -316,9 +383,6 @@ These are the current provider kinds used by the library and by the realizing mo
 - `template`
   Generate text from provider options.
 
-- `stylix`
-  Reserved for direct Stylix-backed theming.
-
 - `custom`
   Reserved for fully custom local-file-backed handling.
 
@@ -330,7 +394,7 @@ Theme bundles also carry a top-level `source.type`.
   A source selected from a known family.
 
 - `stylix`
-  Reserved for a future Stylix-driven source.
+  A top-level source produced by `themeLib.stylix.mk`.
 
 ## Library Layer Responsibilities
 
@@ -450,7 +514,7 @@ themeLib
 The current split leaves room for future work without collapsing layers together:
 
 - more families
-- Stylix-backed theme sources and providers
+- richer Stylix support for custom app consumers
 - richer accessor helpers for module-heavy consumers
 - more reusable realizers outside the main theme realizer module
 

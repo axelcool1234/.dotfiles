@@ -1,5 +1,6 @@
 { constructors, internal, lib }:
 let
+  typography = import ../typography.nix;
   inherit (constructors)
     githubPackage
     mkApp
@@ -297,7 +298,7 @@ let
             rev = "5955cf0213d14a3494ec63580a81818b6f7caa66";
           };
           source = "themes/${variant}.conf";
-          target = "dunst/dunstrc.d/50-catppuccin.conf";
+          target = "dunst/dunstrc.d/catppuccin.conf";
         };
       };
 
@@ -576,6 +577,7 @@ let
     {
       inherit palette;
       inherit wallpaper;
+      fonts = typography;
     };
 
   # Public constructor for a selected Catppuccin bundle.

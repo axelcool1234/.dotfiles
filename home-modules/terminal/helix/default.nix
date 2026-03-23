@@ -12,7 +12,7 @@ with lib;
 let
   program = "helix";
   program-module = config.modules.${program};
-  helixProvider = theme.providerFor "helix";
+  helixProvider = theme.providerFor program;
 in
 {
   options.modules.${program} = {

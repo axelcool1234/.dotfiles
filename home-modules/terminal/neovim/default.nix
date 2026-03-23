@@ -3,7 +3,7 @@ with lib;
 let
   program = "neovim";
   program-module = config.modules.${program};
-  neovimProvider = theme.providerFor "neovim";
+  neovimProvider = theme.providerFor program;
   neovimThemePlugin =
     if neovimProvider == null || neovimProvider.type != "package" then
       null
@@ -18,7 +18,9 @@ in
   };
   config = mkIf program-module.enable {
     # for xdg.configFile, it's "nvim", not "neovim"
-    xdg.configFile.nvim.source = ./.;
+    xdg.configFile = {
+      nvim.source = ./.;
+    };
 
     programs.${program} = {
       enable = true;
@@ -94,7 +96,6 @@ in
         harpoon2
         overseer-nvim
         mini-move # (not in the Nix package manager yet!)
-        firenvim
 
         # Fun
         presence-nvim

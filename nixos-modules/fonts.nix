@@ -1,11 +1,22 @@
-{ pkgs, ... }:
+{ lib, pkgs, theme, ... }:
+let
+  resolvePkgsAttr = attrPath:
+    builtins.foldl' (acc: name: builtins.getAttr name acc) pkgs attrPath;
 
+  themeFonts = theme.requireThemeData "fonts";
+  fontPackages =
+    lib.unique (
+      builtins.map resolvePkgsAttr (
+        builtins.filter (attrPath: attrPath != null) (
+          builtins.map (
+            fontSpec:
+            if builtins.isAttrs fontSpec && fontSpec ? packageAttrPath then fontSpec.packageAttrPath else null
+          ) (builtins.attrValues themeFonts)
+        )
+      )
+    );
+in
 {
   # Fonts
-  fonts.packages = with pkgs; [
-    jetbrains-mono
-    nerd-fonts.jetbrains-mono
-    nerd-font-patcher
-    noto-fonts-color-emoji
-  ];
+  fonts.packages = fontPackages;
 }

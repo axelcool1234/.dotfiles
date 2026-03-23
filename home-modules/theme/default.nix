@@ -1,6 +1,7 @@
 {
   pkgs,
   lib,
+  config,
   theme ? null,
   ...
 }:
@@ -12,6 +13,7 @@ let
     providerOption
     requireAssetSource
     requireThemeData
+    themeData
     templateOption
     ;
   inherit (realizers)
@@ -23,6 +25,10 @@ let
     renderFzfShSource
     renderRasiColorVariables
     ;
+  resolveTemplateValue = provider: name:
+    templateOption provider name;
+
+  themeFonts = requireThemeData "fonts";
 
   # This module is the main theme asset realizer. It takes the selected theme bundle
   # from flake specialArgs and turns upstream assets or small generated fragments into
@@ -63,19 +69,36 @@ let
     "discord"
   ] providerFor;
 
-  wlogoutThemeText = templateOption providers.wlogout "text";
-
   waybarThemeText =
     let
-      colors = templateOption providers.waybar "colors";
+      colors = resolveTemplateValue providers.waybar "colors";
+      fontText = ''
+        * {
+          font-family: "${themeFonts.terminal.family}", "${themeFonts.symbols.name}";
+          font-size: ${toString themeFonts.ui.size}pt;
+        }
+
+        #workspaces,
+        #workspaces button,
+        #workspaces button label,
+        #workspaces button image,
+        #workspaces button * {
+          font-family: "${themeFonts.ui.name}", "${themeFonts.symbols.name}";
+        }
+      '';
     in
-    if colors != null then renderCssColorVariables colors else null;
+    if colors != null then renderCssColorVariables colors + "\n" + fontText else null;
 
   rofiThemeText =
     let
-      colors = templateOption providers.rofi "colors";
+      colors = resolveTemplateValue providers.rofi "colors";
+      fontText = ''
+        * {
+          font: "${themeFonts.popups.name} ${toString themeFonts.popups.size}";
+        }
+      '';
     in
-    if colors != null then renderRasiColorVariables colors else null;
+    if colors != null then renderRasiColorVariables colors + "\n" + fontText else null;
 
   fzfThemeText =
     let
@@ -123,7 +146,14 @@ let
     else
       null;
 
-  hyprlandThemeText = templateOption providers.hyprland "text";
+  hyprlandThemeText =
+    let
+      text = resolveTemplateValue providers.hyprland "text";
+    in
+    text;
+
+  wlogoutThemeText =
+    resolveTemplateValue providers.wlogout "text";
 
   yaziSyntectText =
     if appEnabled "yaziSyntectTheme"
@@ -136,8 +166,10 @@ let
   yaziSyntectTarget =
     if providers.yaziSyntectTheme != null && providers.yaziSyntectTheme.target != null then
       providers.yaziSyntectTheme.target
+    else if theme.source ? variant && theme.source ? accent then
+      "yazi/catppuccin-${theme.source.variant}-${theme.source.accent}.tmTheme"
     else
-      "yazi/catppuccin-${theme.source.variant}-${theme.source.accent}.tmTheme";
+      "yazi/theme.tmTheme";
 
   yaziSyntectFileName = builtins.baseNameOf yaziSyntectTarget;
 
@@ -163,9 +195,7 @@ let
 in
 {
   config.xdg.configFile =
-    {
-      "dotfiles-theme/wallpaper.png".source = requireThemeData "wallpaper";
-    }
+    emitSourceFile "dotfiles-theme/wallpaper.png" (themeData "wallpaper")
     // emitSourceFile "dotfiles-theme/hyprland.conf" hyprlandThemeSource
     // emitTextFile "dotfiles-theme/hyprland.conf" hyprlandThemeText
     // emitTextOrAssetFile {

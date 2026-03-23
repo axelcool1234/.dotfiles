@@ -97,6 +97,18 @@ let
   # Output:
   # - arbitrary value from theme.data
   # - throws if the key is missing
+  themeData = name:
+    if theme != null && theme ? data && builtins.hasAttr name theme.data then
+      theme.data.${name}
+    else
+      null;
+
+  # Require one shared data field from the selected theme bundle.
+  # Inputs:
+  # - name: string, key under theme.data
+  # Output:
+  # - arbitrary value from theme.data
+  # - throws if the key is missing
   requireThemeData = name:
     if theme != null && theme ? data && builtins.hasAttr name theme.data then
       theme.data.${name}
@@ -206,6 +218,7 @@ in
     providerFor
     providerOption
     providerWrapperFile
+    themeData
     requireAssetSource
     requireModuleOption
     requireProvider

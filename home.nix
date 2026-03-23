@@ -1,6 +1,7 @@
 {
   pkgs,
   inputs,
+  lib,
   ...
 }:
 {
@@ -39,7 +40,6 @@
     jujutsu.enable = true;
 
     # Browser
-    firefox.enable = true;
     glide-browser.enable = true;
 
     # LLM CLI

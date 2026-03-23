@@ -44,34 +44,6 @@
     }
     // extra;
 
-  # Declare a Stylix-backed theme source.
-  # Inputs:
-  # - extra: attrset, additional source fields
-  # Output:
-  # - attrset source record with type = "stylix"
-  mkStylixSource = extra:
-    {
-      type = "stylix";
-    }
-    // extra;
-
-  # Describe an app themed directly by Stylix.
-  # Inputs:
-  # - target: string|null, target path if one exists
-  # - notes: list of strings
-  # - options: attrset, provider-specific payload
-  # Output:
-  # - attrset provider record with type = "stylix"
-  mkStylixProvider = {
-    target ? null,
-    notes ? [ ],
-    options ? { },
-  }:
-    {
-      type = "stylix";
-      inherit target notes options;
-    };
-
   # Describe an app themed through module options.
   # Inputs:
   # - module: string, consumer module identifier

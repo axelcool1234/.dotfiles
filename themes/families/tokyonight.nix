@@ -1,5 +1,6 @@
 { constructors, internal, lib }:
 let
+  typography = import ../typography.nix;
   inherit (constructors)
     githubPackage
     mkApp
@@ -220,7 +221,7 @@ let
             rev = "5da1b76e64daf4c5d410f06bcb6b9cb640da7dfd";
           };
           source = "extras/dunst/tokyonight_${variant}.dunstrc";
-          target = "dunst/dunstrc.d/50-tokyonight.conf";
+          target = "dunst/dunstrc.d/tokyonight.conf";
         };
       };
 
@@ -519,7 +520,7 @@ let
         provider = mkTemplateProvider {
           options = {
             paletteName = "tokyonight_${variant}";
-            palette = {
+            colors = {
               blue = raw.blue;
               green = raw.green;
               red = raw.red;
@@ -640,6 +641,7 @@ let
     in
     {
       inherit palette wallpaper;
+      fonts = typography;
     };
 
   mk = {

@@ -3,8 +3,17 @@ with lib;
 let
   program = "nushell";
   program-module = config.modules.${program};
+  homeDir = config.home.homeDirectory;
   neovimProvider = theme.providerFor "neovim";
   nushellProvider = theme.providerFor "nushell";
+  fzfProvider = theme.providerFor "fzf";
+  neovimColorscheme =
+    if neovimProvider != null && neovimProvider.options ? colorscheme then
+      neovimProvider.options.colorscheme
+    else
+      null;
+  themeNuPath = "${homeDir}/.config/dotfiles-theme/nushell.nu";
+  fzfThemeNuPath = "${homeDir}/.config/dotfiles-theme/fzf.nu";
 
   nushellTheme =
     if nushellProvider != null && nushellProvider.type == "template" && nushellProvider.options ? text then
@@ -22,7 +31,7 @@ let
     $env.DOTFILES_THEME_FAMILY = ${builtins.toJSON theme.source.family}
     $env.DOTFILES_THEME_FLAVOR = ${builtins.toJSON theme.source.variant}
     $env.DOTFILES_THEME_ACCENT = ${builtins.toJSON theme.source.accent}
-    $env.NVIM_COLORSCHEME = ${builtins.toJSON neovimProvider.options.colorscheme}
+    $env.NVIM_COLORSCHEME = ${builtins.toJSON neovimColorscheme}
 
     #--- Aliases ---#
     alias cl = clear
@@ -71,16 +80,23 @@ let
     	rm -fp $tmp
     }
 
-    # Catpuccin Theme
-    const THEME_NU = "~/.config/dotfiles-theme/nushell.nu"
+    # Theme fragments
+  ''
+  + lib.optionalString (!theme.isHandledByStylix nushellProvider) ''
+    const THEME_NU = ${builtins.toJSON themeNuPath}
     if ($THEME_NU | path exists) {
         source $THEME_NU
     }
 
-    const FZF_THEME_NU = "~/.config/dotfiles-theme/fzf.nu"
+  ''
+  + lib.optionalString (!theme.isHandledByStylix fzfProvider) ''
+    const FZF_THEME_NU = ${builtins.toJSON fzfThemeNuPath}
     if ($FZF_THEME_NU | path exists) {
         source $FZF_THEME_NU
     }
+
+  ''
+  + ''
 
     #--- Custom Commands ---#
     use hhx.nu

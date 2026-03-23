@@ -51,6 +51,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Stylix
+    stylix = {
+      url = "github:nix-community/stylix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # LLM Agents
     llm-agents.url = "github:numtide/llm-agents.nix";
   };
@@ -65,11 +71,47 @@
     }@inputs:
     let
       themeLib = import ./themes { lib = nixpkgs.lib; };
-      theme = themeLib.withRuntime (themeLib.families.tokyonight.mk { });
 
-      # NixOS Configuration
+      # Import nixpkgs for one system with this repo's common package config.
+      # Inputs:
+      # - nixpkgsInput: flake input, nixpkgs source to import
+      # - system: string, target system
+      # Output:
+      # - attrset, package set for the target system
+      mkPkgs = nixpkgsInput: system:
+        import nixpkgsInput {
+          inherit system;
+          config.allowUnfree = true;
+          config.allowUnfreePredicate = (_: true);
+        };
+
+      # Build the runtime theme bundle for one nixpkgs/system pair.
+      # Inputs:
+      # - nixpkgsInput: flake input, nixpkgs source to import
+      # - system: string, target system
+      # Output:
+      # - attrset, runtime theme bundle
+      mkTheme = nixpkgsInput: system:
+        let
+          pkgs = mkPkgs nixpkgsInput system;
+        in
+        themeLib.withRuntime (themeLib.stylix.mk {
+          source.base16Scheme = "${pkgs.base16-schemes}/share/themes/rose-pine-moon.yaml";
+        });
+
+      # Build one NixOS system configuration.
+      # Inputs:
+      # - nixpkgsInput: flake input, nixpkgs source to import
+      # - system: string, target system
+      # - username: string, primary user name
+      # - hostname: string, target host name
+      # Output:
+      # - attrset, nixosSystem result
       mkSystem =
         nixpkgsInput: system: username: hostname:
+        let
+          theme = mkTheme nixpkgsInput system;
+        in
         nixpkgsInput.lib.nixosSystem {
           system = system;
           specialArgs = {
@@ -79,18 +121,27 @@
             { networking.hostName = hostname; }
             ./hosts/${hostname}/configuration.nix
             ./nixos-modules
+          ] ++ nixpkgs.lib.optionals theme.isStylix [
+            inputs.stylix.nixosModules.stylix
+            (themeLib.stylix.nixosModule theme)
           ];
         };
 
-      # Home Manager Configuaration
+      # Build one Home Manager configuration.
+      # Inputs:
+      # - nixpkgsInput: flake input, nixpkgs source to import
+      # - system: string, target system
+      # - username: string, primary user name
+      # - hostname: string, target host name
+      # Output:
+      # - attrset, homeManagerConfiguration result
       mkHome =
         nixpkgsInput: system: username: hostname:
+        let
+          theme = mkTheme nixpkgsInput system;
+        in
         home-manager.lib.homeManagerConfiguration {
-          pkgs = import nixpkgsInput {
-            inherit system;
-            config.allowUnfree = true;
-            config.allowUnfreePredicate = (_: true);
-          };
+          pkgs = mkPkgs nixpkgsInput system;
           extraSpecialArgs = {
             inherit inputs username hostname theme;
           };
@@ -108,6 +159,9 @@
               programs.home-manager.enable = true;
             }
             ./home.nix
+          ] ++ nixpkgs.lib.optionals theme.isStylix [
+            inputs.stylix.homeModules.stylix
+            (themeLib.stylix.nixosModule theme)
           ];
         };
     in

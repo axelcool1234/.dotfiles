@@ -18,6 +18,7 @@ in
   config = mkIf program-module.enable (
     let
       inherit (theme)
+        isHandledByStylix
         providerFor
         providerOption
         providerWrapperFile
@@ -25,7 +26,10 @@ in
         resolveWrapperText
         requireModuleOption
         requireProviderOption
+        requireThemeData
         ;
+
+      themeFonts = requireThemeData "fonts";
 
       waybarProvider = providerFor "waybar";
       dunstProvider = providerFor "dunst";
@@ -35,26 +39,31 @@ in
       kvantumProvider = providerFor "kvantum";
       cursorProvider = providerFor "cursor";
 
-      gtkThemeName = requireModuleOption gtkProvider "themeName";
+      gtkThemeName =
+        if isHandledByStylix gtkProvider then null else requireModuleOption gtkProvider "themeName";
 
-      gtkIconThemeName = requireModuleOption gtkProvider "iconThemeName";
+      gtkIconThemeName =
+        if isHandledByStylix gtkProvider then null else requireModuleOption gtkProvider "iconThemeName";
 
-      cursorGtkName = requireModuleOption cursorProvider "gtkName";
+      cursorGtkName =
+        if isHandledByStylix cursorProvider then null else requireModuleOption cursorProvider "gtkName";
 
-      cursorSize = requireModuleOption cursorProvider "size";
+      cursorSize =
+        if isHandledByStylix cursorProvider then null else requireModuleOption cursorProvider "size";
 
-      kvantumThemeName = requireProviderOption kvantumProvider "themeName";
+      kvantumThemeName =
+        if isHandledByStylix kvantumProvider then null else requireProviderOption kvantumProvider "themeName";
 
-      waybarAssetSource = resolveAssetSource waybarProvider;
+      waybarAssetSource = if isHandledByStylix waybarProvider then null else resolveAssetSource waybarProvider;
       dunstAssetSource = resolveAssetSource dunstProvider;
       kvantumAssetSource =
-        if kvantumProvider != null && kvantumProvider.type == "asset" then
+        if !isHandledByStylix kvantumProvider && kvantumProvider != null && kvantumProvider.type == "asset" then
           resolveAssetSource kvantumProvider
         else
           null;
-      rofiAssetSource = resolveAssetSource rofiProvider;
+      rofiAssetSource = if isHandledByStylix rofiProvider then null else resolveAssetSource rofiProvider;
       wlogoutAssetSource =
-        if wlogoutProvider != null && wlogoutProvider.type == "template" then
+        if isHandledByStylix wlogoutProvider || (wlogoutProvider != null && wlogoutProvider.type == "template") then
           null
         else
           resolveAssetSource wlogoutProvider;
@@ -68,7 +77,9 @@ in
           throw "theme.apps.waybar.provider.options.colors is required";
 
       rofiWrapperDir =
-        if rofiProvider != null && builtins.elem rofiProvider.type [ "asset+import" "template" ] then
+        if isHandledByStylix rofiProvider then
+          null
+        else if rofiProvider != null && builtins.elem rofiProvider.type [ "asset+import" "template" ] then
           pkgs.runCommandLocal "rofi-config-dir" { } ''
             mkdir -p "$out"
             ln -s ${providerWrapperFile rofiProvider} "$out/config.rasi"
@@ -77,7 +88,9 @@ in
           null;
 
       wlogoutWrapperDir =
-        if wlogoutProvider != null && builtins.elem wlogoutProvider.type [ "asset+import" "template" ] then
+        if isHandledByStylix wlogoutProvider then
+          null
+        else if wlogoutProvider != null && builtins.elem wlogoutProvider.type [ "asset+import" "template" ] then
           pkgs.runCommandLocal "wlogout-config-dir" { } ''
             mkdir -p "$out/icons"
             ln -s ${providerWrapperFile wlogoutProvider} "$out/style.css"
@@ -91,13 +104,26 @@ in
           ''
         else
           null;
+
+      hyprConfigDir = pkgs.runCommandLocal "hypr-config-dir" { } ''
+        cp -R ${./hyprland} "$out"
+        chmod -R u+w "$out"
+        substituteInPlace "$out/hyprlock.conf" \
+          --replace-fail '__HYPRLOCK_FONT__' '${themeFonts.lock.name}' \
+          --replace-fail '__HYPRLOCK_CLOCK_SIZE__' '${toString themeFonts.lock.clockSize}' \
+          --replace-fail '__HYPRLOCK_DATE_SIZE__' '${toString themeFonts.lock.dateSize}' \
+          --replace-fail '__HYPRLOCK_INPUT_SIZE__' '${toString themeFonts.lock.inputSize}'
+      '';
     in
     mkMerge [
     {
-      xdg.configFile.hypr.source = ./hyprland;
+      xdg.configFile.hypr = {
+        source = hyprConfigDir;
+        recursive = true;
+      };
     xdg.configFile."dunst/dunstrc".text = ''
       [global]
-      font = "JetBrains Mono Regular 11"
+      font = "${themeFonts.notifications.name} ${toString themeFonts.notifications.size}"
       corner_radius = 10
       offset = 5x5
       origin = top-right
@@ -108,76 +134,95 @@ in
       height = 100
     '';
     xdg.configFile.mpv.source = ./mpv;
-    xdg.configFile.rofi.source =
-      if rofiWrapperDir != null then rofiWrapperDir else throw "theme.apps.rofi must use asset+import provider";
-    xdg.configFile.wlogout.source =
-      if wlogoutWrapperDir != null then wlogoutWrapperDir else throw "theme.apps.wlogout must use asset+import provider";
-    xdg.configFile.avizo.source = ./avizo;
-    xdg.configFile."xsettingsd/xsettingsd.conf".text = ''
-      Net/ThemeName "${gtkThemeName}"
-      Net/IconThemeName "${gtkIconThemeName}"
-      Gtk/CursorThemeName "${cursorGtkName}"
-      Gtk/CursorThemeSize ${toString cursorSize}
-      Gtk/FontName "JetBrains Mono 11"
-      Xft/Antialias 1
-      Xft/Hinting 1
-      Xft/HintStyle "hintslight"
-    '';
+    xdg.configFile.rofi = mkIf (!isHandledByStylix rofiProvider) {
+      source = if rofiWrapperDir != null then rofiWrapperDir else throw "theme.apps.rofi must use asset+import provider";
+    };
+    xdg.configFile.wlogout = mkIf (!isHandledByStylix wlogoutProvider) {
+      source = if wlogoutWrapperDir != null then wlogoutWrapperDir else throw "theme.apps.wlogout must use asset+import provider";
+    };
+    xdg.configFile."avizo/config.ini".source = ./avizo/config.ini;
+    xdg.configFile."xsettingsd/xsettingsd.conf" = mkIf (gtkThemeName != null && gtkIconThemeName != null && cursorGtkName != null && cursorSize != null) {
+      text = ''
+        Net/ThemeName "${gtkThemeName}"
+        Net/IconThemeName "${gtkIconThemeName}"
+        Gtk/CursorThemeName "${cursorGtkName}"
+        Gtk/CursorThemeSize ${toString cursorSize}
+        Gtk/FontName "${themeFonts.ui.name} ${toString themeFonts.ui.size}"
+        Xft/Antialias 1
+        Xft/Hinting 1
+        Xft/HintStyle "hintslight"
+      '';
+    };
     xdg.configFile.xfce4.source = ./xfce4;
     xdg.configFile.wpaperd.source = ./wpaperd;
     xdg.configFile.Thunar.source = ./Thunar;
     xdg.configFile."gtk-3.0/bookmarks".source = ./gtk-3.0/bookmarks;
-    xdg.configFile."gtk-3.0/gtk.css".source = ./gtk-3.0/gtk.css;
-    xdg.configFile."gtk-3.0/settings.ini".text = ''
-      [Settings]
-      gtk-theme-name=${gtkThemeName}
-      gtk-icon-theme-name=${gtkIconThemeName}
-      gtk-font-name=JetBrains Mono 11
-      gtk-cursor-theme-name=${cursorGtkName}
-      gtk-cursor-theme-size=${toString cursorSize}
-    '';
-    xdg.configFile."gtk-4.0/gtk.css".source = ./gtk-4.0/gtk.css;
-    xdg.configFile."gtk-4.0/settings.ini".text = ''
-      [Settings]
-      gtk-theme-name=${gtkThemeName}
-      gtk-icon-theme-name=${gtkIconThemeName}
-      gtk-font-name=JetBrains Mono 11
-      gtk-cursor-theme-name=${cursorGtkName}
-      gtk-cursor-theme-size=${toString cursorSize}
-    '';
-    xdg.configFile.autostart.source = ./autostart;
+    xdg.configFile."gtk-3.0/gtk.css" = mkIf (!isHandledByStylix gtkProvider) {
+      source = ./gtk-3.0/gtk.css;
+    };
+    xdg.configFile."gtk-3.0/settings.ini" = mkIf (gtkThemeName != null && gtkIconThemeName != null && cursorGtkName != null && cursorSize != null) {
+      text = ''
+        [Settings]
+        gtk-theme-name=${gtkThemeName}
+        gtk-icon-theme-name=${gtkIconThemeName}
+        gtk-font-name=${themeFonts.ui.name} ${toString themeFonts.ui.size}
+        gtk-cursor-theme-name=${cursorGtkName}
+        gtk-cursor-theme-size=${toString cursorSize}
+      '';
+    };
+    xdg.configFile."gtk-4.0/gtk.css" = mkIf (!isHandledByStylix gtkProvider) {
+      source = ./gtk-4.0/gtk.css;
+    };
+    xdg.configFile."gtk-4.0/settings.ini" = mkIf (gtkThemeName != null && gtkIconThemeName != null && cursorGtkName != null && cursorSize != null) {
+      text = ''
+        [Settings]
+        gtk-theme-name=${gtkThemeName}
+        gtk-icon-theme-name=${gtkIconThemeName}
+        gtk-font-name=${themeFonts.ui.name} ${toString themeFonts.ui.size}
+        gtk-cursor-theme-name=${cursorGtkName}
+        gtk-cursor-theme-size=${toString cursorSize}
+      '';
+    };
+    xdg.configFile."autostart/gammastep-indicator.desktop".source = ./autostart/gammastep-indicator.desktop;
     xdg.configFile.swappy.source = ./swappy;
     xdg.configFile.zellij.source = ./zellij;
-    xdg.configFile."Kvantum/kvantum.kvconfig".text = ''
-      [General]
-      theme=${kvantumThemeName}
-    '';
-    home.file.".icons".source = ./.icons;
-    home.file.".gtkrc-2.0".text = ''
-      gtk-theme-name="${gtkThemeName}"
-      gtk-icon-theme-name="${gtkIconThemeName}"
-      gtk-cursor-theme-name="${cursorGtkName}"
-      gtk-font-name="JetBrains Mono 11"
-      gtk-menu-images=0
-      gtk-cursor-theme-size=${toString cursorSize}
-      gtk-button-images=0
-      gtk-xft-antialias=1
-      gtk-xft-hinting=1
-      gtk-xft-hintstyle="hintslight"
-      gtk-xft-rgba="none"
-      gtk-xft-dpi=98304
-    '';
+    xdg.configFile."Kvantum/kvantum.kvconfig" = mkIf (kvantumThemeName != null) {
+      text = ''
+        [General]
+        theme=${kvantumThemeName}
+      '';
+    };
+    home.file.".icons" = mkIf (!isHandledByStylix cursorProvider) {
+      source = ./.icons;
+    };
+    home.file.".gtkrc-2.0" = mkIf (gtkThemeName != null && gtkIconThemeName != null && cursorGtkName != null && cursorSize != null) {
+      text = ''
+        gtk-theme-name="${gtkThemeName}"
+        gtk-icon-theme-name="${gtkIconThemeName}"
+        gtk-cursor-theme-name="${cursorGtkName}"
+        gtk-font-name="${themeFonts.ui.name} ${toString themeFonts.ui.size}"
+        gtk-menu-images=0
+        gtk-cursor-theme-size=${toString cursorSize}
+        gtk-button-images=0
+        gtk-xft-antialias=1
+        gtk-xft-hinting=1
+        gtk-xft-hintstyle="hintslight"
+        gtk-xft-rgba="none"
+        gtk-xft-dpi=98304
+      '';
+    };
     home.file.".face".source = ./.face;
 
-    programs.waybar.enable = true;
-    programs.waybar.style =
-      if waybarProvider != null && waybarProvider.type == "asset+import" then
-        resolveWrapperText waybarProvider
-      else if waybarProvider != null && waybarProvider.type == "template" then
-        builtins.readFile (providerWrapperFile waybarProvider)
-      else
-        throw "theme.apps.waybar must use asset+import provider";
-    programs.waybar.settings =
+    programs.waybar = {
+      enable = true;
+      style =
+        if waybarProvider != null && waybarProvider.type == "asset+import" then
+          resolveWrapperText waybarProvider
+        else if waybarProvider != null && waybarProvider.type == "template" then
+          builtins.readFile (providerWrapperFile waybarProvider)
+        else
+          throw "theme.apps.waybar must use asset+import provider";
+      settings =
       # Double Bar Config
       [
         # Top Bar Config
@@ -721,6 +766,7 @@ in
           };
         }
       ];
+    };
     }
     (lib.optionalAttrs (waybarAssetSource != null) {
       xdg.configFile."${waybarProvider.target}".source = waybarAssetSource;

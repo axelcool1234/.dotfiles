@@ -10,7 +10,7 @@ let
   program = "spicetify";
   program-module = config.modules.${program};
   spicePkgs = inputs.spicetify-nix.legacyPackages.x86_64-linux;
-  spicetifyProvider = theme.providerFor "spicetify";
+  spicetifyProvider = theme.providerFor program;
   spicetifyThemeSource = theme.resolveAssetSource spicetifyProvider;
   spicetifyThemePkg =
     if spicetifyProvider == null || spicetifyProvider.type != "package" then

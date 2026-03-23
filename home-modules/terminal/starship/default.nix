@@ -10,14 +10,14 @@ let
     if starshipProvider != null
       && starshipProvider.type == "template"
       && starshipProvider.options ? paletteName
-      && starshipProvider.options ? palette then
+      && starshipProvider.options ? colors then
       ''
         palette = "${starshipProvider.options.paletteName}"
 
         [palettes.${starshipProvider.options.paletteName}]
       ''
       + lib.concatStringsSep "\n" (
-        lib.mapAttrsToList (name: value: "${name} = \"${value}\"") starshipProvider.options.palette
+        lib.mapAttrsToList (name: value: "${name} = \"${value}\"") starshipProvider.options.colors
       )
       + "\n"
     else
@@ -29,11 +29,13 @@ in
   };
   config = mkIf program-module.enable {
     programs.${program}.enable = true;
-    xdg.configFile."starship.toml" =
+    xdg.configFile =
       if starshipThemeSource != null then
-        { source = starshipThemeSource; }
+        { "starship.toml".source = starshipThemeSource; }
       else if starshipThemeText != null then
-        { text = starshipThemeText; }
+        { "starship.toml".text = starshipThemeText; }
+      else if theme.isHandledByStylix starshipProvider then
+        { }
       else
         throw "theme.apps.starship must use either an asset or template provider";
   };

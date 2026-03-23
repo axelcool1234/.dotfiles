@@ -1,4 +1,7 @@
-vim.cmd.colorscheme(os.getenv("NVIM_COLORSCHEME") or "default")
+local colorscheme = os.getenv("NVIM_COLORSCHEME")
+if colorscheme and colorscheme ~= "" then
+  vim.cmd.colorscheme(colorscheme)
+end
 
 vim.opt.guicursor = ""
 
@@ -68,32 +71,6 @@ vim.api.nvim_create_autocmd('LspAttach', {
     end
   end,
 })
-
--- Firenvim
-vim.g.firenvim_config = {
-    globalSettings = { alt = "all" },
-    localSettings = {
-        [".*"] = {
-            cmdline  = "neovim",
-            content  = "text",
-            priority = 0,
-            selector = "textarea",
-            takeover = "never"
-        },
-        ["https?://leetcode.com/.*"] = {
-            cmdline  = "neovim",
-            content  = "text",
-            priority = 1,
-            selector = "textarea",
-            takeover = "never",
-            filename = "leetcode.rs",  -- Set a filename pattern for the buffer
-        }
-    }
-}
--- Leetcode text fitting
-if vim.g.started_by_firenvim == true then
-  vim.o.guifont = "Monospace:h20"  -- Adjust the font size
-end
 
 -- Rustaceanvim
 vim.g.rustaceanvim = {

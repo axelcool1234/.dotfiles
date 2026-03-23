@@ -10,6 +10,9 @@ in
   };
   config = mkIf program-module.enable {
     programs.${program}.enable = true;
-    xdg.configFile.${program}.source = ./.;
+    xdg.configFile.${program} = {
+      source = ./.;
+      recursive = true;
+    };
   };
 }
