@@ -55,7 +55,7 @@ let
 
   semanticPaletteFor = colors: {
     rosewater = colors.base0A;
-    flamingo = colors.base08;
+    flamingo = colors.base0A;
     pink = colors.base0E;
     mauve = colors.base0E;
     red = colors.base08;
@@ -68,9 +68,9 @@ let
     sapphire = colors.base0D;
     blue = colors.base0D;
     lavender = colors.base0E;
-    text = colors.base05;
-    subtext1 = colors.base04;
-    subtext0 = colors.base03;
+    text = colors.base07;
+    subtext1 = colors.base06;
+    subtext0 = colors.base05;
     overlay2 = colors.base04;
     overlay1 = colors.base03;
     overlay0 = colors.base02;
