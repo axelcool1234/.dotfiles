@@ -3,6 +3,7 @@
   lib,
   config,
   desktop,
+  hostname,
   theme ? null,
   ...
 }:
@@ -39,6 +40,15 @@ in
         ++ lib.optional (cursorName != null) "env = XCURSOR_THEME,${cursorName}\n"
         ++ lib.optional (cursorName != null) "env = HYPRCURSOR_THEME,${cursorName}\n"
       );
+      legionMonitorOverride = lib.optionalString (hostname == "legion") ''
+        # Legion internal panel override.
+        #
+        # This laptop's built-in display is `eDP-1` at 2560x1600 and supports
+        # 165 Hz. During validation of the `nvidia-only` boot path, Hyprland came
+        # up at 60 Hz even though 165 Hz was available, so we pin the preferred
+        # internal-panel mode explicitly for this host.
+        monitor=eDP-1,2560x1600@165,0x0,1.6
+      '';
 
       hyprConfigDir = pkgs.runCommandLocal "hypr-config-dir" { } ''
         mkdir -p "$out"
@@ -53,6 +63,10 @@ in
           --replace-fail '__HYPRLOCK_CLOCK_SIZE__' '${toString themeFonts.lock.clockSize}' \
           --replace-fail '__HYPRLOCK_DATE_SIZE__' '${toString themeFonts.lock.dateSize}' \
           --replace-fail '__HYPRLOCK_INPUT_SIZE__' '${toString themeFonts.lock.inputSize}'
+        cat >> "$out/hyprland.conf" <<'EOF'
+
+${legionMonitorOverride}
+EOF
       '';
     in
     mkMerge [

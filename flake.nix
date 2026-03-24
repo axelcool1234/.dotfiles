@@ -27,6 +27,11 @@
       submodules = true;
     };
 
+    # Machine-specific hardware modules and sane defaults for known laptops.
+    nixos-hardware = {
+      url = "github:NixOS/nixos-hardware/master";
+    };
+
     # Spotify
     spicetify-nix = {
       url = "github:Gerg-L/spicetify-nix";
