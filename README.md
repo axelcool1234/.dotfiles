@@ -143,3 +143,31 @@ For more information, I learned how to do this from this [discussion](https://ww
   - This will consequentially allow me to clean up hyprland/services.nix
 - Check out gtgreet for greetd
 - Figure out why zathura doesn't copy to my clipboard
+
+
+# Dotfiles Rewrite Plan:
+- Switch from home-manager in favor of wrappers (or prioritize wrappers over in home-manager in most cases...?)
+  - Benefit: MUCH faster debugging! direnv + shell.nix allows hot reloading of modified parts of dotfiles without the need for a full rebuild.
+    This also means packages that rely on whatever you changed do not need to be rebuilt either. 
+  - Benefit: Wrappers are self contained and don't rely on symlinks to work properly.
+  - Benefit: Wrapped packages are _portable_, which means other people can download them (if in a dendritic pattern) and try them out! So cool!!!
+  - Note: Look into Hjem for symlinking and Nix-gl (GUI programs, if needed) if we are to fully switch off of home-manager.
+- Look into Dendritic pattern
+  - Benefit: Much better organization of dotfiles
+  - Benefit: Moving things around will not cause problems
+  - Benefit: Modules are outputs of my flake, so other people can download them to try them out.
+- Switch to Niri
+  - Benefit: It's just cooler, I don't know what else to say.
+- Noctalia Shell
+  - Benefit: Based off Quickshell! I want to eventually make my own desktop shell using quickshell, but this is definitely a good way forward from Waybar.
+  - Benefit: 100+ plugins available.
+- wlr-which-key
+  - Pretty self explanatory. Glide has a whichkey, Helix has a whichkey, why not my desktop too?
+- Figure out how "universal" theming, like my new theme library, would work in this.
+  Probably requires a full rewrite - but is it antithetical to the wrappers + dendritic patten setup?
+  - I'd really like to have the ability to change the theme of my entire system on a whim still.
+- Additional wishes:
+  - Impermanence
+  - Secrets?
+
+This'd probably serve best as another branch here before being merged in.
