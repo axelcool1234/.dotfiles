@@ -273,9 +273,6 @@ let
           };
           source = "tokyo-night";
           target = null;
-          notes = [
-            "Uses the upstream Tokyo Night GRUB theme directory directly."
-          ];
         };
       };
 

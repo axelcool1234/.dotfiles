@@ -232,9 +232,6 @@ let
           };
           source = "themes/${variant}.theme.css";
           target = "dotfiles-theme/discord.css";
-          notes = [
-            "The current nixcord setup already imports this target CSS file."
-          ];
         };
       };
 
@@ -246,9 +243,6 @@ let
           };
           source = "themes/static/catppuccin-${variant}.theme";
           target = "dotfiles-theme/fish.fish";
-          notes = [
-            "This is not yet realized because Fish expects installed theme files plus theme selection rather than sourcing the raw asset directly."
-          ];
         };
       };
 
@@ -272,9 +266,6 @@ let
           };
           source = "src/catppuccin-${variant}-grub-theme";
           target = null;
-          notes = [
-            "Uses the upstream GRUB theme directory directly."
-          ];
         };
       };
 
@@ -528,7 +519,7 @@ let
       };
 
       yaziSyntectTheme = mkApp {
-        # Yazi preview syntax highlighting comes from Catppuccin Bat's tmTheme files.
+        # Uses the upstream Catppuccin bat tmTheme for Yazi syntect previews.
         provider = mkAssetProvider {
           package = githubPackage {
             repo = "catppuccin/bat";
@@ -542,9 +533,6 @@ let
               "yazi/Catppuccin-${variant}.tmTheme"
             ];
           };
-          notes = [
-            "Uses the upstream Catppuccin bat tmTheme for Yazi syntect previews."
-          ];
         };
       };
 

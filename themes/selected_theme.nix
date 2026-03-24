@@ -1,6 +1,7 @@
 { themeLib, pkgs }:
-themeLib.withRuntime (themeLib.families.tokyonight.mk {
+themeLib.withRuntime (themeLib.families.catppuccin.mk {
   source = {
-    variant = "night";
+    variant = "mocha";
+    accent = "teal";
   };
 })

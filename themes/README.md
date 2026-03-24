@@ -67,8 +67,7 @@ These are the most important terms used throughout this library.
   `"waybar"`, `"spicetify"`, or `"grub"`.
 
 - `app record`
-  The full record stored under `theme.apps.<name>`, usually containing `enable`,
-  `provider`, and optional notes.
+  The full record stored under `theme.apps.<name>`, usually containing `enable` and `provider`.
 
 - `provider`
   The delivery record stored under `theme.apps.<name>.provider`. It describes how one
@@ -397,7 +396,6 @@ Each entry under `theme.apps` has this general shape:
 {
   enable = true;
   provider = { ... };
-  notes = [ ... ];
 }
 ```
 
