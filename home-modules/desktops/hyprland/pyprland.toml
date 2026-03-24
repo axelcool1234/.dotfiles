@@ -12,7 +12,7 @@ command = "kitty --class kitty_dropdown"
 class = "kitty_dropdown"
 animation = "fromTop"
 unfocus = "hide"
-excludes = "*"
+excludes = ["*"]
 lazy = true
 
 [scratchpads.volume]
@@ -21,7 +21,7 @@ animation = "fromLeft"
 class = "volume_sidemenu"
 size = "40% 70%"
 unfocus = "hide"
-excludes = "*"
+excludes = ["*"]
 lazy = true
 margin = 90
 multi = false

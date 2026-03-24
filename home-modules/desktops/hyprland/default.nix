@@ -110,7 +110,6 @@ in
         cp ${./hyprland.conf} "$out/hyprland.conf"
         cp ${./hyprlock.conf} "$out/hyprlock.conf"
         cp ${./hyprpaper.conf} "$out/hyprpaper.conf"
-        cp ${./pyprland.toml} "$out/pyprland.toml"
         chmod -R u+w "$out"
         substituteInPlace "$out/hyprlock.conf" \
           --replace-fail '__HYPRLOCK_FONT__' '${themeFonts.lock.name}' \
@@ -130,6 +129,7 @@ EOF
           source = hyprConfigDir;
           recursive = true;
         };
+        "pypr/config.toml".source = ./pyprland.toml;
         "dotfiles-theme/hyprland-session.conf".text = hyprlandThemeEnv;
       }
       // lib.optionalAttrs (hyprlandThemeText != null) {
