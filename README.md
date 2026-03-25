@@ -123,7 +123,6 @@ For more information, I learned how to do this from this [discussion](https://ww
 - Certain modules have complicated processing (i.e. unreadable sed/awk calls) of theme provided data. We should simplify these steps into something readable.
 - Scratchpads and pypr need some fixing.
 - Switch from Git and LazyGit to Jujutsu and LazyJJ
-- Add direnv to workflow
 - Explore harps for my Helix fork (https://github.com/helix-editor/helix/commit/b24129030653bc3e0a5f37f1d04cb2b88583e6bb)
 - Remove custom jump motion written as a kitten in Kitty
 - Add a section in README.md that shows off what editor, desktop, etc. I use

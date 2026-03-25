@@ -16,11 +16,14 @@ let
       system:
       apply {
         inherit system;
-        pkgs = import inputs.nixpkgs { inherit system; };
+        pkgs = import inputs.nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
       }
     );
 
-  wrapperModules = myLib.collectNamedNixFiles ./programs;
+  wrapperModules = myLib.collectNamedNixFiles ./wrappers;
   directPackages = myLib.collectNamedNixFiles ./pkgs;
 in
 forAllSystems (
@@ -50,7 +53,4 @@ forAllSystems (
   in
   wrappedPackages
   // importedPackages
-  // {
-    workstation = importedPackages.environment;
-  }
 )

@@ -10,21 +10,30 @@ in
 inputs.wrappers.lib.wrapPackage {
   inherit pkgs;
 
-  package = pkgs.fish;
+  package = selfPkgs.fish;
 
   runtimeInputs = [
-    # Editor (plus integrations)
+    selfPkgs.glide-browser
     selfPkgs.helix
+    selfPkgs.git
+    selfPkgs.spicetify
     selfPkgs.yazi
 
-    selfPkgs.git
-
+    pkgs.btop
+    pkgs.lazygit
+    pkgs.yazi
+    pkgs.zoxide
+    pkgs.ripgrep
     pkgs.fd
     pkgs.fzf
-    pkgs.jq
-    pkgs.lazygit
-    pkgs.ripgrep
-    pkgs.zoxide
+    pkgs.fastfetch
+    pkgs.zathura
+    pkgs.imv
+    pkgs.mpv
+    pkgs.scooter
+    pkgs.slack
+
+    inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.code
   ];
 
   env = {

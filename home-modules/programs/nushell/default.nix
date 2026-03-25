@@ -1,4 +1,4 @@
-{ lib, config, theme, ... }:
+{ lib, pkgs, config, theme, ... }:
 with lib;
 let
   program = "nushell";
@@ -128,6 +128,8 @@ let
     default = _: null;
   };
   configNu = ''
+    use std/config *
+
     #--- Environment Variables ---#
     $env.EDITOR = "hx"
     $env.VOLUME_STEP = 5
@@ -156,6 +158,34 @@ let
       print (command-not-found $command_name | str trim)
     }
     # $env.config.hooks.command_not_found = source "command-not-found.nu"
+
+    $env.config = ($env.config? | default {})
+    $env.config.hooks = ($env.config.hooks? | default {})
+    $env.config.hooks.pre_prompt = (
+      $env.config.hooks.pre_prompt?
+      | default []
+      | append {||
+          ${lib.getExe pkgs.direnv} export json
+          | from json --strict
+          | default {}
+          | items {|key, value|
+              let value = do (
+                {
+                  "PATH": {
+                    from_string: {|s| $s | split row (char esep) | path expand --no-symlink }
+                    to_string: {|v| $v | path expand --no-symlink | str join (char esep) }
+                  }
+                }
+                | merge ($env.ENV_CONVERSIONS? | default {})
+                | get ([[value, optional, insensitive]; [$key, true, true] [from_string, true, false]] | into cell-path)
+                | if ($in | is-empty) { {|x| $x} } else { $in }
+              ) $value
+              [ $key $value ]
+            }
+          | into record
+          | load-env
+      }
+    )
 
     #--- Miscellaneous Setups ---#
 

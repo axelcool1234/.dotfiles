@@ -75,7 +75,7 @@
     # - nh
     # - nix-index-database
     # - comma (replacement for nix-shell -p)
-    # - direnv and nix-direnv (TODO: replace nix-direnv with alternative)
+    # - direnv with lorri background builds
     # - nix-init
     nix-tools.enable = true;
     };

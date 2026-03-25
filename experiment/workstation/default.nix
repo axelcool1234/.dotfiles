@@ -16,5 +16,5 @@ in
   ];
 
   # User config
-  users.users.${baseVars.username}.shell = selfPkgs.environment;
+  users.users.${baseVars.username}.shell = "${selfPkgs.environment}/bin/fish";
 }

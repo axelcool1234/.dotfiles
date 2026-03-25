@@ -1,5 +1,6 @@
 {
   inputs,
+  pkgs,
   lib,
   config,
   ...
@@ -15,19 +16,27 @@ in
   options.modules.${module} = {
     enable = mkEnableOption "enables ${module}";
   };
-  config = mkIf config.modules.${module}.enable {
-    programs.nh.enable = true;
+  config = mkIf config.modules.${module}.enable (
+    mkMerge [
+      {
+        programs.nh.enable = true;
 
-    programs.direnv.enable = true;
-    programs.direnv.nix-direnv.enable = true; # TODO: Find the alternative that has a daemon maybe
+        programs.direnv.enable = true;
+        programs.direnv.nix-direnv.enable = true;
 
-    programs.nix-init.enable = true;
-    programs.nix-index-database.comma.enable = true;
+        programs.nix-init.enable = true;
+        programs.nix-index-database.comma.enable = true;
 
-    # TODO: nix-index provides a command-not-found for nushell, but it's slow compared
-    # to the default. I'm not sure why. Figure this out.
-    programs.nix-index.enableBashIntegration = false;
-    programs.nix-index.enableZshIntegration = false;
-    programs.command-not-found.enable = true;
-  };
+        # TODO: nix-index provides a command-not-found for nushell, but it's slow compared
+        # to the default. I'm not sure why. Figure this out.
+        programs.nix-index.enableBashIntegration = false;
+        programs.nix-index.enableZshIntegration = false;
+        programs.command-not-found.enable = true;
+      }
+
+      (mkIf pkgs.stdenv.isLinux {
+        services.lorri.enable = true;
+      })
+    ]
+  );
 }
