@@ -37,4 +37,21 @@ in
       ./hosts/fermi
     ];
   };
+
+  # Make sure to run virtual machine with GDK_BACKEND=x11
+  # `nix build .#nixosConfigurations.vm.config.system.build.vm`
+  # GDK_BACKEND=x11 ./result/bin/run-vm-vm
+  vm = lib.nixosSystem {
+    specialArgs = specialArgs // {
+      hostVars = {
+        hostName = "vm";
+        stateVersion = "26.05";
+      };
+    };
+    modules = myLib.recursivelyImport [
+      ./base
+      ./workstation
+      ./hosts/vm
+    ];
+  };
 }
