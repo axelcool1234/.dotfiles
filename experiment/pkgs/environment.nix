@@ -31,13 +31,13 @@ inputs.wrappers.lib.wrapPackage {
     pkgs.fastfetch # Machine specs
 
     # Nix
-    inputs.nix-index-database.packages.${system}.nix-index-with-db
-    inputs.nix-index-database.packages.${system}.comma-with-db
-    pkgs.nh # (nh) replacement for nix os build/switch
-    pkgs.nix-init
-    pkgs.nix-output-monitor # (nom) replacement for nix build
-    pkgs.nix-tree # browse dependency graphs of nix derivations
-    pkgs.nix-prefetch # get hashes
+    inputs.nix-index-database.packages.${system}.nix-index-with-db # nix-locate
+    inputs.nix-index-database.packages.${system}.comma-with-db     # ,
+    pkgs.nh                                                        # (nh) replacement for nix os build/switch
+    pkgs.nix-init                                                  # helper CLI for generating Nix package expressions from upstream source projects. 
+    pkgs.nix-output-monitor                                        # (nom) replacement for nix build
+    pkgs.nix-tree                                                  # browse dependency graphs of nix derivations
+    pkgs.nix-prefetch                                              # get hashes
 
     # Misc
     selfPkgs.harness # Default LLM harness

@@ -9,7 +9,7 @@
 let
   commandNotFoundWrapper = pkgs.writeScript "command-not-found" ''
     #!${pkgs.bash}/bin/bash
-    source ${inputs.nix-index-database.packages.${system}.nix-index-with-db}/etc/profile.d/command-not-found.sh
+    source ${inputs.nix-index-database.packages.${system}.nix-index-with-small-db}/etc/profile.d/command-not-found.sh
     command_not_found_handle "$@"
   '';
 
