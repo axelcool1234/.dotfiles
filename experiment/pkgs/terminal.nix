@@ -1,0 +1,5 @@
+{
+  selfPkgs,
+  ...
+}:
+selfPkgs.kitty

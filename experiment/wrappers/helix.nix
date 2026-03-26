@@ -15,7 +15,7 @@
     };
 
     settings = {
-      theme = "tokyonight";
+      theme = "catppuccin_mocha";
       editor = {
         scrolloff = 8;
         auto-pairs = false;

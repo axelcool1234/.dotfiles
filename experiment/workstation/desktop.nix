@@ -5,8 +5,6 @@
   ...
 }:
 {
-  environment.systemPackages = [ pkgs.tuigreet ];
-
   services.greetd = {
     enable = true;
     settings = {

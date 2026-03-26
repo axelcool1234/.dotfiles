@@ -50,8 +50,9 @@ in
     };
 
     settings = {
-      # The shell program to execute.
+      # The shell program to execute and the editor to use.
       shell = lib.getExe selfPkgs.environment;
+      editor = lib.getExe selfPkgs.editor;
 
       # Disable cursor blinking.
       cursor_blink_interval = 0;

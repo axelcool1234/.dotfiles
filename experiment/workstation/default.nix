@@ -13,6 +13,8 @@ in
   # Packages
   environment.systemPackages = [
     selfPkgs.environment
+    selfPkgs.terminal
+    selfPkgs.browser
   ];
 
   # User config
