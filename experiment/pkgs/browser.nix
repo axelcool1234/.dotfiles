@@ -1,6 +1,5 @@
 {
-  self,
-  pkgs,
+  selfPkgs,
   ...
 }:
-self.packages.${pkgs.stdenv.hostPlatform.system}.glide-browser
+selfPkgs.glide-browser

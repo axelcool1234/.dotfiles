@@ -1,14 +1,12 @@
 {
   config,
-  self,
   lib,
   pkgs,
+  selfPkgs,
   wlib,
   ...
 }:
 let
-  selfPkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
-
   kittyKeyValue = {
     listsAsDuplicateKeys = true;
     mkKeyValue = lib.generators.mkKeyValueDefault { } " ";

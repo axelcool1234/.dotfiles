@@ -2,11 +2,10 @@
   inputs,
   pkgs,
   wlib,
+  system,
   ...
 }:
 let
-  system = pkgs.stdenv.hostPlatform.system;
-
   evaluated = inputs.nixpkgs.lib.nixosSystem {
     inherit system;
 

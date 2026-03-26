@@ -2,10 +2,11 @@
   inputs,
   pkgs,
   wlib,
+  system,
   ...
 }:
 let
-  spicePkgs = inputs.spicetify-nix.legacyPackages.${pkgs.stdenv.hostPlatform.system};
+  spicePkgs = inputs.spicetify-nix.legacyPackages.${system};
   onekoExtension = {
     src = pkgs.fetchFromGitHub {
       owner = "kyrie25";

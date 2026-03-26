@@ -27,18 +27,21 @@ let
   directPackages = myLib.collectNamedNixFiles ./pkgs;
 in
 forAllSystems (
-  { pkgs, ... }:
+  { pkgs, system }:
   let
+    selfPkgs = self.packages.${system};
+
     wrappedPackages = lib.mapAttrs (
       _name: module:
       (inputs.wrapper-modules.lib.evalModules {
         modules = [ module ];
         specialArgs = {
-          inherit self inputs;
+          inherit self inputs system selfPkgs;
         };
       }).config.wrap
-        { inherit pkgs; }
+        { inherit pkgs ; }
     ) wrapperModules;
+
     importedPackages = lib.mapAttrs (
       _name: packageFile:
       import packageFile {
@@ -47,6 +50,8 @@ forAllSystems (
           inputs
           pkgs
           lib
+          system
+          selfPkgs
           ;
       }
     ) directPackages;

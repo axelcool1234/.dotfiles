@@ -2,18 +2,20 @@
   wlib,
   pkgs,
   inputs,
+  lib,
+  system,
   ...
 }:
 {
   imports = [ wlib.wrapperModules.helix ];
 
   config = {
-    package = inputs.modded-helix.packages.${pkgs.stdenv.hostPlatform.system}.default.override {
+    package = inputs.modded-helix.packages.${system}.default.override {
       includeGrammarIf = grammar: grammar.name != "bovex";
     };
 
     settings = {
-      theme = "ao";
+      theme = "tokyonight";
       editor = {
         scrolloff = 8;
         auto-pairs = false;
@@ -69,7 +71,7 @@
           # Lazygit integration
           "C-g" = [
             ":write-all"
-            ":insert-output lazygit out> /dev/tty"
+            ":insert-output ${lib.getExe pkgs.lazygit} out> /dev/tty"
             ":redraw"
             ":reload-all"
           ];
@@ -77,15 +79,15 @@
           # Scooter integration
           "C-r" = [
             ":write-all"
-            ":insert-output scooter out> /dev/tty"
+            ":insert-output ${lib.getExe pkgs.scooter} out> /dev/tty"
             ":redraw"
             ":reload-all"
           ];
 
-          # Yazi integration
+          # Yaziao integration
           "-" = [
             ":sh rm -f /tmp/unique-file"
-            ":insert-output yazi %{buffer_name} --chooser-file=/tmp/unique-file"
+            ":insert-output ${lib.getExe pkgs.yazi} %{buffer_name} --chooser-file=/tmp/unique-file"
             ":open %sh{cat /tmp/unique-file}"
             ":redraw"
           ];

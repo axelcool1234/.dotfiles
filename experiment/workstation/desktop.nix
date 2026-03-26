@@ -1,13 +1,14 @@
 {
   inputs,
   pkgs,
+  lib,
   ...
 }:
 {
   services.greetd = {
     enable = true;
     settings.default_session = {
-      command = "${pkgs.tuigreet}/bin/tuigreet \
+      command = "${lib.getExe pkgs.tuigreet} \
         --time --time-format '%i:%m %p | %a • %h | %f' \
         --cmd ${
                 inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.niri

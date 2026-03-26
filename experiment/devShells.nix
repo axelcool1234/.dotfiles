@@ -41,11 +41,7 @@ forAllSystems (
     default = pkgs.mkShell {
       packages = [
         pkgs.direnv
-        pkgs.fd
-        pkgs.fzf
         pkgs.lorri
-        pkgs.ripgrep
-        pkgs.zoxide
       ] ++ watchedPackages;
 
       shellHook = ''

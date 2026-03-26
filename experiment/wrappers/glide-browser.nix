@@ -4,11 +4,10 @@
   lib,
   pkgs,
   wlib,
+  system,
   ...
 }:
 let
-  system = pkgs.stdenv.hostPlatform.system;
-
   mkExtension = shortId: uuid: {
     name = uuid;
     value = {

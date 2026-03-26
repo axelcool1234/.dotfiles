@@ -1,42 +1,49 @@
 {
-  self,
   inputs,
+  lib,
   pkgs,
+  system,
+  selfPkgs,
   ...
 }:
-let
-  selfPkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
-in
 inputs.wrappers.lib.wrapPackage {
   inherit pkgs;
 
   package = selfPkgs.fish;
 
   runtimeInputs = [
-    selfPkgs.glide-browser
-    selfPkgs.helix
-    selfPkgs.git
-    selfPkgs.spicetify
-    selfPkgs.yazi
+    # GUI
+    pkgs.slack         # Work
+    selfPkgs.browser   # Default browser
+    selfPkgs.spicetify # Music
+    pkgs.zathura       # PDFs
+    pkgs.imv           # Images
+    pkgs.mpv           # Videos
 
-    pkgs.btop
-    pkgs.lazygit
-    pkgs.yazi
-    pkgs.zoxide
-    pkgs.ripgrep
-    pkgs.fd
-    pkgs.fzf
-    pkgs.fastfetch
-    pkgs.zathura
-    pkgs.imv
-    pkgs.mpv
-    pkgs.scooter
-    pkgs.slack
+    # Utils
+    pkgs.ripgrep # Search text within files
+    pkgs.fd      # Search files themselves
+    pkgs.fzf     # Fuzzy finder
+    selfPkgs.git # Version control
 
-    inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.code
+    # Info
+    pkgs.btop      # Machine health information
+    pkgs.fastfetch # Machine specs
+
+    # Nix
+    inputs.nix-index-database.packages.${system}.nix-index-with-db
+    inputs.nix-index-database.packages.${system}.comma-with-db
+    pkgs.nh # (nh) replacement for nix os build/switch
+    pkgs.nix-init
+    pkgs.nix-output-monitor # (nom) replacement for nix build
+    pkgs.nix-tree # browse dependency graphs of nix derivations
+    pkgs.nix-prefetch # get hashes
+
+    # Misc
+    selfPkgs.harness # Default LLM harness
   ];
 
   env = {
-    EDITOR = "${selfPkgs.helix}/bin/hx";
+    EDITOR = "${lib.getExe selfPkgs.editor}"; # Default browser
   };
 }

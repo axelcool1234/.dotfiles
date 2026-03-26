@@ -1,7 +1,7 @@
 {
   lib,
   pkgs,
-  self,
+  selfPkgs,
   wlib,
   ...
 }:
@@ -10,7 +10,7 @@
 
   config.settings = {
     spawn-at-startup = [
-      (lib.getExe self.packages.${pkgs.stdenv.hostPlatform.system}.noctalia-shell)
+      (lib.getExe selfPkgs.noctalia-shell)
     ];
 
     binds = { };
