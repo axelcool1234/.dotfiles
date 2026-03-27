@@ -6,7 +6,6 @@
 
     # Non-hardware stuff
     ./firewall.nix
-    ./open-ssh.nix
   ];
   hardware.enableAllFirmware = true;
 }

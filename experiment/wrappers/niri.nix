@@ -10,11 +10,11 @@
 
   config.settings = {
     spawn-at-startup = [
-      (lib.getExe selfPkgs.noctalia-shell)
+      (lib.getExe selfPkgs.desktop-shell)
     ];
 
     input = {
-      mod-key = "Mod5";
+      mod-key = "Ctrl";
     };
 
     binds = {
@@ -26,7 +26,7 @@
       "Mod+S".spawn = "${lib.getExe selfPkgs.spicetify}";
       "Mod+D".spawn = "${lib.getExe selfPkgs.nixcord}";
 
-
+      # Movement
       "Mod+H".focus-column-left = null;
       "Mod+J".focus-window-down = null;
       "Mod+K".focus-window-up = null;

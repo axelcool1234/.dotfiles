@@ -13,7 +13,7 @@ pkgs.writeShellApplication {
     pkgs.gum
   ];
 
-  text = ''
+  text = /* bash */ ''
     default_ram="1024"
     default_disk="./vm.qcow2"
     default_backend="x11"

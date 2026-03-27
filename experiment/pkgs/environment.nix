@@ -9,22 +9,22 @@
 inputs.wrappers.lib.wrapPackage {
   inherit pkgs;
 
-  package = selfPkgs.fish;
+  package = selfPkgs.shell;
 
   runtimeInputs = [
     # GUI
-    pkgs.slack         # Work
-    selfPkgs.browser   # Default browser
-    selfPkgs.spicetify # Music
-    pkgs.zathura       # PDFs
-    pkgs.imv           # Images
-    pkgs.mpv           # Videos
+    pkgs.zathura # PDFs
+    pkgs.imv     # Images
+    pkgs.mpv     # Videos
 
     # Utils
-    pkgs.ripgrep # Search text within files
-    pkgs.fd      # Search files themselves
-    pkgs.fzf     # Fuzzy finder
-    selfPkgs.git # Version control
+    selfPkgs.editor  # Edit text within files
+    pkgs.ripgrep     # Search text within files
+    pkgs.fd          # Search files themselves
+    pkgs.fzf         # Fuzzy finder
+    selfPkgs.git     # Version control
+    selfPkgs.harness # Default LLM harness
+    selfPkgs.neovim  # Secondary editor 
 
     # Info
     pkgs.btop      # Machine health information
@@ -34,16 +34,14 @@ inputs.wrappers.lib.wrapPackage {
     inputs.nix-index-database.packages.${system}.nix-index-with-db # nix-locate
     inputs.nix-index-database.packages.${system}.comma-with-db     # ,
     pkgs.nh                                                        # (nh) replacement for nix os build/switch
-    pkgs.nix-init                                                  # helper CLI for generating Nix package expressions from upstream source projects. 
+    pkgs.nix-init                                                  # helper CLI for generating Nix package expressions from upstream source projects.
     pkgs.nix-output-monitor                                        # (nom) replacement for nix build
     pkgs.nix-tree                                                  # browse dependency graphs of nix derivations
     pkgs.nix-prefetch                                              # get hashes
-
-    # Misc
-    selfPkgs.harness # Default LLM harness
   ];
 
   env = {
-    EDITOR = "${lib.getExe selfPkgs.editor}"; # Default browser
+    VISUAL = "${lib.getExe selfPkgs.editor}"; # Default editor
+    EDITOR = "${lib.getExe selfPkgs.editor}"; # Default editor
   };
 }

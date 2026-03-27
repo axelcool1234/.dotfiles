@@ -1,5 +1,0 @@
-{
-  selfPkgs,
-  ...
-}:
-selfPkgs.kitty
