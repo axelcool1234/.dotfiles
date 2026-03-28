@@ -1,7 +1,7 @@
 { self, inputs, lib, myLib, ... }:
 let
   # `specialArgs` are extra arguments injected into every module in every host.
-  # This lets modules accept `self`, `inputs`, `defaults`, and `baseVars`
+  # This lets modules accept `self`, `inputs`, `lib`, `myLib`, and `baseVars`
   # directly instead of computing them again.
   specialArgs = {
     inherit self inputs lib myLib;
