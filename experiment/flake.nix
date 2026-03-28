@@ -35,6 +35,12 @@
     # Discord/Vesktop configuration module source.
     nixcord.url = "github:FlameFlag/nixcord";
 
+    # Declarative home file manager for files we want linked into the user's home.
+    hjem = {
+      url = "github:feel-co/hjem";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Custom Helix fork.
     modded-helix = {
       url = "github:axelcool1234/helix/modded";
