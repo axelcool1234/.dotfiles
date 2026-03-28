@@ -16,8 +16,6 @@ an explicit checklist.
 These are the missing or regressed pieces that should be addressed before this
 experiment can fully replace the old dotfiles.
 
-- Sound
-  PipeWire / WirePlumber / desktop audio tooling are not set up yet.
 - Fonts
   System font packages and default font choices are not wired in yet.
 - GTK / Kvantum / cursors / console colors
@@ -61,6 +59,7 @@ restoring old behavior.
 - Explore possibly throwing out the greeter and autologin into the lockscreen instead
 - Niri + Noctalia configuration and bindings
   - wlr-which-key
+- Switch from PCManFM to just yazi + ripgdrag
 
 ## Intentional Changes
 

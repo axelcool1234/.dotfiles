@@ -17,10 +17,14 @@ pkgs.writeShellApplication {
     default_ram="1024"
     default_disk="./vm.qcow2"
     default_backend="x11"
+    default_audio_backend="pipewire"
+    default_audio_streams="1"
 
     ram="''${VM_RAM_MB:-}"
     disk_image="''${NIX_DISK_IMAGE:-}"
     backend="''${GDK_BACKEND:-$default_backend}"
+    audio_backend="''${VM_AUDIO_BACKEND:-$default_audio_backend}"
+    audio_streams="''${VM_AUDIO_STREAMS:-$default_audio_streams}"
 
     have_kvm=0
     kvm_reason=""
@@ -51,6 +55,17 @@ pkgs.writeShellApplication {
 
       backend=$(printf '%s\n' x11 wayland inherit-env | gum choose --header "GTK backend" --selected "$backend")
 
+      audio_backend=$(printf '%s\n' pipewire pulseaudio alsa sdl none | gum choose --header "Audio backend" --selected "$audio_backend")
+
+      if [ "$audio_backend" != "none" ]; then
+        capture_choice=$(printf '%s\n' playback-only playback+capture | gum choose --header "Audio streams" --selected "$( [ "$audio_streams" = "2" ] && printf '%s' playback+capture || printf '%s' playback-only )")
+        if [ "$capture_choice" = "playback+capture" ]; then
+          audio_streams="2"
+        else
+          audio_streams="1"
+        fi
+      fi
+
       effective_disk="''${disk_image:-$default_disk}"
       if [ -e "$effective_disk" ]; then
         if gum confirm --default=false "Reset existing disk image at $effective_disk?"; then
@@ -67,6 +82,34 @@ pkgs.writeShellApplication {
       unset GDK_BACKEND
     else
       export GDK_BACKEND="$backend"
+    fi
+
+    if [ "$audio_backend" != "none" ]; then
+      case "$audio_backend" in
+        pipewire)
+          audio_driver="pipewire"
+          ;;
+        pulseaudio)
+          audio_driver="pa"
+          ;;
+        alsa)
+          audio_driver="alsa"
+          ;;
+        sdl)
+          audio_driver="sdl"
+          ;;
+        *)
+          printf 'Unsupported audio backend: %s\n' "$audio_backend" >&2
+          exit 1
+          ;;
+      esac
+
+      audio_opts="-audiodev $audio_driver,id=vm-audio -device virtio-sound-pci,audiodev=vm-audio,streams=$audio_streams"
+      if [ -n "''${QEMU_OPTS:-}" ]; then
+        export QEMU_OPTS="$QEMU_OPTS $audio_opts"
+      else
+        export QEMU_OPTS="$audio_opts"
+      fi
     fi
 
     if [ -n "$ram" ]; then
