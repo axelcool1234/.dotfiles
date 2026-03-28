@@ -1,8 +1,3 @@
-local colorscheme = os.getenv("NVIM_COLORSCHEME")
-if colorscheme and colorscheme ~= "" then
-  vim.cmd.colorscheme(colorscheme)
-end
-
 vim.opt.guicursor = ""
 
 vim.opt.nu = true
@@ -23,6 +18,42 @@ vim.opt.hlsearch = false
 vim.opt.incsearch = true
 
 vim.opt.termguicolors = true
+
+if vim.env.NVIM_ENABLE_NOCTALIA_THEME == "1" then
+  local generated_theme_path = vim.fn.expand("~/.cache/noctalia/nvim-base16.lua")
+  local theme_signal = nil
+
+  local function apply_noctalia_theme()
+    local ok_base16, base16 = pcall(require, "base16-colorscheme")
+    if not ok_base16 then
+      return false
+    end
+
+    local chunk = loadfile(generated_theme_path)
+    if chunk == nil then
+      return false
+    end
+
+    local ok_theme, theme = pcall(chunk)
+    if not ok_theme or type(theme) ~= "table" then
+      return false
+    end
+
+    base16.setup(theme)
+    return true
+  end
+
+  apply_noctalia_theme()
+
+  theme_signal = vim.uv.new_signal()
+  if theme_signal ~= nil then
+    _G.axelcool1234_noctalia_theme_signal = theme_signal
+
+    theme_signal:start("sigusr1", vim.schedule_wrap(function()
+      apply_noctalia_theme()
+    end))
+  end
+end
 
 vim.opt.scrolloff = 8
 -- vim.opt.signcolumn = "yes"

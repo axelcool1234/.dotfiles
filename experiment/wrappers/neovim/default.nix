@@ -1,9 +1,16 @@
-{ wlib, pkgs, ... }:
+{ wlib, lib, pkgs, self, ... }:
+let
+  useNoctaliaTheme = self.defaults.desktop-shell == "noctalia-shell";
+in
 {
   imports = [ wlib.wrapperModules.neovim ];
 
   # Use this directory itself as the wrapped Neovim config directory.
   settings.config_directory = ./.;
+
+  env = lib.optionalAttrs useNoctaliaTheme {
+    NVIM_ENABLE_NOCTALIA_THEME = "1";
+  };
 
   # Bundle the plugins your copied config expects to exist.
   specs.general = with pkgs.vimPlugins; [
@@ -69,6 +76,8 @@
 
     # Fun
     presence-nvim
+  ] ++ lib.optionals useNoctaliaTheme [
+    base16-nvim
   ];
 
   # Common tools this config shells out to.
