@@ -73,6 +73,7 @@ let
   gtk4Assets = "${pkgs.adw-gtk3}/share/themes/${gtkTheme}/gtk-4.0/assets";
   gtk4Css = "${pkgs.adw-gtk3}/share/themes/${gtkTheme}/gtk-4.0/gtk.css";
   gtk4DarkCss = "${pkgs.adw-gtk3}/share/themes/${gtkTheme}/gtk-4.0/gtk-dark.css";
+
 in
 {
   imports = [ inputs.hjem.nixosModules.default ];
