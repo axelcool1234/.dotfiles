@@ -7,6 +7,23 @@
 }:
 let
   useNoctaliaTheme = self.defaults.desktop-shell == "noctalia-shell";
+
+  activeTemplateIds = [
+    "gtk"
+    "qt"
+    "discord"
+    "pywalfox"
+    "spicetify"
+    "kitty"
+    "yazi"
+    "helix"
+    "btop"
+  ];
+
+  activeTemplates = map (id: {
+    inherit id;
+    enabled = true;
+  }) activeTemplateIds;
 in
 {
   imports = [ wlib.wrapperModules.noctalia-shell ];
@@ -17,15 +34,7 @@ in
     settings = {
       templates = lib.mkIf useNoctaliaTheme {
         enableUserTheming = true;
-        gtk = true;
-        qt = true;
-        discord = true;
-        pywalfox = true;
-        spicetify = true;
-        kitty = true;
-        yazi = true;
-        btop = true;
-        helix = true;
+        activeTemplates = activeTemplates;
       };
     };
   };
