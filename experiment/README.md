@@ -65,8 +65,7 @@ restoring old behavior.
 ### Minor Theme-related TODOs
 - Neovim's telescope should have rounded text boxes and titles shouldn't have filled backgrounds.
   - Basically telescope needs some management for Noctalia
-- See if Code can change theme dynamically (probably not)
-- See if Helix can change theme dynamically (probably not)
+- See if Code can change theme dynamically (will have to patch Code)
 
 ## Intentional Changes
 
