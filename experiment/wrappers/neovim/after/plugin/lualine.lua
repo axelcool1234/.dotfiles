@@ -38,3 +38,9 @@ require('lualine').setup {
   inactive_winbar = {},
   extensions = {}
 }
+
+-- Lualine also touches the tabline during setup. Re-apply bufferline after
+-- lualine initializes so the buffer tabs remain the active tabline UI.
+if _G.axelcool1234_setup_bufferline ~= nil then
+  _G.axelcool1234_setup_bufferline()
+end

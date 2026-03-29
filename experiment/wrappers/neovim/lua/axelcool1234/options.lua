@@ -19,6 +19,134 @@ vim.opt.incsearch = true
 
 vim.opt.termguicolors = true
 
+_G.axelcool1234_make_bufferline_highlights = function()
+  local colors = _G.axelcool1234_noctalia_base16
+  if colors == nil then
+    return {}
+  end
+
+  return {
+    fill = {
+      bg = colors.base00,
+    },
+    background = {
+      fg = colors.base03,
+      bg = colors.base00,
+    },
+    buffer_visible = {
+      fg = colors.base05,
+      bg = colors.base01,
+    },
+    buffer_selected = {
+      fg = colors.base05,
+      bg = colors.base00,
+      bold = true,
+      italic = false,
+    },
+    separator = {
+      fg = colors.base00,
+      bg = colors.base00,
+    },
+    separator_visible = {
+      fg = colors.base01,
+      bg = colors.base01,
+    },
+    separator_selected = {
+      fg = colors.base00,
+      bg = colors.base00,
+    },
+    indicator_selected = {
+      fg = colors.base0D,
+      bg = colors.base00,
+    },
+    modified = {
+      fg = colors.base09,
+      bg = colors.base00,
+    },
+    modified_visible = {
+      fg = colors.base09,
+      bg = colors.base01,
+    },
+    modified_selected = {
+      fg = colors.base0B,
+      bg = colors.base00,
+    },
+    close_button = {
+      fg = colors.base03,
+      bg = colors.base00,
+    },
+    close_button_visible = {
+      fg = colors.base03,
+      bg = colors.base01,
+    },
+    close_button_selected = {
+      fg = colors.base08,
+      bg = colors.base00,
+    },
+    duplicate_selected = {
+      fg = colors.base04,
+      bg = colors.base00,
+      italic = true,
+    },
+    duplicate_visible = {
+      fg = colors.base04,
+      bg = colors.base01,
+      italic = true,
+    },
+    duplicate = {
+      fg = colors.base03,
+      bg = colors.base00,
+      italic = true,
+    },
+    tab_selected = {
+      fg = colors.base05,
+      bg = colors.base00,
+      bold = true,
+    },
+    tab = {
+      fg = colors.base03,
+      bg = colors.base00,
+    },
+    tab_close = {
+      fg = colors.base08,
+      bg = colors.base00,
+    },
+  }
+end
+
+_G.axelcool1234_refresh_bufferline = function()
+  local ok_bufferline, bufferline = pcall(require, "bufferline")
+  if not ok_bufferline then
+    return false
+  end
+
+  local ok_config, bufferline_config = pcall(require, "bufferline.config")
+  local ok_highlights, bufferline_highlights = pcall(require, "bufferline.highlights")
+  local ok_ui, bufferline_ui = pcall(require, "bufferline.ui")
+
+  if ok_config and bufferline_config.get() ~= nil then
+    -- Mirror bufferline's own ColorScheme autocmd: reset cached icon highlights,
+    -- rebuild highlight groups from the current colorscheme, then refresh the UI.
+    if ok_highlights then
+      bufferline_highlights.reset_icon_hl_cache()
+      bufferline_highlights.set_all(bufferline_config.update_highlights())
+    else
+      bufferline_config.update_highlights()
+    end
+
+    if ok_ui then
+      bufferline_ui.refresh()
+    end
+  else
+    bufferline.setup {
+      highlights = _G.axelcool1234_make_bufferline_highlights(),
+    }
+  end
+
+  vim.cmd.redrawtabline()
+  return true
+end
+
 if vim.env.NVIM_ENABLE_NOCTALIA_THEME == "1" then
   local generated_theme_path = vim.fn.expand("~/.cache/noctalia/nvim-base16.lua")
   local theme_signal = nil
@@ -39,7 +167,25 @@ if vim.env.NVIM_ENABLE_NOCTALIA_THEME == "1" then
       return false
     end
 
+    _G.axelcool1234_noctalia_base16 = theme
+
     base16.setup(theme)
+
+    -- `base16-colorscheme`.setup() updates highlights directly but does not emit
+    -- a normal `:colorscheme` transition. Many UI plugins, including lualine
+    -- and bufferline, listen for the ColorScheme autocmd to rebuild their own
+    -- derived highlights, so fire it manually here.
+    vim.api.nvim_exec_autocmds('ColorScheme', {
+      modeline = false,
+      pattern = vim.g.colors_name or '*',
+    })
+
+    if _G.axelcool1234_refresh_bufferline ~= nil then
+      vim.schedule(function()
+        _G.axelcool1234_refresh_bufferline()
+      end)
+    end
+
     return true
   end
 
