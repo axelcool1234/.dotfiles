@@ -1,5 +1,6 @@
 {
   inputs,
+  self,
   pkgs,
   wlib,
   system,
@@ -7,6 +8,7 @@
 }:
 let
   spicePkgs = inputs.spicetify-nix.legacyPackages.${system};
+  useNoctaliaTheme = self.defaults.desktop-shell == "noctalia-shell";
   onekoExtension = {
     src = pkgs.fetchFromGitHub {
       owner = "kyrie25";
@@ -16,17 +18,32 @@ let
     };
     name = "oneko.js";
   };
+
+  flatpakSpotifyLauncher = pkgs.writeShellApplication {
+    name = "spotify";
+    runtimeInputs = [ pkgs.flatpak ];
+    text = ''
+      exec flatpak run --command=spotify com.spotify.Client \
+        --remote-debugging-port=9222 \
+        --remote-allow-origins=* \
+        "$@"
+    '';
+  };
 in
 {
   imports = [ wlib.modules.default ];
 
-  config.package = inputs.spicetify-nix.lib.mkSpicetify pkgs {
-    enabledExtensions = with spicePkgs.extensions; [
-      adblock
-      shuffle
-      keyboardShortcut
-      fullAppDisplay
-      onekoExtension
-    ];
-  };
+  config.package =
+    if useNoctaliaTheme then
+      flatpakSpotifyLauncher
+    else
+      inputs.spicetify-nix.lib.mkSpicetify pkgs {
+        enabledExtensions = with spicePkgs.extensions; [
+          adblock
+          shuffle
+          keyboardShortcut
+          fullAppDisplay
+          onekoExtension
+        ];
+      };
 }

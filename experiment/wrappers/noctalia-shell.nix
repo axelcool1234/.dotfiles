@@ -11,6 +11,7 @@
       qt = true;
       discord = true;
       pywalfox = true;
+      spicetify = true;
     };
   };
 }
