@@ -63,6 +63,7 @@ restoring old behavior.
 - Switch from PCManFM to just yazi + ripgdrag
 
 ### Minor Theme-related TODOs
+- Glide browser does not start pywalfox automatically. See if there's a fix.
 - Neovim's telescope should have rounded text boxes and titles shouldn't have filled backgrounds.
   - Basically telescope needs some management for Noctalia
 - See if Code can change theme dynamically (will have to patch Code)

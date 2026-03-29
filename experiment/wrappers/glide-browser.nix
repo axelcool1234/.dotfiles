@@ -108,6 +108,9 @@ in
 
         glide.prefs.set("layout.css.prefers-color-scheme.content-override", 0);
         glide.prefs.set("extensions.activeThemeID", "firefox-compact-dark@mozilla.org");
+        glide.prefs.set("browser.download.useDownloadDir", true);
+        glide.prefs.set("browser.download.folderList", 1);
+        glide.prefs.set("widget.use-xdg-desktop-portal.file-picker", 1);
 
         glide.excmds.create({
           name: "nix",
