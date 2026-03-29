@@ -19,6 +19,8 @@ in
       "virtio-vga-gl"
     ];
 
+    virtualisation.diskSize = 16 * 1024;
+
     environment.sessionVariables = lib.mkVMOverride {
       WLR_NO_HARDWARE_CURSORS = "1";
     };
