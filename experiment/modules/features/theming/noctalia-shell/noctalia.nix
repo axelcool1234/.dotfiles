@@ -15,6 +15,7 @@ let
   };
   code = import ./programs/code.nix { inherit pkgs; };
   firefox = import ./programs/firefox.nix { inherit pkgs; };
+  helix = import ./programs/helix.nix { inherit pkgs; };
   neovim = import ./programs/neovim.nix { inherit pkgs; };
   spotify = import ./programs/spotify.nix {
     inherit baseVars inputs lib pkgs;
@@ -31,6 +32,7 @@ let
       [
         code.userTemplates
         firefox.userTemplates
+        helix.userTemplates
         neovim.userTemplates
         spotify.userTemplates
       ]

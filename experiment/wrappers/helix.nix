@@ -22,17 +22,11 @@ in
 
     escapingFunction = wlib.escapeShellArgWithEnv;
 
-    runShell = lib.optionals useNoctaliaTheme [
-      ''
-        runtime_base="${"$"}{XDG_RUNTIME_DIR:-${"$"}{XDG_CACHE_HOME:-${"$"}HOME/.cache}}"
-        export XDG_CONFIG_HOME="$(mktemp -d "$runtime_base/helix-wrapper.XXXXXX")"
-      ''
-      ''mkdir -p "$XDG_CONFIG_HOME/helix"''
-      ''cp ${config.generatedConfig.placeholder}/helix/config.toml "$XDG_CONFIG_HOME/helix/config.toml"''
-      ''if [ -f ${config.generatedConfig.placeholder}/helix/languages.toml ]; then cp ${config.generatedConfig.placeholder}/helix/languages.toml "$XDG_CONFIG_HOME/helix/languages.toml"; fi''
-      ''if [ -f ${config.generatedConfig.placeholder}/helix/ignore ]; then cp ${config.generatedConfig.placeholder}/helix/ignore "$XDG_CONFIG_HOME/helix/ignore"; fi''
-      ''if [ -e "${"$"}HOME/.config/helix/themes" ]; then ln -sfn "${"$"}HOME/.config/helix/themes" "$XDG_CONFIG_HOME/helix/themes"; else mkdir -p "$XDG_CONFIG_HOME/helix/themes"; fi''
-    ];
+    # In Noctalia mode, keep Helix's config root on the real ~/.config so the
+    # live theme written to ~/.config/helix/themes/noctalia.toml stays visible,
+    # while still using the wrapper-generated config.toml via --config.
+    env.XDG_CONFIG_HOME = lib.mkIf useNoctaliaTheme (lib.mkForce ''${"$"}HOME/.config'');
+    flags."--config" = lib.mkIf useNoctaliaTheme config.constructFiles.config.path;
 
     settings = lib.mkMerge [
       (lib.mkIf useNoctaliaTheme {
@@ -114,9 +108,6 @@ in
             ":open %sh{cat /tmp/unique-file}"
             ":redraw"
           ];
-
-          # For noctalia theming
-          "space".c = ":config-reload";
 
           # Remaps
           x = "extend_line";
