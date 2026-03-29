@@ -5,13 +5,15 @@
   config = {
     package = pkgs.noctalia-shell;
 
-    settings.templates = {
-      enableUserTheming = true;
-      gtk = true;
-      qt = true;
-      discord = true;
-      pywalfox = true;
-      spicetify = true;
+    settings = {
+      templates = {
+        enableUserTheming = true;
+        gtk = true;
+        qt = true;
+        discord = true;
+        pywalfox = true;
+        spicetify = true;
+      };
     };
   };
 }

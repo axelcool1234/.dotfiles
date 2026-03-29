@@ -13,6 +13,8 @@
       (lib.getExe selfPkgs.desktop-shell)
     ];
 
+    prefer-no-csd = null;
+
     input = {
       mod-key = "Ctrl";
     };

@@ -27,20 +27,10 @@ let
     enabledThemes = [ "noctalia.theme.css" ];
   };
 
-  vesktopClientSettings = {
-    # Keep Discord inside Vesktop's own title bar rather than the native system
-    # one, otherwise the native title text color can get stuck on the previous
-    # palette until the app is restarted.
-    customTitleBar = true;
-  };
-
   vesktopSettingsFile = pkgs.writeText "vesktop-settings.json" (
     builtins.toJSON (nixcordCore.mkVencordCfg vesktopThemeConfig)
   );
 
-  vesktopClientSettingsFile = pkgs.writeText "vesktop-client-settings.json" (
-    builtins.toJSON vesktopClientSettings
-  );
 in
 {
   # Files to merge into the outer Hjem user block.
@@ -49,10 +39,5 @@ in
     # bit we need here so Vesktop gets theme/plugin state without importing the
     # full Nixcord NixOS module.
     "vesktop/settings/settings.json" = vesktopSettingsFile;
-
-    # Vesktop's own client settings live one level higher than Vencord's theme
-    # config. This makes the app use Discord's custom title bar, which updates
-    # with Noctalia's CSS on palette changes.
-    "vesktop/settings.json" = vesktopClientSettingsFile;
   };
 }
