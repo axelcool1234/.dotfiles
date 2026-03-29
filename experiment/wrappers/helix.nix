@@ -1,6 +1,7 @@
 {
   wlib,
   pkgs,
+  selfPkgs,
   inputs,
   lib,
   system,
@@ -87,7 +88,7 @@
           # Yaziao integration
           "-" = [
             ":sh rm -f /tmp/unique-file"
-            ":insert-output ${lib.getExe pkgs.yazi} %{buffer_name} --chooser-file=/tmp/unique-file"
+            ":insert-output ${lib.getExe selfPkgs.yazi} %{buffer_name} --chooser-file=/tmp/unique-file"
             ":open %sh{cat /tmp/unique-file}"
             ":redraw"
           ];

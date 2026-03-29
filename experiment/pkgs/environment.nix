@@ -25,9 +25,10 @@ inputs.wrappers.lib.wrapPackage {
     selfPkgs.git     # Version control
     selfPkgs.harness # Default LLM harness
     selfPkgs.neovim  # Secondary editor 
+    selfPkgs.yazi    # Terminal file manager
 
     # Info
-    pkgs.btop      # Machine health information
+    selfPkgs.btop  # Machine health information
     pkgs.fastfetch # Machine specs
 
     # Nix
