@@ -1,4 +1,4 @@
-require('lualine').setup {
+local lualine_config = {
   options = {
     icons_enabled = true,
     theme = 'auto',
@@ -39,8 +39,20 @@ require('lualine').setup {
   extensions = {}
 }
 
--- Lualine also touches the tabline during setup. Re-apply bufferline after
--- lualine initializes so the buffer tabs remain the active tabline UI.
-if _G.axelcool1234_setup_bufferline ~= nil then
-  _G.axelcool1234_setup_bufferline()
+local function setup_lualine()
+  require('lualine').setup(lualine_config)
 end
+
+setup_lualine()
+
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'NoctaliaThemeReloaded',
+  callback = function()
+    setup_lualine()
+    require('lualine').refresh {
+      force = true,
+      place = { 'statusline', 'tabline', 'winbar' },
+      trigger = 'autocmd',
+    }
+  end,
+})
