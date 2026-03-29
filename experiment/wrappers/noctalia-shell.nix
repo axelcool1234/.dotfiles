@@ -15,6 +15,7 @@ let
     "pywalfox"
     "spicetify"
     "kitty"
+    "zathura"
     "yazi"
     "helix"
     "btop"

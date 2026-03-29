@@ -13,7 +13,7 @@ inputs.wrappers.lib.wrapPackage {
 
   runtimeInputs = [
     # GUI
-    pkgs.zathura # PDFs
+    selfPkgs.zathura # PDFs
     pkgs.imv     # Images
     pkgs.mpv     # Videos
 
