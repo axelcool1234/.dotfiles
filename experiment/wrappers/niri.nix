@@ -51,13 +51,32 @@ in
       };
 
       binds = {
-        "Mod+SHIFT+Q".close-window = null;
+        # Menus
         "Mod+SHIFT+D".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call launcher toggle";
+        "Mod+W".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call wallpaper toggle";
+        "Mod+Escape".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call sessionMenu toggle";
+        "Mod+Ctrl+L".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call lockScreen lock";
 
+        "Mod+SHIFT+Q".close-window = null;
+
+        # Main Programs
         "Mod+T".spawn = "${lib.getExe selfPkgs.terminal}";
         "Mod+B".spawn = "${lib.getExe selfPkgs.browser}"; 
         "Mod+S".spawn = "${lib.getExe selfPkgs.spicetify}";
         "Mod+D".spawn = "${lib.getExe selfPkgs.nixcord}";
+
+        # Video/Audio Control
+        "XF86AudioRaiseVolume".spawn = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume increase";
+        "XF86AudioLowerVolume".spawn = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume decrease";
+        "XF86AudioMute".spawn = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume muteOutput";
+        "XF86AudioMicMute".spawn = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume muteInput";
+
+        "XF86MonBrightnessUp".spawn = "${lib.getExe selfPkgs.noctalia-shell} ipc call brightness increase";
+        "XF86MonBrightnessDown".spawn = "${lib.getExe selfPkgs.noctalia-shell} ipc call brightness decrease";
+
+        "Mod+P".spawn = "${lib.getExe pkgs.playerctl} play-pause";
+        "Mod+BracketLeft".spawn = "${lib.getExe pkgs.playerctl} previous";
+        "Mod+BracketRight".spawn = "${lib.getExe pkgs.playerctl} next";
 
         # Movement
         "Mod+H".focus-column-left = null;

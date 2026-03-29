@@ -20,9 +20,6 @@ experiment can fully replace the old dotfiles.
   System font packages and default font choices are not wired in yet.
 - GTK / Kvantum / cursors / console colors
   General desktop styling and non-theme-adjacent visual integration are missing.
-- Theming
-  Need to decide whether Noctalia Shell should manage this imperatively, or if
-  theming should go back to a declarative model.
 - GRUB theme
   Bootloader theming is still missing.
 - Screenshots and screen recording
