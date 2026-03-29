@@ -28,6 +28,7 @@ experiment can fully replace the old dotfiles.
 - Screenshots and screen recording
   The old Waybar-era helper workflows are gone, and replacements are still
   needed.
+- Niri binds
 
 ## Additions
 
