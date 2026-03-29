@@ -1,12 +1,17 @@
 {
+  config,
   wlib,
   pkgs,
   selfPkgs,
   inputs,
   lib,
+  self,
   system,
   ...
 }:
+let
+  useNoctaliaTheme = self.defaults.desktop-shell == "noctalia-shell";
+in
 {
   imports = [ wlib.wrapperModules.helix ];
 
@@ -15,8 +20,25 @@
       includeGrammarIf = grammar: grammar.name != "bovex";
     };
 
-    settings = {
-      theme = "catppuccin_mocha";
+    escapingFunction = wlib.escapeShellArgWithEnv;
+
+    runShell = lib.optionals useNoctaliaTheme [
+      ''
+        runtime_base="${"$"}{XDG_RUNTIME_DIR:-${"$"}{XDG_CACHE_HOME:-${"$"}HOME/.cache}}"
+        export XDG_CONFIG_HOME="$(mktemp -d "$runtime_base/helix-wrapper.XXXXXX")"
+      ''
+      ''mkdir -p "$XDG_CONFIG_HOME/helix"''
+      ''cp ${config.generatedConfig.placeholder}/helix/config.toml "$XDG_CONFIG_HOME/helix/config.toml"''
+      ''if [ -f ${config.generatedConfig.placeholder}/helix/languages.toml ]; then cp ${config.generatedConfig.placeholder}/helix/languages.toml "$XDG_CONFIG_HOME/helix/languages.toml"; fi''
+      ''if [ -f ${config.generatedConfig.placeholder}/helix/ignore ]; then cp ${config.generatedConfig.placeholder}/helix/ignore "$XDG_CONFIG_HOME/helix/ignore"; fi''
+      ''if [ -e "${"$"}HOME/.config/helix/themes" ]; then ln -sfn "${"$"}HOME/.config/helix/themes" "$XDG_CONFIG_HOME/helix/themes"; else mkdir -p "$XDG_CONFIG_HOME/helix/themes"; fi''
+    ];
+
+    settings = lib.mkMerge [
+      (lib.mkIf useNoctaliaTheme {
+        theme = "noctalia";
+      })
+      {
       editor = {
         scrolloff = 8;
         auto-pairs = false;
@@ -93,6 +115,9 @@
             ":redraw"
           ];
 
+          # For noctalia theming
+          "space".c = ":config-reload";
+
           # Remaps
           x = "extend_line";
         };
@@ -102,6 +127,7 @@
           g.w = "extend_to_word_flash";
         };
       };
-    };
+      }
+    ];
   };
 }

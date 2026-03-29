@@ -18,7 +18,9 @@ in
 
     # Every Code stores project trust and other mutable state in ~/.code/
     # alongside theme config. Merge only the generated [tui.theme] section into
-    # the live config before launch instead of replacing the whole file.
+    # the live config before launch instead of replacing the whole file. Strip
+    # NUL bytes while doing so, since a corrupted config.toml makes Code fail
+    # TOML parsing before it can even reach the theme section.
     runShell = lib.optionals useNoctaliaTheme [
       ''
         config_path="$HOME/.code/config.toml"
@@ -29,7 +31,7 @@ in
           trap 'rm -f "$tmp_path"' EXIT
 
           if [ -f "$config_path" ]; then
-            ${pkgs.gawk}/bin/awk '
+            tr -d '\000' < "$config_path" | ${pkgs.gawk}/bin/awk '
               BEGIN {
                 skip = 0
               }
@@ -48,7 +50,7 @@ in
               !skip {
                 print
               }
-            ' "$config_path" > "$tmp_path"
+            ' > "$tmp_path"
           else
             : > "$tmp_path"
           fi
@@ -57,7 +59,7 @@ in
             printf '\n' >> "$tmp_path"
           fi
 
-          cat "$theme_fragment_path" >> "$tmp_path"
+          tr -d '\000' < "$theme_fragment_path" >> "$tmp_path"
           mv "$tmp_path" "$config_path"
         fi
       ''

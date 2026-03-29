@@ -25,6 +25,7 @@ in
         kitty = true;
         yazi = true;
         btop = true;
+        helix = true;
       };
     };
   };
