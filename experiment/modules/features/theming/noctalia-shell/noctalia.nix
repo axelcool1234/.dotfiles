@@ -10,6 +10,9 @@ let
   # Split program-specific Noctalia integrations into small files so each one
   # can explain its own generated files and hooks without piling everything into
   # one long module.
+  discord = import ./programs/discord.nix {
+    inherit inputs lib pkgs;
+  };
   firefox = import ./programs/firefox.nix { inherit pkgs; };
   neovim = import ./programs/neovim.nix { inherit pkgs; };
   spotify = import ./programs/spotify.nix {
@@ -20,19 +23,22 @@ let
   # This keeps program-specific files independent while still producing the one
   # file Noctalia expects at runtime.
   noctaliaUserTemplates = (pkgs.formats.toml { }).generate "noctalia-user-templates.toml" (
-    {
-      config = { };
-    }
-    // firefox.userTemplates
-    // neovim.userTemplates
-    // spotify.userTemplates
+    lib.foldl' lib.recursiveUpdate
+      {
+        config = { };
+      }
+      [
+        firefox.userTemplates
+        neovim.userTemplates
+        spotify.userTemplates
+      ]
   );
 in
 {
   config = lib.mkIf (config.preferences.desktop-shell == "noctalia-shell") {
     # Only the Spotify integration needs Flatpak right now, but keeping the
-    # enablement here still centralizes the "Noctalia-specific imperative app
-    # theming" layer in one place.
+    # enablement here still centralizes the “Noctalia-specific imperative app
+    # theming” layer in one place.
     services.flatpak.enable = spotify.enableFlatpak;
 
     # Likewise, the portal requirement comes from the Flatpak Spotify path.
@@ -48,6 +54,8 @@ in
       # Program-specific static files are merged here so there is still one Hjem
       # user block to read in the outer module.
       xdg.config.files =
+        (lib.mapAttrs (_path: source: { inherit source; }) discord.homeFiles)
+        //
         (lib.mapAttrs (_path: source: { inherit source; }) spotify.homeFiles)
         // {
           # User templates are written declaratively too so Noctalia sees them on

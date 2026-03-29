@@ -28,7 +28,9 @@ in
     templates.nvim-base16 = {
       input_path = nvimBase16Template;
       output_path = "~/.cache/noctalia/nvim-base16.lua";
-      post_hook = "pkill -SIGUSR1 -x nvim || true";
+      # Follow Noctalia's documented hook shape here. Exact-name matching turned
+      # out to be too brittle once wrappers/process names changed.
+      post_hook = "pkill -SIGUSR1 nvim || true";
     };
   };
 }
