@@ -2,7 +2,7 @@
   browser = "glide-browser";
   editor = "helix";
   harness = {
-    input = "llm-agents";
+    input = "wrappers";
     target = "code";
   };
   shell = "fish";

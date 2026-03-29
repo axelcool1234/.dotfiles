@@ -132,6 +132,7 @@ myLib.forAllSystems inputs (
     #
     # Supported forms:
     # - string: look up a package from `basePackages`, then fall back to `pkgs` if it isn't in `basePackages`.
+    # - { input = "wrappers"; target = ...; }: look up a local wrapped package
     # - { input = ...; target = ...; }: look up a package from another flake input
     resolveAlias = spec:
       if builtins.isString spec then
@@ -142,7 +143,13 @@ myLib.forAllSystems inputs (
         else
           throw "Package alias '${spec}' was not found in basePackages or pkgs"
       else if builtins.isAttrs spec && spec ? input && spec ? target then
-        inputs.${spec.input}.packages.${system}.${spec.target}
+        if spec.input == "wrappers" then
+          if builtins.hasAttr spec.target basePackages then
+            basePackages.${spec.target}
+          else
+            throw "Wrapper alias target '${spec.target}' was not found in basePackages"
+        else
+          inputs.${spec.input}.packages.${system}.${spec.target}
       else
         throw "Unsupported package alias spec in self.defaults";
 
@@ -152,8 +159,12 @@ myLib.forAllSystems inputs (
     # - result.browser = basePackages.glide-browser
     #
     # Or for external specs:
-    # - self.defaults.harness = { input = "llm-agents"; target = "code"; }
-    # - result.harness = inputs.llm-agents.packages.${system}.code
+    # - self.defaults.helix-nightly = { input = "modded-helix"; target = "default"; }
+    # - result.helix-nightly = inputs.modded-helix.packages.${system}.default
+    #
+    # Or for local wrapper specs:
+    # - self.defaults.harness = { input = "wrappers"; target = "code"; }
+    # - result.harness = basePackages.code
     generatedAliases = lib.mapAttrs (
       _name: spec:
       resolveAlias spec

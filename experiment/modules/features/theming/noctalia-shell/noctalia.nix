@@ -13,6 +13,7 @@ let
   discord = import ./programs/discord.nix {
     inherit inputs lib pkgs;
   };
+  code = import ./programs/code.nix { inherit pkgs; };
   firefox = import ./programs/firefox.nix { inherit pkgs; };
   neovim = import ./programs/neovim.nix { inherit pkgs; };
   spotify = import ./programs/spotify.nix {
@@ -28,6 +29,7 @@ let
         config = { };
       }
       [
+        code.userTemplates
         firefox.userTemplates
         neovim.userTemplates
         spotify.userTemplates
