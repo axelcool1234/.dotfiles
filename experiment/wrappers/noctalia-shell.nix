@@ -19,6 +19,7 @@ let
     "yazi"
     "helix"
     "btop"
+    "niri"
   ];
 
   activeTemplates = map (id: {
