@@ -2,11 +2,14 @@
   config,
   lib,
   pkgs,
+  self,
   selfPkgs,
   wlib,
   ...
 }:
 let
+  useNoctaliaTheme = self.defaults.desktop-shell == "noctalia-shell";
+
   kittyKeyValue = {
     listsAsDuplicateKeys = true;
     mkKeyValue = lib.generators.mkKeyValueDefault { } " ";
@@ -40,7 +43,7 @@ in
   config = {
     package = pkgs.kitty;
 
-    flags."--config" = config.constructFiles.generatedConfig.path;
+    env.KITTY_CONFIG_DIRECTORY = dirOf config.constructFiles.generatedConfig.path;
 
     constructFiles.generatedConfig = {
       relPath = "kitty.conf";
@@ -75,6 +78,11 @@ in
         "ctrl+shift+e launch --title=scrollback --type=overlay --stdin-source=@screen_scrollback ${lib.getExe selfPkgs.editor}"
       ];
     };
+
+    # Noctalia handles Kitty's theme
+    extraSettings = lib.mkAfter (lib.optionalString useNoctaliaTheme ''
+      include ~/.config/kitty/themes/noctalia.conf
+    '');
 
     meta.platforms = lib.platforms.linux;
   };

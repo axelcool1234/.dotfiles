@@ -13,6 +13,7 @@
         discord = true;
         pywalfox = true;
         spicetify = true;
+        kitty = true;
       };
     };
   };
