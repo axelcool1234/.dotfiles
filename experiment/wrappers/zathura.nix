@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   self,
   wlib,
   ...
@@ -28,6 +29,13 @@ in
   imports = [ wlib.wrapperModules.zathura ];
 
   config = {
+    plugins = with pkgs.zathuraPkgs; [
+      zathura_pdf_mupdf
+      zathura_cb
+      zathura_djvu
+      zathura_ps
+    ];
+
     escapingFunction = wlib.escapeShellArgWithEnv;
 
     flags."--config-dir" = lib.mkForce "$ZATHURA_CONFIG_DIR";
