@@ -13,6 +13,7 @@ let
   discord = import ./programs/discord.nix {
     inherit inputs lib pkgs;
   };
+  btop = import ./programs/btop.nix { inherit pkgs; };
   code = import ./programs/code.nix { inherit pkgs; };
   firefox = import ./programs/firefox.nix { inherit pkgs; };
   helix = import ./programs/helix.nix { inherit pkgs; };
@@ -30,6 +31,7 @@ let
         config = { };
       }
       [
+        btop.userTemplates
         code.userTemplates
         firefox.userTemplates
         helix.userTemplates
