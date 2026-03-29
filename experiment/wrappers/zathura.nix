@@ -30,12 +30,15 @@ in
   config = {
     escapingFunction = wlib.escapeShellArgWithEnv;
 
-    env.ZATHURA_CONFIG_DIR = ''${"$"}{XDG_STATE_HOME:-${"$"}HOME/.local/state}/zathura-wrapper/config'';
     flags."--config-dir" = lib.mkForce "$ZATHURA_CONFIG_DIR";
 
     constructFiles.renderedRc.content = lib.mkForce renderedRcContent;
 
     runShell = [
+      ''
+        runtime_base="${"$"}{XDG_RUNTIME_DIR:-${"$"}{XDG_CACHE_HOME:-${"$"}HOME/.cache}}"
+        export ZATHURA_CONFIG_DIR="$(mktemp -d "$runtime_base/zathura-wrapper.XXXXXX")"
+      ''
       ''mkdir -p "$ZATHURA_CONFIG_DIR"''
       ''cp ${config.constructFiles.renderedRc.path} "$ZATHURA_CONFIG_DIR/zathurarc"''
     ] ++ lib.optionals useNoctaliaTheme [
