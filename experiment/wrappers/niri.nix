@@ -31,7 +31,13 @@ in
         runtime_dir="$(mktemp -d "$runtime_base/niri-wrapper.XXXXXX")"
         export NIRI_RUNTIME_CONFIG="$runtime_dir/config.kdl"
         cp ${config.constructFiles.generatedConfig.path} "$NIRI_RUNTIME_CONFIG"
-        ln -sfn "${"$"}HOME/.config/niri/noctalia.kdl" "$runtime_dir/noctalia.kdl"
+
+        noctalia_config="${"$"}HOME/.config/niri/noctalia.kdl"
+        if [ -r "$noctalia_config" ]; then
+          ln -sfn "$noctalia_config" "$runtime_dir/noctalia.kdl"
+        else
+          cp ${config.constructFiles.noctaliaStub.path} "$runtime_dir/noctalia.kdl"
+        fi
       ''
     ];
 

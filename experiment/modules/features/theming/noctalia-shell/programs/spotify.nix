@@ -15,17 +15,6 @@ let
   # Noctalia whenever the active shell theme changes.
   comfyThemeSrc = spicePkgs.themes.comfy.src;
 
-  # Oneko is not in the pinned Spicetify package set, so keep fetching it here.
-  onekoExtension = {
-    src = pkgs.fetchFromGitHub {
-      owner = "kyrie25";
-      repo = "spicetify-oneko";
-      rev = "589a8cc3a3939b8c9fc4f2bd087ed433e9af5002";
-      hash = "sha256-lestrf4sSwGbBqy+0J7u5IoU6xNKHh35IKZxt/phpNY=";
-    };
-    name = "oneko.js";
-  };
-
   # Raw `spicetify-cli` is strict about backup metadata. Theme refreshes only
   # need the backup metadata to *look* current; they do not need a full restore
   # + backup cycle every time. This wrapper keeps that metadata aligned with the
@@ -217,7 +206,6 @@ let
     spicePkgs.extensions.shuffle.name
     spicePkgs.extensions.keyboardShortcut.name
     spicePkgs.extensions.fullAppDisplay.name
-    onekoExtension.name
   ];
 
   # Static pieces of the Comfy theme can remain declarative. The one mutable
@@ -238,8 +226,6 @@ let
       "${spicePkgs.extensions.keyboardShortcut.src}/${spicePkgs.extensions.keyboardShortcut.name}";
     "spicetify/Extensions/${spicePkgs.extensions.fullAppDisplay.name}" =
       "${spicePkgs.extensions.fullAppDisplay.src}/${spicePkgs.extensions.fullAppDisplay.name}";
-    "spicetify/Extensions/${onekoExtension.name}" =
-      "${onekoExtension.src}/${onekoExtension.name}";
   };
 
   # Flatpak install + initial Spicetify patching happen once here.
