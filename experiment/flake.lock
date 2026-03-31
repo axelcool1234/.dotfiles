@@ -425,6 +425,22 @@
         "type": "github"
       }
     },
+    "noctalia-plugins": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1774897733,
+        "narHash": "sha256-RExN4b7Nu6rMxKLkPw6GEGXYR76GcMt2EJDnzI0dDYI=",
+        "owner": "noctalia-dev",
+        "repo": "noctalia-plugins",
+        "rev": "61d14c02dcf8bde1b27292ba82ddb260d41cb8f7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "noctalia-dev",
+        "repo": "noctalia-plugins",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "glide": "glide",
@@ -435,6 +451,7 @@
         "nixcord": "nixcord",
         "nixos-hardware": "nixos-hardware",
         "nixpkgs": "nixpkgs_3",
+        "noctalia-plugins": "noctalia-plugins",
         "spicetify-nix": "spicetify-nix",
         "wrapper-modules": "wrapper-modules",
         "wrappers": "wrappers"

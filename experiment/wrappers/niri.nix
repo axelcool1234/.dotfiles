@@ -42,10 +42,6 @@ in
     ];
 
     settings = {
-      extraConfig = lib.optionalString useNoctaliaTheme ''
-        include "noctalia.kdl"
-      '';
-
       spawn-at-startup = [
         (lib.getExe selfPkgs.desktop-shell)
       ];
@@ -114,6 +110,10 @@ in
       };
 
       xwayland-satellite.path = lib.getExe pkgs.xwayland-satellite;
+
+      extraConfig = lib.optionalString useNoctaliaTheme ''
+        include "noctalia.kdl"
+      '';
     };
   };
 }

@@ -49,6 +49,12 @@
 
     # External package source for the LLM harness alias.
     llm-agents.url = "github:numtide/llm-agents.nix";
+
+    # Noctalia Shell plugins
+    noctalia-plugins = {
+      url = "github:noctalia-dev/noctalia-plugins";
+      flake = false;
+    };
   };
 
   # `outputs` is the function that turns all flake inputs into the values this
