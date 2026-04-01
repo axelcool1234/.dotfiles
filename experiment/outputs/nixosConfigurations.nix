@@ -66,4 +66,22 @@ in
       self.hosts.vm
     ];
   };
+
+  # Installer ISO target for bootstrapping fresh installs from this flake.
+  #
+  # Build with:
+  # `nix build .#nixosConfigurations.iso.config.system.build.isoImage`
+  iso = lib.nixosSystem {
+    system = "x86_64-linux";
+    specialArgs = specialArgs // {
+      hostVars = {
+        hostName = "experiment-installer";
+        stateVersion = "26.05";
+      };
+    };
+    modules = [
+      self.bundles.foundation
+      self.hosts.iso
+    ];
+  };
 }
