@@ -33,17 +33,8 @@ These are ideas that go beyond the original dotfiles rather than merely
 restoring old behavior.
 
 - Assure that automatic store optimization and garbage collection are set up correctly
-- Possibly preserve the old Hyprland + Waybar + Dunst + Rofi + related stack as
-  an alternative desktop setup
-  One idea: expose wrapper packages like `old-hyprland` and `old-waybar`, where
-  `old-waybar` pulls in the rest of the old desktop helper stack.
-- NixOS Impermanence
-  Also revisit the alternative approach that looked appealing but was forgotten.
-- Disko
 - Figure out cache servers correctly
   Source: `https://nixos-and-flakes.thiscute.world/nix-store/intro`
-- Disable nix channels
-  Source: `https://nixos-and-flakes.thiscute.world/best-practices/nix-path-and-flake-registry`
 - GitHub CI
   Include flake integrity checks and possibly NixOS tests.
   Source: `https://nixos-and-flakes.thiscute.world/other-usage-of-flakes/testing`
