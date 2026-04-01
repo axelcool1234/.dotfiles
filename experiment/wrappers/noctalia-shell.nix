@@ -33,11 +33,16 @@ in
   imports = [ wlib.wrapperModules.noctalia-shell ];
 
   config = {
+
     package = pkgs.noctalia-shell;
 
     preInstalledPlugins = {
       custom-commands.src = "${inputs.noctalia-plugins.outPath}/custom-commands";
     };
+
+    # Make noctalia-shell's configuration mutable for color scheme selection and experimentation.
+    escapingFunction = wlib.escapeShellArgWithEnv;
+    outOfStoreConfig = ''${"$"}HOME/.config/noctalia-shell'';
 
     settings = {
       templates = lib.mkIf useNoctaliaTheme {

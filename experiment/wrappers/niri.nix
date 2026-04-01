@@ -46,7 +46,7 @@ in
         (lib.getExe selfPkgs.desktop-shell)
       ];
 
-      prefer-no-csd = null;
+      prefer-no-csd = {};
 
       input = {
         mod-key = "Ctrl";
@@ -59,7 +59,7 @@ in
         "Mod+Escape".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call sessionMenu toggle";
         "Mod+Ctrl+L".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call lockScreen lock";
 
-        "Mod+SHIFT+Q".close-window = null;
+        "Mod+SHIFT+Q".close-window = {};
 
         # Main Programs
         "Mod+T".spawn = "${lib.getExe selfPkgs.terminal}";
@@ -81,10 +81,10 @@ in
         "Mod+BracketRight".spawn = "${lib.getExe pkgs.playerctl} next";
 
         # Movement
-        "Mod+H".focus-column-left = null;
-        "Mod+J".focus-window-down = null;
-        "Mod+K".focus-window-up = null;
-        "Mod+L".focus-column-right = null;
+        "Mod+H".focus-column-left = {};
+        "Mod+J".focus-window-down = {};
+        "Mod+K".focus-window-up = {};
+        "Mod+L".focus-column-right = {};
 
         "Mod+1".focus-workspace = "w0";
         "Mod+2".focus-workspace = "w1";
