@@ -75,12 +75,14 @@ in
     system = "x86_64-linux";
     specialArgs = specialArgs // {
       hostVars = {
-        hostName = "experiment-installer";
+        hostName = "installer";
         stateVersion = "26.05";
       };
     };
     modules = [
       self.bundles.foundation
+      self.features.environment
+      self.features.sound
       self.hosts.iso
     ];
   };

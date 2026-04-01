@@ -48,10 +48,6 @@ in
 
       prefer-no-csd = {};
 
-      input = {
-        mod-key = "Ctrl";
-      };
-
       binds = {
         # Menus
         "Mod+SHIFT+D".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call launcher toggle";
