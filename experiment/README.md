@@ -83,10 +83,12 @@ These are not regressions.
 
 Current intended install path for `legion`:
 
-1. Save this repo somewhere that will survive the wipe.
-   Push it to a remote or copy it somewhere outside the Linux disk you are about
-   to erase.
-2. Boot the normal official NixOS installer ISO in UEFI mode.
+1. Build this flake's installer ISO.
+   ```bash
+   nix build .#nixosConfigurations.iso.config.system.build.isoImage
+   ```
+   The resulting ISO will be available under `./result/iso/`.
+2. Write that ISO to a USB drive and boot it in UEFI mode.
 3. Get networking working in the live environment.
 4. Clone this repo in the live environment.
    Example:
@@ -95,23 +97,23 @@ Current intended install path for `legion`:
    git clone <repo-url> /tmp/dotfiles
    cd /tmp/dotfiles
    ```
-5. Make sure `hosts/legion/impermanence.nix` has `preferences.impermanence.enable = true;`
-   in the repo copy you are installing from.
-6. Run `disko-install` against the Legion disk.
+5. Run `disko-install` against the Legion disk.
    ```bash
    nix run github:nix-community/disko/latest#disko-install -- \
      --write-efi-boot-entries \
      --flake /tmp/dotfiles#legion \
      --disk main /dev/disk/by-id/nvme-Micron_MTFDKBA1T0TFH_221837417A35
    ```
-7. Reboot into the new system.
-8. Keep the flake checkout at `~/.dotfiles` and rebuild from there.
+6. Reboot into the new system.
+7. Keep the flake checkout at `~/.dotfiles` and rebuild from there.
    Example:
    ```bash
    sudo nixos-rebuild switch --flake ~/.dotfiles#legion
    ```
 
 Notes:
+- The installer ISO target lives at `nixosConfigurations.iso` and is meant to be
+  used as the bootstrap environment for fresh installs.
 - `~/.dotfiles` is persisted by default in the impermanence module so the flake
   checkout survives reboots.
 - Legion's old ext4 root, boot, and swap entries were removed from
