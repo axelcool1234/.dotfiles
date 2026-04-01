@@ -10,6 +10,18 @@
     # Hardware-specific NixOS modules from the NixOS hardware project.
     nixos-hardware.url = "github:NixOS/nixos-hardware/master";
 
+    # Declarative disk partitioning and formatting.
+    disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Opt-in persistence helpers for ephemeral roots.
+    impermanence = {
+      url = "github:nix-community/impermanence";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Package wrapping libraries.
     wrappers.url = "github:Lassulus/wrappers";
     wrapper-modules.url = "github:BirdeeHub/nix-wrapper-modules";

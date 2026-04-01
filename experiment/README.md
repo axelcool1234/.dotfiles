@@ -78,3 +78,42 @@ These are not regressions.
 - `starship` is being dropped.
 - Automatic store optimization and garbage collection were removed on purpose
   for now and should only come back after being designed properly.
+
+## Legion Fresh Install
+
+Current intended install path for `legion`:
+
+1. Save this repo somewhere that will survive the wipe.
+   Push it to a remote or copy it somewhere outside the Linux disk you are about
+   to erase.
+2. Boot the normal official NixOS installer ISO in UEFI mode.
+3. Get networking working in the live environment.
+4. Clone this repo in the live environment.
+   Example:
+   ```bash
+   sudo -i
+   git clone <repo-url> /tmp/dotfiles
+   cd /tmp/dotfiles
+   ```
+5. Make sure `hosts/legion/impermanence.nix` has `preferences.impermanence.enable = true;`
+   in the repo copy you are installing from.
+6. Run `disko-install` against the Legion disk.
+   ```bash
+   nix run github:nix-community/disko/latest#disko-install -- \
+     --write-efi-boot-entries \
+     --flake /tmp/dotfiles#legion \
+     --disk main /dev/disk/by-id/nvme-Micron_MTFDKBA1T0TFH_221837417A35
+   ```
+7. Reboot into the new system.
+8. Keep the flake checkout at `~/.dotfiles` and rebuild from there.
+   Example:
+   ```bash
+   sudo nixos-rebuild switch --flake ~/.dotfiles#legion
+   ```
+
+Notes:
+- `~/.dotfiles` is persisted by default in the impermanence module so the flake
+  checkout survives reboots.
+- Legion's old ext4 root, boot, and swap entries were removed from
+  `hosts/legion/hardware-configuration.nix` so Disko is the intended storage
+  source of truth for the fresh install.

@@ -1,10 +1,26 @@
-{ ... }:
+{ config, lib, ... }:
+let
+  cfg = config.preferences.grub;
+in
 {
-  boot.loader = {
+  options.preferences.grub = {
+    # Repo-local source of truth for the EFI System Partition mount point.
+    #
+    # NixOS already exposes `boot.loader.efi.efiSysMountPoint`, but keeping a
+    # custom option here makes it easy for other repo modules to reference the
+    # same value without duplicating a literal like `/boot`.
+    efiSysMountPoint = lib.mkOption {
+      type = lib.types.str;
+      default = "/boot";
+      description = "Mount point for the EFI System Partition used by the GRUB feature.";
+    };
+  };
+
+  config.boot.loader = {
     efi = {
       # Mount point for the EFI System Partition (ESP).
       # This is where GRUB's EFI files are installed.
-      efiSysMountPoint = "/boot";
+      efiSysMountPoint = cfg.efiSysMountPoint;
 
       # Allow NixOS to update EFI boot entries in firmware.
       # Needed on most normal UEFI installs.

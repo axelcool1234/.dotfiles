@@ -1,4 +1,4 @@
-{ lib, myLib, ... }:
+{ lib, ... }:
 let
   # Read the immediate children of `hosts/`.
   # Example shape:
@@ -34,20 +34,17 @@ lib.pipe hostDirs [
   # Output from the lambda:
   # - {
   #     name = "vm";
-  #     value = { imports = [ ... ]; };
+  #     value = ../hosts/vm/configuration.nix;
   #   }
   #
-  # That `value` is itself a NixOS module.
-  # More specifically, it is a combined module whose only job is to import all
-  # the host-specific module files from `hosts/<name>/`.
+  # That `value` is the host's explicit module entrypoint.
+  #
+  # Host-specific configuration stays primitive on purpose: each host's
+  # `configuration.nix` decides which neighboring files to import, instead of the
+  # flake loader recursively pulling in every `*.nix` file under the host folder.
   (map (name: {
     inherit name;
-    value = {
-      # Recursively import all `.nix` files in this host folder so a host can be
-      # split across `configuration.nix`, `hardware-configuration.nix`, and any
-      # smaller host-specific files.
-      imports = myLib.recursivelyImport [ ../hosts/${name} ];
-    };
+    value = ../hosts/${name}/configuration.nix;
   }))
 
   # Step 4: convert the list of records into the final attrset.

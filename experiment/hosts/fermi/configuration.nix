@@ -6,6 +6,8 @@
 
     # Non-hardware stuff
     ./firewall.nix
+    ./impermanence.nix
+    ./disko.nix
   ];
   hardware.enableAllFirmware = true;
 }
