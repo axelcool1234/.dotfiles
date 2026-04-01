@@ -1,4 +1,4 @@
-{ inputs, modulesPath, lib, self, selfPkgs, pkgs, ... }:
+{ inputs, modulesPath, selfPkgs, pkgs, ... }:
 {
   imports = [
     # Build an official-style installer ISO as the base image.
@@ -10,11 +10,6 @@
     selfPkgs.terminal
     selfPkgs.browser
   ];
-
-  programs.niri = lib.mkIf (self.defaults.desktop-shell == "noctalia-shell") {
-    enable = true;
-    package = selfPkgs.niri;
-  };
 
   # Fast to build, reasonable for an installer image.
   isoImage.squashfsCompression = "gzip -Xcompression-level 1";

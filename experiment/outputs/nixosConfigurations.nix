@@ -82,6 +82,7 @@ in
     modules = [
       self.bundles.foundation
       self.features.environment
+      self.features.desktop
       self.features.sound
       self.hosts.iso
     ];
