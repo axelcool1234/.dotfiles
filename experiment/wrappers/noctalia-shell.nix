@@ -81,6 +81,18 @@ in
               id = "Workspace";
               pillSize = 0.7;
             }
+            {
+              id = "Tray";
+              colorizeIcons = true;
+              chevronColor = "secondary";
+            }
+            {
+              id = "MediaMini";
+              maxWidth = 400;
+              scrollingMode = "hover";
+              showVisualizer = true;
+              textColor = "secondary";
+            }
           ];
           center = [
             {
@@ -93,19 +105,40 @@ in
           ];
           right = [
             {
-              id = "Bluetooth";
+              id = "SystemMonitor";
+              compactMode = false;
               iconColor = "tertiary";
+              showCpuCores = false;
+              showCpuFreq = false;
+              showCpuTemp = true;
+              showCpuUsage = true;
+              showDiskAvailable = false;
+              showDiskUsage = true;
+              showDiskUsageAsPercent = true;
+              showGpuTemp = false;
+              showLoadAverage = false;
+              showMemoryAsPercent = false;
+              showMemoryUsage = true;
+              showSwapUsage = true;
             }
             {
-              id = "Network";
+              id = "Volume";
+              displayMode = "alwaysShow";
+              iconColor = "tertiary";
+              middleClickCommand = "${lib.getExe pkgs.pwvucontrol}";
+            }
+            {
+              id = "Microphone";
+              displayMode = "alwaysShow";
+              iconColor = "tertiary";
+              middleClickCommand = "${lib.getExe pkgs.pwvucontrol}";
+            }
+            {
+              id = "Brightness";
+              applyToAllMonitors = true;
+              displayMode = "alwaysShow";
               iconColor = "tertiary";
             }
-            # {
-            #   id = "Launcher";
-            #   useDistroLogo = true;
-            #   enableColorization = true;
-            #   colorizeSystemIcon = "primary";
-            # }
             {
               id = "Battery";
               displayMode = "icon-always";
@@ -113,6 +146,14 @@ in
               hideIfNotDetected = false;
               showNoctaliaPerformance = true;
               showPowerProfiles = true;
+            }
+            {
+              id = "Bluetooth";
+              iconColor = "tertiary";
+            }
+            {
+              id = "Network";
+              iconColor = "tertiary";
             }
             {
               id = "SessionMenu";
