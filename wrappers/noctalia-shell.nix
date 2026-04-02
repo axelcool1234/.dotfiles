@@ -39,8 +39,10 @@ in
 
     passthru.persist = {
       # cliphist stores its database here.
+      # also persist downloaded color schemes
       homeDirectories = [
         ".cache/cliphist"
+        "~/.config/noctalia-shell/colorschemes/"
       ];
     };
 
