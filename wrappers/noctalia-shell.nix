@@ -96,6 +96,9 @@ in
               pillSize = 0.7;
             }
             {
+              id = "Taskbar";
+            }
+            {
               id = "Tray";
               colorizeIcons = true;
               chevronColor = "secondary";

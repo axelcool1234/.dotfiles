@@ -35,9 +35,15 @@ in
 {
   imports = [ wlib.modules.default ];
 
-  config.package = evaluated.config.programs.nixcord.finalPackage.vesktop;
+  config = {
+    package = evaluated.config.programs.nixcord.finalPackage.vesktop;
 
-  config.passthru.impermanence.persist.homeDirectories = [
-    ".config/vesktop/sessionData"
-  ];
+    passthru.persist = {
+      # TODO: Can probably persist just `sessionData` and `state.json`,
+      # not entire directory
+      homeDirectories = [
+        ".config/vesktop"
+      ];
+    };
+  };
 }
