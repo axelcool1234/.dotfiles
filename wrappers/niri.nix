@@ -79,17 +79,17 @@ in
         "Mod+D".spawn = "${lib.getExe selfPkgs.nixcord}";
 
         # Video/Audio Control
-        "XF86AudioRaiseVolume".spawn = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume increase";
-        "XF86AudioLowerVolume".spawn = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume decrease";
-        "XF86AudioMute".spawn = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume muteOutput";
-        "XF86AudioMicMute".spawn = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume muteInput";
+        "XF86AudioRaiseVolume".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume increase";
+        "XF86AudioLowerVolume".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume decrease";
+        "XF86AudioMute".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume muteOutput";
+        "XF86AudioMicMute".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume muteInput";
 
-        "XF86MonBrightnessUp".spawn = "${lib.getExe selfPkgs.noctalia-shell} ipc call brightness increase";
-        "XF86MonBrightnessDown".spawn = "${lib.getExe selfPkgs.noctalia-shell} ipc call brightness decrease";
+        "XF86MonBrightnessUp".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call brightness increase";
+        "XF86MonBrightnessDown".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call brightness decrease";
 
-        "Mod+P".spawn = "${lib.getExe pkgs.playerctl} play-pause";
-        "Mod+BracketLeft".spawn = "${lib.getExe pkgs.playerctl} previous";
-        "Mod+BracketRight".spawn = "${lib.getExe pkgs.playerctl} next";
+        "Mod+P".spawn-sh = "${lib.getExe pkgs.playerctl} play-pause";
+        "Mod+BracketLeft".spawn-sh = "${lib.getExe pkgs.playerctl} previous";
+        "Mod+BracketRight".spawn-sh = "${lib.getExe pkgs.playerctl} next";
 
         # Movement
         "Mod+H".focus-column-or-monitor-left = _: {};
