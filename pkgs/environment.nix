@@ -1,16 +1,13 @@
 {
   inputs,
   lib,
+  myLib,
   pkgs,
   system,
   selfPkgs,
   ...
 }:
-inputs.wrappers.lib.wrapPackage {
-  inherit pkgs;
-
-  package = selfPkgs.shell;
-
+let
   runtimeInputs = [
     # GUI
     selfPkgs.zathura # PDFs
@@ -24,7 +21,7 @@ inputs.wrappers.lib.wrapPackage {
     pkgs.fzf         # Fuzzy finder
     selfPkgs.git     # Version control
     selfPkgs.harness # Default LLM harness
-    selfPkgs.neovim  # Secondary editor 
+    selfPkgs.neovim  # Secondary editor
     selfPkgs.yazi    # Terminal file manager
 
     # Info
@@ -41,15 +38,30 @@ inputs.wrappers.lib.wrapPackage {
     pkgs.nix-prefetch                                              # get hashes
   ];
 
+  collectRuntimePersist = key: myLib.collectPersistFromPackages key runtimeInputs;
+in
+inputs.wrappers.lib.wrapPackage {
+  inherit pkgs runtimeInputs;
+
+  package = selfPkgs.shell;
+
   env = {
     VISUAL = "${lib.getExe selfPkgs.editor}"; # Default editor
     EDITOR = "${lib.getExe selfPkgs.editor}"; # Default editor
   };
 
   passthru.persist = {
+    systemDirectories = collectRuntimePersist "systemDirectories";
+    systemFiles = collectRuntimePersist "systemFiles";
+
     # zoxide stores its jump database here.
-    homeDirectories = [
-      ".local/share/zoxide"
-    ];
+    homeDirectories = lib.unique (
+      [
+        ".local/share/zoxide"
+      ]
+      ++ collectRuntimePersist "homeDirectories"
+    );
+
+    homeFiles = collectRuntimePersist "homeFiles";
   };
 }

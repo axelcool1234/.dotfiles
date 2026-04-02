@@ -189,7 +189,42 @@ let
     # Remove the `null` entries for non-exported items, then convert the remaining
     # `{ name, value }` records into the final attrset.
     builtins.listToAttrs (builtins.filter (entry: entry != null) modules);
+
+  # Detect whether a package exposes impermanence metadata via
+  # `passthru.persist`.
+  packageHasPersist = pkg:
+    builtins.isAttrs pkg
+    && pkg ? passthru
+    && pkg.passthru ? persist;
+
+  # Collect one persist key from a list of persist attrsets.
+  collectPersist = key: persists:
+    lib.unique (
+      lib.flatten (
+        map (
+          persist: persist.${key} or [ ]
+        ) persists
+      )
+    );
+
+  # Collect one persist key from a list of packages that may or may not expose
+  # `passthru.persist`.
+  collectPersistFromPackages = key: packages:
+    collectPersist key (
+      map (
+        pkg: pkg.passthru.persist
+      ) (builtins.filter packageHasPersist packages)
+    );
 in
 {
-  inherit collectImmediateModules collectImmediateNixFiles forAllSystems recursivelyImport supportedSystems;
+  inherit
+    collectImmediateModules
+    collectImmediateNixFiles
+    collectPersist
+    collectPersistFromPackages
+    forAllSystems
+    packageHasPersist
+    recursivelyImport
+    supportedSystems
+    ;
 }

@@ -1,36 +1,22 @@
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  myLib,
+  ...
+}:
 let
   cfg = config.preferences.impermanence;
-
-  packageHasPersist = pkg:
-    builtins.isAttrs pkg
-    && pkg ? passthru
-    && pkg.passthru ? persist;
-
-  persistEnabled = persist:
-    !(persist ? requiresFlatpak)
-    || !persist.requiresFlatpak
-    || config.services.flatpak.enable;
 
   packagePersist = map (
     pkg: pkg.passthru.persist
   ) (builtins.filter (
-    pkg: packageHasPersist pkg && persistEnabled pkg.passthru.persist
+    pkg: myLib.packageHasPersist pkg
   ) config.environment.systemPackages);
 
-  collectPersist = key:
-    lib.unique (
-      lib.flatten (
-        map (
-          persist: persist.${key} or [ ]
-        ) packagePersist
-      )
-    );
-
-  wrapperSystemDirectories = collectPersist "systemDirectories";
-  wrapperSystemFiles = collectPersist "systemFiles";
-  wrapperHomeDirectories = collectPersist "homeDirectories";
-  wrapperHomeFiles = collectPersist "homeFiles";
+  wrapperSystemDirectories = myLib.collectPersist "systemDirectories" packagePersist;
+  wrapperSystemFiles = myLib.collectPersist "systemFiles" packagePersist;
+  wrapperHomeDirectories = myLib.collectPersist "homeDirectories" packagePersist;
+  wrapperHomeFiles = myLib.collectPersist "homeFiles" packagePersist;
 in
 {
   config = lib.mkIf cfg.enable {
@@ -46,7 +32,9 @@ in
       users.${cfg.user} = {
         directories = wrapperHomeDirectories
         ++ cfg.persist.homeDirectories;
-        files = wrapperHomeFiles ++ cfg.persist.homeFiles;
+
+        files = wrapperHomeFiles
+        ++ cfg.persist.homeFiles;
       };
     };
   };

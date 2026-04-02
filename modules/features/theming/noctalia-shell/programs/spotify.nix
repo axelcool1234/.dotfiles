@@ -332,6 +332,13 @@ EOF
   # Packages this program-specific integration needs in the user environment.
   packages = [ spicetifyManaged ];
 
+  # Under Noctalia, Spotify is the Flatpak app plus its user-scoped container.
+  # Persist those homes here, alongside the rest of the Spotify integration.
+  persistHomeDirectories = [
+    ".local/share/flatpak"
+    ".var/app/com.spotify.Client"
+  ];
+
   # This program needs a mutable install target, so enable Flatpak here rather
   # than globally for every shell configuration.
   enableFlatpak = true;
@@ -349,6 +356,7 @@ in
     enableFlatpak
     homeFiles
     packages
+    persistHomeDirectories
     portalConfig
     userService
     userTemplates

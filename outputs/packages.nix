@@ -120,6 +120,7 @@ myLib.forAllSystems inputs (
           system
           pkgs
           lib
+          myLib
           selfPkgs
           ;
       }

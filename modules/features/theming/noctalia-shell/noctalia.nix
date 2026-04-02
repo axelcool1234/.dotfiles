@@ -53,6 +53,12 @@ in
     # Collect program-specific helper packages into the user environment.
     environment.systemPackages = spotify.packages;
 
+    # The Noctalia Spotify path is the only place we intentionally use the
+    # Flatpak app plus its user container, so keep that persistence policy here
+    # with the rest of the integration instead of encoding it as a generic
+    # wrapper-level special case.
+    preferences.impermanence.persist.homeDirectories = spotify.persistHomeDirectories;
+
     hjem.users.${baseVars.username} = {
       enable = true;
       clobberFiles = true;
