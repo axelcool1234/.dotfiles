@@ -89,6 +89,8 @@ in
         rightClickFollowMouse = true;
 
         # Bar Widgets
+        widgetSpacing = 3;
+        contentPadding = 0;
         widgets = {
           left = [
             {
