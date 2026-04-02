@@ -80,6 +80,34 @@ Current intended install path for `legion`:
    ```
    The resulting ISO will be available under `./result/iso/`.
 2. Write that ISO to a USB drive and boot it in UEFI mode.
+   You generally do not mount the USB drive for this. Instead, write the ISO
+   directly to the whole USB device.
+   Example:
+   ```bash
+   cd /path/to/this/repo
+
+   # Identify the USB drive. Look for the removable disk, for example /dev/sda.
+   lsblk
+
+   # If the desktop auto-mounted any partitions on the USB, unmount them first.
+   sudo umount /dev/sdX1 2>/dev/null || true
+   sudo umount /dev/sdX2 2>/dev/null || true
+
+   # Write the ISO to the whole USB disk, not to a partition such as /dev/sdX1.
+   sudo dd \
+     if=./result/iso/<image-name>.iso \
+     of=/dev/sdX \
+     bs=4M \
+     status=progress \
+     conv=fsync
+
+   sync
+   sudo eject /dev/sdX
+   ```
+   Replace `/dev/sdX` with your actual USB device, and replace
+   `<image-name>.iso` with the file under `./result/iso/`.
+   Be careful to use the whole disk path such as `/dev/sda`, not a partition
+   path such as `/dev/sda1`, because this will erase the entire USB drive.
 3. Get networking working in the live environment.
 4. Clone this repo in the live environment.
    Example:
