@@ -16,8 +16,6 @@ in
   config = {
     escapingFunction = wlib.escapeShellArgWithEnv;
 
-    flags."--config" = lib.mkIf useNoctaliaTheme "$NIRI_RUNTIME_CONFIG";
-
     # wrapperModules.niri runs `niri validate -c <generated config>`
     # so we need this stub so it won't fail.
     constructFiles.noctaliaStub = lib.mkIf useNoctaliaTheme {
@@ -30,14 +28,26 @@ in
         runtime_base="${"$"}{XDG_RUNTIME_DIR:-${"$"}{XDG_CACHE_HOME:-${"$"}HOME/.cache}}"
         runtime_dir="$(mktemp -d "$runtime_base/niri-wrapper.XXXXXX")"
         export NIRI_RUNTIME_CONFIG="$runtime_dir/config.kdl"
+        export NIRI_CONFIG="$NIRI_RUNTIME_CONFIG"
         cp ${config.constructFiles.generatedConfig.path} "$NIRI_RUNTIME_CONFIG"
 
-        noctalia_config="${"$"}HOME/.config/niri/noctalia.kdl"
-        if [ -r "$noctalia_config" ]; then
-          ln -sfn "$noctalia_config" "$runtime_dir/noctalia.kdl"
-        else
-          cp ${config.constructFiles.noctaliaStub.path} "$runtime_dir/noctalia.kdl"
+        noctalia_config_dir="${"$"}HOME/.config/niri"
+        noctalia_config="$noctalia_config_dir/noctalia.kdl"
+        mkdir -p "$noctalia_config_dir"
+
+        # Keep the runtime include wired to the mutable user file so later
+        # Noctalia theme updates are visible without restarting niri.
+        if [ ! -e "$noctalia_config" ]; then
+          cp ${config.constructFiles.noctaliaStub.path} "$noctalia_config"
         fi
+
+        # The placeholder is only here to give Noctalia a writable target until
+        # it renders the real theme file.
+        if [ ! -w "$noctalia_config" ]; then
+          chmod u+w "$noctalia_config"
+        fi
+
+        ln -sfn "$noctalia_config" "$runtime_dir/noctalia.kdl"
       ''
     ];
 
