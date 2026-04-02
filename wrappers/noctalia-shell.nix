@@ -105,7 +105,7 @@ in
             }
             {
               id = "MediaMini";
-              maxWidth = 400;
+              maxWidth = 200;
               scrollingMode = "hover";
               showVisualizer = true;
               textColor = "secondary";
