@@ -177,4 +177,7 @@ myLib.forAllSystems inputs (
   # 3. generated public aliases
   basePackages
   // generatedAliases
+  // {
+    default = selfPkgs.vm;
+  }
 )
