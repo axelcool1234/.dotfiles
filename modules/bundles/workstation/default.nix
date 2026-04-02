@@ -10,5 +10,6 @@
     self.features.theming                # Theming
     self.features.grub                   # Bootloader
     self.features.bluetooth              # Bluetooth
+    self.features.power                  # Power management
   ];
 }

@@ -2,7 +2,7 @@
 {
   time = {
     hardwareClockInLocalTime = true;
-    timeZone = "America/Chicago";
+    timeZone = "America/Denver";
   };
 
   i18n = {

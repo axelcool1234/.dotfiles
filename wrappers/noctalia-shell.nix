@@ -37,6 +37,13 @@ in
 
     package = pkgs.noctalia-shell;
 
+    passthru.persist = {
+      # cliphist stores its database here.
+      homeDirectories = [
+        ".cache/cliphist"
+      ];
+    };
+
     preInstalledPlugins = {
       custom-commands.src = "${inputs.noctalia-plugins.outPath}/custom-commands";
     };

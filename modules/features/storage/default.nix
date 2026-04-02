@@ -20,5 +20,6 @@
   preferences.impermanence.persist.homeDirectories = [
     ".dotfiles"
     { directory = ".ssh"; mode = "0700"; }
+    ".cache/nix"
   ];
 }

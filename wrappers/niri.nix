@@ -84,27 +84,42 @@ in
 
         "Mod+F".maximize-column = {};
 
-        "Mod+1".focus-workspace = "w0";
-        "Mod+2".focus-workspace = "w1";
-        "Mod+3".focus-workspace = "w2";
-        "Mod+4".focus-workspace = "w3";
-        "Mod+5".focus-workspace = "w4";
-        "Mod+6".focus-workspace = "w5";
-        "Mod+7".focus-workspace = "w6";
-        "Mod+8".focus-workspace = "w7";
-        "Mod+9".focus-workspace = "w8";
-        "Mod+0".focus-workspace = "w9";
+        "Mod+1".focus-workspace = "w01";
+        "Mod+2".focus-workspace = "w02";
+        "Mod+3".focus-workspace = "w03";
+        "Mod+4".focus-workspace = "w04";
+        "Mod+5".focus-workspace = "w05";
+        "Mod+6".focus-workspace = "w06";
+        "Mod+7".focus-workspace = "w07";
+        "Mod+8".focus-workspace = "w08";
+        "Mod+9".focus-workspace = "w09";
+        "Mod+0".focus-workspace = "w10";
 
-        "Mod+Shift+1".move-column-to-workspace = "w0";
-        "Mod+Shift+2".move-column-to-workspace = "w1";
-        "Mod+Shift+3".move-column-to-workspace = "w2";
-        "Mod+Shift+4".move-column-to-workspace = "w3";
-        "Mod+Shift+5".move-column-to-workspace = "w4";
-        "Mod+Shift+6".move-column-to-workspace = "w5";
-        "Mod+Shift+7".move-column-to-workspace = "w6";
-        "Mod+Shift+8".move-column-to-workspace = "w7";
-        "Mod+Shift+9".move-column-to-workspace = "w8";
-        "Mod+Shift+0".move-column-to-workspace = "w9";
+        "Mod+Shift+1".move-column-to-workspace = "w01";
+        "Mod+Shift+2".move-column-to-workspace = "w02";
+        "Mod+Shift+3".move-column-to-workspace = "w03";
+        "Mod+Shift+4".move-column-to-workspace = "w04";
+        "Mod+Shift+5".move-column-to-workspace = "w05";
+        "Mod+Shift+6".move-column-to-workspace = "w06";
+        "Mod+Shift+7".move-column-to-workspace = "w07";
+        "Mod+Shift+8".move-column-to-workspace = "w08";
+        "Mod+Shift+9".move-column-to-workspace = "w09";
+        "Mod+Shift+0".move-column-to-workspace = "w10";
+      };
+      workspaces = {
+        w01 = { };
+        w02 = { };
+        w03 = { };
+        w04 = { };
+        w05 = { };
+        w06 = { };
+        w07 = { };
+        w08 = { };
+        w09 = { };
+        w10 = { };
+      };
+      window-rule = {
+        open-maximized = true;
       };
 
       xwayland-satellite.path = lib.getExe pkgs.xwayland-satellite;
