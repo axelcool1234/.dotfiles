@@ -70,9 +70,9 @@ in
         //
         (lib.mapAttrs (_path: source: { inherit source; }) spotify.homeFiles)
         // {
-          # User templates are written declaratively too so Noctalia sees them on
+          # User templates are written declaratively too so noctalia-shell sees them on
           # first launch with no manual TOML editing.
-          "noctalia/user-templates.toml".source = noctaliaUserTemplates;
+          "noctalia-shell/user-templates.toml".source = noctaliaUserTemplates;
         };
     };
 

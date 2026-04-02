@@ -9,7 +9,7 @@
     inputs.hjem.nixosModules.default
     ./noctalia-shell/gtk.nix
     ./noctalia-shell/qt.nix
-    ./noctalia-shell/noctalia.nix
+    ./noctalia-shell/noctalia-shell.nix
   ];
 
   options.preferences.desktop-shell = lib.mkOption {
