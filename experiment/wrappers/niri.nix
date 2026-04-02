@@ -82,6 +82,8 @@ in
         "Mod+K".focus-window-up = {};
         "Mod+L".focus-column-right = {};
 
+        "Mod+F".maximize-column = {};
+
         "Mod+1".focus-workspace = "w0";
         "Mod+2".focus-workspace = "w1";
         "Mod+3".focus-workspace = "w2";

@@ -4,7 +4,9 @@
 
   preferences.impermanence = {
     # If we disable this, make sure to regenerate hardware-configuration.nix
-    # so that it manages the filesystem instead of Disko.
+    # so that it manages the filesystem instead of Disko. We would also need
+    # to run the NixOS graphical installer instead of our custom ISO installer,
+    # so that it can wipe the disk.
     enable = true;
 
     # Current Linux/NixOS disk on this Legion. The other NVMe is for Windows.
@@ -13,6 +15,6 @@
     swapSize = "32G";
 
     # Expected btrfs root partition path after the Disko layout is applied.
-    btrfsDevice = "/dev/disk/by-partlabel/nixos";
+    btrfsDevice = "/dev/disk/by-partlabel/disk-main-nixos";
   };
 }
