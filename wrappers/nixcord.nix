@@ -36,4 +36,8 @@ in
   imports = [ wlib.modules.default ];
 
   config.package = evaluated.config.programs.nixcord.finalPackage.vesktop;
+
+  config.passthru.impermanence.persist.homeDirectories = [
+    ".config/vesktop/sessionData"
+  ];
 }

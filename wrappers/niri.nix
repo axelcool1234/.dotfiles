@@ -46,7 +46,12 @@ in
         (lib.getExe selfPkgs.desktop-shell)
       ];
 
-      prefer-no-csd = {};
+      prefer-no-csd = _: {};
+
+      input = {
+        workspace-auto-back-and-forth = _: {};
+        mouse.accel-profile = "flat";
+      };
 
       binds = {
         # Menus
@@ -55,7 +60,7 @@ in
         "Mod+Escape".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call sessionMenu toggle";
         "Mod+Ctrl+L".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call lockScreen lock";
 
-        "Mod+SHIFT+Q".close-window = {};
+        "Mod+SHIFT+Q".close-window = _: {};
 
         # Main Programs
         "Mod+T".spawn = "${lib.getExe selfPkgs.terminal}";
@@ -77,49 +82,204 @@ in
         "Mod+BracketRight".spawn = "${lib.getExe pkgs.playerctl} next";
 
         # Movement
-        "Mod+H".focus-column-left = {};
-        "Mod+J".focus-window-down = {};
-        "Mod+K".focus-window-up = {};
-        "Mod+L".focus-column-right = {};
+        "Mod+H".focus-column-or-monitor-left = _: {};
+        "Mod+J".focus-window-or-workspace-down = _: {};
+        "Mod+K".focus-window-or-workspace-up = _: {};
+        "Mod+L".focus-column-or-monitor-right = _: {};
+
+        "Mod+Shift+H".move-column-left-or-to-monitor-left = _: {};
+        "Mod+Shift+J".move-window-down-or-to-workspace-down = _: {};
+        "Mod+Shift+K".move-window-up-or-to-workspace-up = _: {};
+        "Mod+Shift+L".move-column-right-or-to-monitor-right = _: {};
+
+        "Mod+1".focus-workspace = 1;
+        "Mod+2".focus-workspace = 2;
+        "Mod+3".focus-workspace = 3;
+        "Mod+4".focus-workspace = 4;
+        "Mod+5".focus-workspace = 5;
+        "Mod+6".focus-workspace = 6;
+        "Mod+7".focus-workspace = 7;
+        "Mod+8".focus-workspace = 8;
+        "Mod+9".focus-workspace = 9;
+        "Mod+0".focus-workspace = "w10";
+
+        "Mod+Shift+1".move-column-to-workspace = 1;
+        "Mod+Shift+2".move-column-to-workspace = 2;
+        "Mod+Shift+3".move-column-to-workspace = 3;
+        "Mod+Shift+4".move-column-to-workspace = 4;
+        "Mod+Shift+5".move-column-to-workspace = 5;
+        "Mod+Shift+6".move-column-to-workspace = 6;
+        "Mod+Shift+7".move-column-to-workspace = 7;
+        "Mod+Shift+8".move-column-to-workspace = 8;
+        "Mod+Shift+9".move-column-to-workspace = 9;
+        "Mod+Shift+0".move-column-to-workspace = "w10";
 
         "Mod+F".maximize-column = {};
 
-        "Mod+1".focus-workspace = "w01";
-        "Mod+2".focus-workspace = "w02";
-        "Mod+3".focus-workspace = "w03";
-        "Mod+4".focus-workspace = "w04";
-        "Mod+5".focus-workspace = "w05";
-        "Mod+6".focus-workspace = "w06";
-        "Mod+7".focus-workspace = "w07";
-        "Mod+8".focus-workspace = "w08";
-        "Mod+9".focus-workspace = "w09";
-        "Mod+0".focus-workspace = "w10";
-
-        "Mod+Shift+1".move-column-to-workspace = "w01";
-        "Mod+Shift+2".move-column-to-workspace = "w02";
-        "Mod+Shift+3".move-column-to-workspace = "w03";
-        "Mod+Shift+4".move-column-to-workspace = "w04";
-        "Mod+Shift+5".move-column-to-workspace = "w05";
-        "Mod+Shift+6".move-column-to-workspace = "w06";
-        "Mod+Shift+7".move-column-to-workspace = "w07";
-        "Mod+Shift+8".move-column-to-workspace = "w08";
-        "Mod+Shift+9".move-column-to-workspace = "w09";
-        "Mod+Shift+0".move-column-to-workspace = "w10";
+        # Utils
+        "Mod+Shift+S".screenshot = _: { show-pointer = _: { }; };
       };
       workspaces = {
-        w01 = { };
-        w02 = { };
-        w03 = { };
-        w04 = { };
-        w05 = { };
-        w06 = { };
-        w07 = { };
-        w08 = { };
-        w09 = { };
-        w10 = { };
+        w01 = _: { };
+        w02 = _: { };
+        w03 = _: { };
+        w04 = _: { };
+        w05 = _: { };
+        w06 = _: { };
+        w07 = _: { };
+        w08 = _: { };
+        w09 = _: { };
+        w10 = _: { };
       };
       window-rule = {
         open-maximized = true;
+      };
+      # https://github.com/liixini/shaders
+      # https://github.com/XansiVA/nirimation
+      # https://github.com/jgarza9788/niri-animation-collection
+      animations = {
+        window-open = {
+          duration-ms = 1500;
+          curve = "ease-out-cubic";
+          custom-shader = "            float hash(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+            }
+
+            float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                float a = hash(i);
+                float b = hash(i + vec2(1.0, 0.0));
+                float c = hash(i + vec2(0.0, 1.0));
+                float d = hash(i + vec2(1.0, 1.0));
+                return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+            }
+
+            float fbm(vec2 p) {
+                float v = 0.0;
+                float amp = 0.5;
+                for (int i = 0; i < 6; i++) {
+                    v += amp * noise(p);
+                    p *= 2.0;
+                    amp *= 0.5;
+                }
+                return v;
+            }
+
+            float warpedFbm(vec2 p, float t) {
+                vec2 q = vec2(fbm(p + vec2(0.0, 0.0)),
+                              fbm(p + vec2(5.2, 1.3)));
+
+                vec2 r = vec2(fbm(p + 6.0 * q + vec2(1.7, 9.2) + 0.25 * t),
+                              fbm(p + 6.0 * q + vec2(8.3, 2.8) + 0.22 * t));
+
+                vec2 s = vec2(fbm(p + 5.0 * r + vec2(3.1, 7.4) + 0.18 * t),
+                              fbm(p + 5.0 * r + vec2(6.7, 0.9) + 0.2 * t));
+
+                return fbm(p + 6.0 * s);
+            }
+
+            vec4 open_color(vec3 coords_geo, vec3 size_geo) {
+                float p = niri_clamped_progress;
+                vec2 uv = coords_geo.xy;
+                float seed = niri_random_seed * 100.0;
+
+                float t = p * 12.0 + seed;
+
+                float fluid = warpedFbm(uv * 2.0 + seed, t);
+
+                vec2 center = uv - 0.5;
+                float dist = length(center * vec2(1.0, 0.7));
+
+                float appear = (1.0 - dist * 1.2) + (1.0 - fluid) * 0.7;
+                float reveal = smoothstep(appear + 0.5, appear - 0.5, (1.0 - p) * 1.8);
+
+                float distort_strength = (1.0 - p) * (1.0 - p) * 0.35;
+                vec2 wq = vec2(fbm(uv * 2.0 + vec2(0.0, t * 0.2)),
+                               fbm(uv * 2.0 + vec2(5.2, t * 0.2)));
+                vec2 wr = vec2(fbm(uv * 2.0 + 4.0 * wq + vec2(1.7, 9.2)),
+                               fbm(uv * 2.0 + 4.0 * wq + vec2(8.3, 2.8)));
+                vec2 warped_uv = uv + (wr - 0.5) * distort_strength;
+
+                vec3 tex_coords = niri_geo_to_tex * vec3(warped_uv, 1.0);
+                vec4 color = texture2D(niri_tex, tex_coords.st);
+
+                return color * reveal;
+            }";
+        };
+        window-close = {
+          duration-ms = 1500;
+          curve = "ease-out-cubic";
+          custom-shader = "
+            float hash(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+            }
+
+            float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                f = f * f * (3.0 - 2.0 * f);
+                float a = hash(i);
+                float b = hash(i + vec2(1.0, 0.0));
+                float c = hash(i + vec2(0.0, 1.0));
+                float d = hash(i + vec2(1.0, 1.0));
+                return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+            }
+
+            float fbm(vec2 p) {
+                float v = 0.0;
+                float amp = 0.5;
+                for (int i = 0; i < 6; i++) {
+                    v += amp * noise(p);
+                    p *= 2.0;
+                    amp *= 0.5;
+                }
+                return v;
+            }
+
+            float warpedFbm(vec2 p, float t) {
+                vec2 q = vec2(fbm(p + vec2(0.0, 0.0)),
+                              fbm(p + vec2(5.2, 1.3)));
+
+                vec2 r = vec2(fbm(p + 6.0 * q + vec2(1.7, 9.2) + 0.25 * t),
+                              fbm(p + 6.0 * q + vec2(8.3, 2.8) + 0.22 * t));
+
+                vec2 s = vec2(fbm(p + 5.0 * r + vec2(3.1, 7.4) + 0.18 * t),
+                              fbm(p + 5.0 * r + vec2(6.7, 0.9) + 0.2 * t));
+
+                return fbm(p + 6.0 * s);
+            }
+
+            vec4 close_color(vec3 coords_geo, vec3 size_geo) {
+                float p = niri_clamped_progress;
+                vec2 uv = coords_geo.xy;
+                float seed = niri_random_seed * 100.0;
+
+                float t = p * 12.0 + seed;
+
+                float fluid = warpedFbm(uv * 2.0 + seed, t);
+
+                vec2 center = uv - 0.5;
+                float dist = length(center * vec2(1.0, 0.7));
+
+                float dissolve = (1.0 - dist) * 1.2 + fluid * 0.7;
+                float remain = smoothstep(dissolve + 0.5, dissolve - 0.5, p * 1.8);
+
+                float distort_strength = p * p * 0.4;
+                vec2 wq = vec2(fbm(uv * 2.0 + vec2(0.0, t * 0.2)),
+                               fbm(uv * 2.0 + vec2(5.2, t * 0.2)));
+                vec2 wr = vec2(fbm(uv * 2.0 + 4.0 * wq + vec2(1.7, 9.2)),
+                               fbm(uv * 2.0 + 4.0 * wq + vec2(8.3, 2.8)));
+                vec2 warped_uv = uv + (wr - 0.5) * distort_strength;
+
+                vec3 tex_coords = niri_geo_to_tex * vec3(warped_uv, 1.0);
+                vec4 color = texture2D(niri_tex, tex_coords.st);
+
+                float tail = smoothstep(1.0, 0.8, p);
+                return color * remain * tail;
+            }";
+        };
       };
 
       xwayland-satellite.path = lib.getExe pkgs.xwayland-satellite;
