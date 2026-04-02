@@ -69,8 +69,10 @@ in
         "Mod+W".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call wallpaper toggle";
         "Mod+Escape".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call sessionMenu toggle";
         "Mod+Ctrl+L".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call lockScreen lock";
+        "Mod+Shift+Slash".show-hotkey-overlay = _: {}; 
 
-        "Mod+SHIFT+Q".close-window = _: {};
+        # Escape Hatch
+        "Mod+Shift+Escape".toggle-keyboard-shortcuts-inhibit = _: { allow-inhibiting = false; };
 
         # Main Programs
         "Mod+T".spawn = "${lib.getExe selfPkgs.terminal}";
@@ -102,6 +104,9 @@ in
         "Mod+Shift+K".move-window-up-or-to-workspace-up = _: {};
         "Mod+Shift+L".move-column-right-or-to-monitor-right = _: {};
 
+        "Mod+Shift+Ctrl+J".move-workspace-down = _: {};
+        "Mod+Shift+Ctrl+K".move-workspace-up = _: {};
+
         "Mod+1".focus-workspace = 1;
         "Mod+2".focus-workspace = 2;
         "Mod+3".focus-workspace = 3;
@@ -124,7 +129,13 @@ in
         "Mod+Shift+9".move-column-to-workspace = 9;
         "Mod+Shift+0".move-column-to-workspace = "w10";
 
-        "Mod+F".maximize-column = {};
+        "Mod+Minus".set-column-width = "-10%";
+        "Mod+Equal".set-column-width = "+10%";
+        "Mod+Shift+Minus".set-window-height = "-10%";
+        "Mod+Shift+Equal".set-window-height = "+10%";
+
+        "Mod+F".maximize-column = _: {};
+        "Mod+SHIFT+Q".close-window = _: {};
 
         # Utils
         "Mod+Shift+S".screenshot = _: { show-pointer = _: { }; };
