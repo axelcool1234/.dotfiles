@@ -1,18 +1,19 @@
 { ... }:
 {
   preferences.impermanence = {
-    # Keep the scaffold inactive until the real wipe/install pass.
-    enable = false;
+    # If we disable this, make sure to regenerate hardware-configuration.nix
+    # so that it manages the filesystem instead of Disko. We would also need
+    # to run the NixOS graphical installer instead of our custom ISO installer,
+    # so that it can wipe the disk.
+    enable = true;
 
-    # Replace this with the actual stable disk identifier you want to target when
-    # the Fermi layout is finalized.
-    diskDevice = "/dev/disk/by-id/REPLACE-FERMI-DISK";
+    # Primary Linux / NixOS disk for Fermi.
+    diskDevice = "/dev/disk/by-id/nvme-INTEL_SSDPEKNW020T8_PHNH117201DB2P0C";
 
-    # Intended real-host layout: EFI + swap + btrfs, with swap sized to RAM.
-    # Replace this with Fermi's actual RAM size when you decide the final layout.
-    swapSize = "8G";
+    # Match the host's installed RAM capacity for hibernation-friendly swap.
+    swapSize = "128G";
 
-    # Fill this in once the final runtime btrfs device path is known.
-    btrfsDevice = null;
+    # Expected btrfs root partition path after the Disko layout is applied.
+    btrfsDevice = "/dev/disk/by-partlabel/disk-main-nixos";
   };
 }

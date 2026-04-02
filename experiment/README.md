@@ -166,3 +166,33 @@ Notes:
 - Legion's old ext4 root, boot, and swap entries were removed from
   `hosts/legion/hardware-configuration.nix` so Disko is the intended storage
   source of truth for the fresh install.
+
+## Fermi Fresh Install
+
+Current intended install path for `fermi`:
+
+1. Boot this flake's installer ISO in UEFI mode.
+2. Clone this repo in the live environment and `cd` into the `experiment`
+   directory if needed.
+3. Run the installer helper:
+   ```bash
+   disko-install fermi
+   ```
+4. Reboot into the new system.
+5. Keep the flake checkout at `~/.dotfiles` and rebuild from there.
+   Example:
+   ```bash
+   sudo nixos-rebuild switch --flake ~/.dotfiles#fermi
+   ```
+
+Notes:
+
+- `fermi` is now configured for the Disko + impermanence layout.
+- The target disk is `"/dev/disk/by-id/nvme-INTEL_SSDPEKNW020T8_PHNH117201DB2P0C"`.
+- The intended post-wipe storage layout is:
+  - EFI system partition at `/boot`
+  - `128G` swap partition
+  - btrfs root with subvolumes for `/`, `/nix`, and `/persist`
+- `hosts/fermi/hardware-configuration.nix` no longer describes the old ext4
+  root, boot, and swap devices because Disko is now the storage source of truth
+  for this host.
