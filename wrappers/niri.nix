@@ -138,6 +138,39 @@ in
       # https://github.com/XansiVA/nirimation
       # https://github.com/jgarza9788/niri-animation-collection
       animations = {
+        window-resize = {
+          spring = _: {
+            props = {
+              damping-ratio = 0.45;
+              stiffness = 750;
+              epsilon = 0.0003;
+            };
+          };
+        };
+        # https://easings.co/
+        # https://easings.net/
+        horizontal-view-movement = {
+          # curve = [ "cubic-bezier" 0.68 (-0.6) 0.32 1.6 ]; # easeInOutBack
+          # duration-ms = 600;
+          spring = _: {
+            props = {
+              damping-ratio = 1.0;
+              stiffness = 800;
+              epsilon = 0.0001;
+            };
+          };
+        };
+        workspace-switch = {
+          # curve = [ "cubic-bezier" 0.68 (-0.6) 0.32 1.6 ]; # easeInOutBack
+          # duration-ms = 600;
+          spring = _: {
+            props = {
+              damping-ratio = 1.0;
+              stiffness = 1000;
+              epsilon = 0.0001;
+            };
+          };
+        };
         window-open = {
           duration-ms = 1500;
           curve = "ease-out-cubic";

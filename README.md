@@ -27,6 +27,7 @@
     - Basically telescope needs some management for Noctalia
   - See if Code can change theme dynamically (will have to patch Code)
   - Add themes for MPV and IMV
+- https://www.reddit.com/r/niri/comments/1rjrd26/border_color_depending_on_the_current_neovim_mode/
 
 ## Fresh Install
 We'll use the `legion` host as an example.
