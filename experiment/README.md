@@ -90,7 +90,7 @@ Current intended install path for `legion`:
    ```
 5. Use the installer helper package command (recommended).
    ```bash
-   disko-legion-install
+   disko-install legion
    ```
 6. If you want manual control instead, build the plain `legion` system plus its Disko script.
    ```bash

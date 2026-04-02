@@ -1,48 +1,64 @@
 {
   pkgs,
-  self,
   ...
 }:
 let
-  mkDiskoInstall = host:
-    if self.nixosConfigurations.${host}.config.preferences.impermanence.enable then
-      pkgs.writeShellApplication {
-        name = "disko-${host}-install";
+  diskoInstall = pkgs.writeShellApplication {
+    name = "disko-install";
 
-        runtimeInputs = [
-          pkgs.coreutils
-          pkgs.util-linux
-        ];
+    runtimeInputs = [
+      pkgs.nix
+      pkgs.util-linux
+    ];
 
-        text = ''
-          set -euo pipefail
+    text = ''
+      set -euo pipefail
 
-          umount -R /mnt/disko-install-root 2>/dev/null || true
-          umount -R /mnt 2>/dev/null || true
-          swapoff -a 2>/dev/null || true
+      if [ "$#" -gt 2 ]; then
+        echo "usage: disko-install <legion|fermi> [flake_ref]" >&2
+        exit 1
+      fi
 
-          ${self.nixosConfigurations.${host}.config.system.build.diskoScript}
+      host="''${1:-}"
+      flake_ref="''${2:-.}"
 
-          nixos-install \
-            --no-channel-copy \
-            --no-root-password \
-            --system ${self.nixosConfigurations.${host}.config.system.build.toplevel} \
-            --root /mnt
-        '';
-      }
-    else
-      pkgs.writeShellApplication {
-        name = "disko-${host}-install";
-
-        text = ''
-          echo "disko-${host}-install is disabled because preferences.impermanence.enable is false for ${host}." >&2
+      case "$host" in
+        legion|fermi)
+          ;;
+        *)
+          echo "usage: disko-install <legion|fermi> [flake_ref]" >&2
           exit 1
-        '';
-      };
+          ;;
+      esac
+
+      out_link="/tmp/disko-$host-install"
+
+      if [ "$(nix eval "$flake_ref#nixosConfigurations.$host.config.preferences.impermanence.enable" --json)" != "true" ]; then
+        echo "disko-install is disabled because preferences.impermanence.enable is false for $host." >&2
+        exit 1
+      fi
+
+      rm -f "$out_link" "$out_link-1"
+
+      nix build \
+        "$flake_ref#nixosConfigurations.$host.config.system.build.toplevel" \
+        "$flake_ref#nixosConfigurations.$host.config.system.build.diskoScript" \
+        --out-link "$out_link"
+
+      umount -R /mnt/disko-install-root 2>/dev/null || true
+      umount -R /mnt 2>/dev/null || true
+      swapoff -a 2>/dev/null || true
+
+      "$out_link-1"
+
+      nixos-install \
+        --no-channel-copy \
+        --no-root-password \
+        --system "$out_link" \
+        --root /mnt
+    '';
+  };
 in
 {
-  environment.systemPackages = [
-    (mkDiskoInstall "legion")
-    (mkDiskoInstall "fermi")
-  ];
+  environment.systemPackages = [ diskoInstall ];
 }
