@@ -3,9 +3,9 @@ let
   cfg = config.preferences.impermanence;
 
   subvolumeNames = [
-    cfg.rootSubvolume
-    cfg.nixSubvolume
-    cfg.persistenceSubvolume
+    "root"
+    "nix"
+    "persist"
   ] ++ lib.optionals (cfg.homeSubvolume != null) [ cfg.homeSubvolume ];
 
   uniqueSubvolumeNames = lib.unique subvolumeNames;
@@ -19,14 +19,6 @@ in
       {
         assertion = cfg.btrfsDevice != null;
         message = "Set preferences.impermanence.btrfsDevice before enabling impermanence.";
-      }
-      {
-        assertion = lib.hasPrefix "/" cfg.persistenceRoot;
-        message = "preferences.impermanence.persistenceRoot must be an absolute path like /persist.";
-      }
-      {
-        assertion = cfg.persistenceRoot != "/";
-        message = "preferences.impermanence.persistenceRoot must not be /.";
       }
       {
         assertion = cfg.user != "";

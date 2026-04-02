@@ -19,12 +19,6 @@ in
       description = "Primary user whose home persistence should be managed.";
     };
 
-    persistenceRoot = mkOption {
-      type = types.str;
-      default = "/persist";
-      description = "Mountpoint used for impermanence-managed persistent state.";
-    };
-
     diskDevice = mkOption {
       type = with types; nullOr str;
       default = null;
@@ -58,12 +52,6 @@ in
       description = "Shared mount options for the persistent btrfs subvolumes.";
     };
 
-    rootSubvolume = mkOption {
-      type = types.str;
-      default = "root";
-      description = "Mounted root subvolume that gets rotated on boot.";
-    };
-
     oldRootsDirectory = mkOption {
       type = types.str;
       default = "old_roots";
@@ -74,18 +62,6 @@ in
       type = types.int;
       default = 30;
       description = "How many days of archived root snapshots to keep.";
-    };
-
-    nixSubvolume = mkOption {
-      type = types.str;
-      default = "nix";
-      description = "Persistent subvolume mounted at /nix.";
-    };
-
-    persistenceSubvolume = mkOption {
-      type = types.str;
-      default = "persist";
-      description = "Persistent subvolume mounted at the impermanence root.";
     };
 
     homeSubvolume = mkOption {

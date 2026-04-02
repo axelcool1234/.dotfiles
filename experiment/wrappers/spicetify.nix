@@ -35,19 +35,39 @@ in
 {
   imports = [ wlib.modules.default ];
 
-  config.package =
-    if useNoctaliaTheme then
-      # Under Noctalia, opening "Spotify" should really open the Flatpak app so
-      # Spicetify can patch and refresh it imperatively.
-      flatpakSpotifyLauncher
-    else
-      # Outside Noctalia, keep the old declarative fully-built Spicetify package.
-      inputs.spicetify-nix.lib.mkSpicetify pkgs {
-        enabledExtensions = with spicePkgs.extensions; [
-          adblock
-          shuffle
-          keyboardShortcut
-          fullAppDisplay
-        ];
-      };
+  config = {
+    package =
+      if useNoctaliaTheme then
+        # Under Noctalia, opening "Spotify" should really open the Flatpak app so
+        # Spicetify can patch and refresh it imperatively.
+        flatpakSpotifyLauncher
+      else
+        # Outside Noctalia, keep the old declarative fully-built Spicetify package.
+        inputs.spicetify-nix.lib.mkSpicetify pkgs {
+          enabledExtensions = with spicePkgs.extensions; [
+            adblock
+            shuffle
+            keyboardShortcut
+            fullAppDisplay
+          ];
+        };
+
+    passthru =
+      if useNoctaliaTheme then
+        {
+          persist = {
+            requiresFlatpak = true;
+
+            # Under Noctalia this wrapper launches Flatpak Spotify, so both
+            # Flatpak's shared state and the app-specific container need
+            # persistence.
+            homeDirectories = [
+              ".local/share/flatpak"
+              ".var/app/com.spotify.Client"
+            ];
+          };
+        }
+      else
+        { };
+  };
 }

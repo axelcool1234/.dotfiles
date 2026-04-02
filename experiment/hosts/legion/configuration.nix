@@ -5,6 +5,5 @@
     ./hardware-configuration.nix
     ./drivers.nix
     ./impermanence.nix
-    ./disko.nix
   ];
 }

@@ -1,7 +1,5 @@
-{ self, ... }:
+{ ... }:
 {
-  imports = [ self.features.impermanence ];
-
   preferences.impermanence = {
     # If we disable this, make sure to regenerate hardware-configuration.nix
     # so that it manages the filesystem instead of Disko. We would also need

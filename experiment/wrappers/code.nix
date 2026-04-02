@@ -16,6 +16,12 @@ in
   config = {
     package = inputs.llm-agents.packages.${system}.code;
 
+    passthru.persist = {
+      homeDirectories = [
+        ".code"
+      ];
+    };
+
     # Every Code stores project trust and other mutable state in ~/.code/
     # alongside theme config. Merge only the generated [tui.theme] section into
     # the live config before launch instead of replacing the whole file. Strip

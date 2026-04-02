@@ -1,7 +1,5 @@
-{ self, ... }:
+{ ... }:
 {
-  imports = [ self.features.impermanence ];
-
   preferences.impermanence = {
     # Keep the scaffold inactive until the real wipe/install pass.
     enable = false;

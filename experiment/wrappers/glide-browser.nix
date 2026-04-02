@@ -63,6 +63,12 @@ in
   config = {
     package = glidePackage;
 
+    passthru.persist = {
+      homeDirectories = [
+        ".local/state/glide-browser/profile"
+      ];
+    };
+
     extraPackages = lib.optionals usePywalfox [
       pkgs.pywalfox-native
     ];

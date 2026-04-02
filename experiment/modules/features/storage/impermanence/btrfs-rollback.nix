@@ -10,13 +10,13 @@ in
       mkdir -p /btrfs_tmp
       mount -o subvol=/ ${cfg.btrfsDevice} /btrfs_tmp
 
-      if [[ -e /btrfs_tmp/${cfg.rootSubvolume} ]]; then
+      if [[ -e /btrfs_tmp/root ]]; then
         mkdir -p /btrfs_tmp/${cfg.oldRootsDirectory}
         timestamp=$(${pkgs.coreutils}/bin/date \
-          --date="@$(${pkgs.coreutils}/bin/stat -c %Y /btrfs_tmp/${cfg.rootSubvolume})" \
+          --date="@$(${pkgs.coreutils}/bin/stat -c %Y /btrfs_tmp/root)" \
           "+%Y-%m-%d_%H:%M:%S")
         mv \
-          /btrfs_tmp/${cfg.rootSubvolume} \
+          /btrfs_tmp/root \
           /btrfs_tmp/${cfg.oldRootsDirectory}/$timestamp
       fi
 
@@ -38,7 +38,7 @@ in
         done
       fi
 
-      ${pkgs.btrfs-progs}/bin/btrfs subvolume create /btrfs_tmp/${cfg.rootSubvolume}
+      ${pkgs.btrfs-progs}/bin/btrfs subvolume create /btrfs_tmp/root
 
       umount /btrfs_tmp
     '';

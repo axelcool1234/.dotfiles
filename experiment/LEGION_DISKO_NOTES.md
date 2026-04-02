@@ -44,12 +44,12 @@ The repo's GRUB feature is therefore correct.
 ## Relevant Repo Files
 
 - `modules/features/grub.nix`
-- `modules/features/impermanence/default.nix`
-- `modules/features/impermanence/options.nix`
-- `modules/features/impermanence/btrfs-rollback.nix`
+- `modules/features/storage/default.nix`
+- `modules/features/storage/impermanence/options.nix`
+- `modules/features/storage/impermanence/btrfs-rollback.nix`
+- `modules/features/storage/impermanence/disko.nix`
 - `hosts/legion/configuration.nix`
 - `hosts/legion/impermanence.nix`
-- `hosts/legion/disko.nix`
 
 ## Repo Observations
 
@@ -64,7 +64,7 @@ This is the correct UEFI setup:
 
 `useOSProber` was changed to `false` to avoid live-USB probing noise during install.
 
-### `modules/features/impermanence/*`
+### `modules/features/storage/impermanence/*`
 
 These modules are not causing the GRUB problem.
 
@@ -80,7 +80,7 @@ They provide:
 The `legion` host is also correct.
 
 - `hosts/legion/impermanence.nix` points Disko at the Linux NVMe disk
-- `hosts/legion/disko.nix` defines a UEFI-friendly GPT layout
+- `modules/features/storage/impermanence/disko.nix` defines the shared UEFI-friendly GPT layout
 - the ESP is mounted at `/boot`
 - the root layout is Btrfs with `root`, `nix`, and `persist` subvolumes
 

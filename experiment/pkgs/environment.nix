@@ -45,4 +45,11 @@ inputs.wrappers.lib.wrapPackage {
     VISUAL = "${lib.getExe selfPkgs.editor}"; # Default editor
     EDITOR = "${lib.getExe selfPkgs.editor}"; # Default editor
   };
+
+  passthru.persist = {
+    # zoxide stores its jump database here.
+    homeDirectories = [
+      ".local/share/zoxide"
+    ];
+  };
 }
