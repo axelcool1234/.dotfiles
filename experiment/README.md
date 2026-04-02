@@ -88,14 +88,18 @@ Current intended install path for `legion`:
    git clone <repo-url> /tmp/dotfiles
    cd /tmp/dotfiles
    ```
-5. Build the plain `legion` system plus its host-local Disko script.
+5. Use the installer helper package command (recommended).
+   ```bash
+   disko-legion-install
+   ```
+6. If you want manual control instead, build the plain `legion` system plus its Disko script.
    ```bash
    nix build \
      .#nixosConfigurations.legion.config.system.build.toplevel \
      .#nixosConfigurations.legion.config.system.build.diskoScript \
      --out-link /tmp/dotfiles/result-legion-toplevel
    ```
-6. Partition, format, and mount the Linux disk.
+7. Partition, format, and mount the Linux disk.
    ```bash
    sudo -i
    umount -R /mnt/disko-install-root 2>/dev/null || true
@@ -104,7 +108,7 @@ Current intended install path for `legion`:
 
    /tmp/dotfiles/result-legion-toplevel-1
    ```
-7. Install the already-built `legion` system directly.
+8. Install the already-built `legion` system directly.
    ```bash
    nixos-install \
      --no-channel-copy \
@@ -112,8 +116,8 @@ Current intended install path for `legion`:
      --system /tmp/dotfiles/result-legion-toplevel \
      --root /mnt
    ```
-8. Reboot into the new system.
-9. Keep the flake checkout at `~/.dotfiles` and rebuild from there.
+9. Reboot into the new system.
+10. Keep the flake checkout at `~/.dotfiles` and rebuild from there.
    Example:
    ```bash
    sudo nixos-rebuild switch --flake ~/.dotfiles#legion
@@ -125,9 +129,10 @@ Notes:
 - `legion` is a UEFI install and should keep `boot.loader.grub.device = "nodev"`.
   GRUB should install into the EFI System Partition at `/boot`, not to the whole
   NVMe disk as a BIOS/MBR bootloader.
-- Do not use `disko-install` for this host as-is. Its installer wrapper forces a
-  disk GRUB target during `nixos-install`, which overrides the repo's EFI-only
-  GRUB setup and can trigger the `Installing for i386-pc platform.` failure.
+- Do not use upstream `disko-install` for this host as-is. Its installer wrapper
+  forces a disk GRUB target during `nixos-install`, which overrides the repo's
+  EFI-only GRUB setup and can trigger the `Installing for i386-pc platform.`
+  failure.
 - `~/.dotfiles` is persisted by default in the impermanence module so the flake
   checkout survives reboots.
 - Legion's old ext4 root, boot, and swap entries were removed from

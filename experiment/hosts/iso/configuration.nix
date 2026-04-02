@@ -1,12 +1,16 @@
-{ inputs, modulesPath, selfPkgs, pkgs, ... }:
+{
+  modulesPath,
+  selfPkgs,
+  ...
+}:
 {
   imports = [
     # Build an official-style installer ISO as the base image.
     (modulesPath + "/installer/cd-dvd/installation-cd-minimal.nix")
+    ./disko.nix
   ];
 
   environment.systemPackages = [
-    inputs.disko.packages.${pkgs.stdenv.hostPlatform.system}.default
     selfPkgs.terminal
     selfPkgs.browser
   ];
