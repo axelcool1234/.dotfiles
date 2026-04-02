@@ -4,6 +4,7 @@
   lib,
   pkgs,
   self,
+  selfPkgs,
   wlib,
   ...
 }:
@@ -61,6 +62,7 @@ in
         passwordChars = true;
         lockScreenBlur = 0.5;
         lockScreenTint = 0.25;
+        lockScreenCountdownDuration = 5000;
       };
       bar = {
         # Bar Look
@@ -168,6 +170,19 @@ in
       };
       dock = {
         enabled = false;
+      };
+      appLauncher = {
+        enableClipboardHistory = true;
+        clipboardWatchTextCommand = "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch ${lib.getExe pkgs.cliphist} store";
+        clipboardWatchImageCommand = "${pkgs.wl-clipboard}/bin/wl-paste --type image --watch ${lib.getExe pkgs.cliphist} store";
+        position = "center";
+        terminalCommand = "${lib.getExe selfPkgs.terminal}";
+        viewMode = "grid";
+        density = "comfortable";
+      };
+      sessionMenu = {
+        countdownDuration = 5000;
+        largeButtonsLayout = "grid";
       };
     };
   };
