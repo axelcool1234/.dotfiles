@@ -136,9 +136,8 @@ in
               showDiskUsageAsPercent = true;
               showGpuTemp = false;
               showLoadAverage = false;
-              showMemoryAsPercent = false;
+              showMemoryAsPercent = true;
               showMemoryUsage = true;
-              showSwapUsage = true;
             }
             {
               id = "Volume";

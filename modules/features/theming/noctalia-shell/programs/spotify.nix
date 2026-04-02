@@ -38,7 +38,6 @@ let
       config_dir="''${SPICETIFY_CONFIG:-''${XDG_CONFIG_HOME:-$HOME/.config}/spicetify}"
       state_dir="''${SPICETIFY_STATE:-''${XDG_STATE_HOME:-$HOME/.local/state}/spicetify}"
       config_file="$config_dir/config-xpui.ini"
-      backup_dir="$state_dir/Backup"
       raw_cli='${pkgs.spicetify-cli}/bin/spicetify'
 
       # Small INI reader for the handful of values we need from config-xpui.ini.
@@ -123,11 +122,51 @@ let
         mv "$tmp" "$config_file"
       }
 
-      # Spicetify considers a backup "real" only when the Backup directory holds
-      # one or more `.spa` files.
+      # Spicetify has used both config and state locations for backup files over
+      # time, so probe the common directories instead of assuming only one.
       backup_exists() {
-        [ -d "$backup_dir" ] && find "$backup_dir" -maxdepth 1 -type f -name '*.spa' | grep -q .
+        local backup_dir
+
+        for backup_dir in "$state_dir/Backup" "$config_dir/Backup"; do
+          if [ -d "$backup_dir" ] && find "$backup_dir" -maxdepth 1 -type f -name '*.spa' | grep -q .; then
+            return 0
+          fi
+        done
+
+        return 1
       }
+
+      first_command=""
+      passthrough_flags=()
+      trailing_args=()
+
+      while [ "$#" -gt 0 ]; do
+        case "$1" in
+          -q|--quiet|-e|--extension|-a|--app|-n|--no-restart)
+            passthrough_flags+=("$1")
+            shift
+            ;;
+          --)
+            shift
+            break
+            ;;
+          -*)
+            exec "$raw_cli" "$@"
+            ;;
+          *)
+            first_command="$1"
+            shift
+            trailing_args=("$@")
+            break
+            ;;
+        esac
+      done
+
+      if [ "$#" -gt 0 ] && [ -z "$first_command" ]; then
+        first_command="$1"
+        shift
+        trailing_args=("$@")
+      fi
 
       # The CLI compares `Backup.version` against the current Spotify version read
       # from the prefs file. When Flatpak Spotify updates independently, those can
@@ -165,36 +204,42 @@ let
 
         [ -n "$debugger_url" ] || return 1
 
-        printf '%s' '{"id":0,"method":"Runtime.evaluate","params":{"expression":"window.location.reload()"}}' \
+        # Spotify's embedded Chromium can keep serving cached XPUI assets after
+        # Spicetify rewrites them. A DevTools page reload with cache bypass is
+        # much more reliable than `window.location.reload()` for hot theme swaps.
+        printf '%s' '{"id":0,"method":"Page.reload","params":{"ignoreCache":true}}' \
           | ${pkgs.websocat}/bin/websocat -n1 "$debugger_url" >/dev/null 2>&1
       }
 
-      case "''${1:-}" in
+      case "$first_command" in
         apply|refresh)
           # Treat `apply` and `refresh` as the same steady-state operation:
           # update backup metadata and let the real CLI rewrite the live theme
           # files inside the already-patched Spotify install, then reload the
           # running frontend without killing playback.
+          [ "''${#trailing_args[@]}" -eq 0 ] || exec "$raw_cli" "''${passthrough_flags[@]}" "$first_command" "''${trailing_args[@]}"
           sync_backup_metadata
-          "$raw_cli" refresh --no-restart
+          "$raw_cli" "''${passthrough_flags[@]}" refresh --no-restart
           reload_running_spotify || true
           ;;
         reload)
+          [ "''${#trailing_args[@]}" -eq 0 ] || exec "$raw_cli" "''${passthrough_flags[@]}" reload "''${trailing_args[@]}"
           reload_running_spotify
+          ;;
+        "")
+          exec "$raw_cli" "''${passthrough_flags[@]}"
           ;;
         *)
           # Everything else (`backup`, `restore`, `config`, etc.) should behave
           # exactly like the upstream CLI.
-          exec "$raw_cli" "$@"
+          exec "$raw_cli" "''${passthrough_flags[@]}" "$first_command" "''${trailing_args[@]}"
           ;;
       esac
     '';
   };
 
-  # Noctalia needs *some* user template to fire a post-hook for Spotify. We do
-  # not want to own `Comfy/color.ini` here because Noctalia's built-in Spicetify
-  # template already does that correctly. So this tiny trigger file exists only
-  # to give us a reliable hook point after Noctalia regenerates Spotify colors.
+  # This file exists only to give Noctalia a guaranteed post-hook slot for an
+  # extra managed Spotify refresh after theme changes.
   spicetifyRefreshTrigger = pkgs.writeText "spicetify-refresh-trigger.txt" ''
     trigger
   '';
@@ -228,62 +273,83 @@ let
       "${spicePkgs.extensions.fullAppDisplay.src}/${spicePkgs.extensions.fullAppDisplay.name}";
   };
 
-  # Flatpak install + initial Spicetify patching happen once here.
+  # Keep an explicit user-template hook as a belt-and-suspenders refresh path.
+  userTemplates = {
+    templates.spicetify-refresh = {
+      input_path = spicetifyRefreshTrigger;
+      output_path = "~/.cache/noctalia/spicetify-refresh-trigger.txt";
+      post_hook = "${spicetifyManaged}/bin/spicetify refresh || true";
+    };
+  };
+
+  # Flatpak install + Spicetify repair/bootstrap happen here.
   userService = {
     description = "Install Spotify Flatpak for Noctalia";
     wantedBy = [ "default.target" ];
     serviceConfig.Type = "oneshot";
     script = ''
-      # Marker so first-time setup can be expensive while later boots stay
-      # cheap. We only need the full `backup apply` once per install.
-      marker="$HOME/.config/spicetify/.flatpak-bootstrap-complete"
+      config_dir="$HOME/.config/spicetify"
+      config_file="$config_dir/config-xpui.ini"
+      raw_spicetify='${pkgs.spicetify-cli}/bin/spicetify'
 
-      # Ensure the repository exists before trying to install the app.
-      ${pkgs.flatpak}/bin/flatpak remote-add --user --if-not-exists flathub \
-        https://flathub.org/repo/flathub.flatpakrepo
+      prepare_flatpak_user_exports() {
+        local exports_dir hicolor_dir
 
-      # Install Spotify only if it is not already present in the user's Flatpak
-      # profile.
-      if ! ${pkgs.flatpak}/bin/flatpak info --user com.spotify.Client >/dev/null 2>&1; then
+        exports_dir="$HOME/.local/share/flatpak/exports"
+        hicolor_dir="$exports_dir/share/icons/hicolor"
+
+        mkdir -p "$hicolor_dir"
+
+        # Flatpak sometimes leaves read-only export files behind. Later install
+        # runs then fail while trying to refresh those exports, which can leave
+        # the app half-installed or missing entirely.
+        find "$exports_dir" -type f ! -writable -exec chmod u+w {} + 2>/dev/null || true
+      }
+
+      reinstall_flatpak_spotify() {
+        prepare_flatpak_user_exports
+        ${pkgs.flatpak}/bin/flatpak uninstall --user --noninteractive -y com.spotify.Client >/dev/null 2>&1 || true
         ${pkgs.flatpak}/bin/flatpak install --user --noninteractive -y flathub com.spotify.Client
-      fi
+      }
 
-      # Flatpak app layouts can vary a little. Probe the common locations and
-      # stop with a useful error if neither exists.
-      flatpak_root="$(${pkgs.flatpak}/bin/flatpak info --user --show-location com.spotify.Client)"
+      backup_exists() {
+        local backup_dir
 
-      if [ -d "$flatpak_root/files/extra/share/spotify" ]; then
-        spotify_path="$flatpak_root/files/extra/share/spotify"
-      elif [ -d "$flatpak_root/active/files/extra/share/spotify" ]; then
-        spotify_path="$flatpak_root/active/files/extra/share/spotify"
-      else
-        echo "Could not determine Flatpak Spotify app path" >&2
-        exit 1
-      fi
+        for backup_dir in \
+          "$config_dir/Backup" \
+          "''${XDG_STATE_HOME:-$HOME/.local/state}/spicetify/Backup"
+        do
+          if [ -d "$backup_dir" ] && find "$backup_dir" -maxdepth 1 -type f -name '*.spa' | grep -q .; then
+            return 0
+          fi
+        done
 
-      # Spicetify reads the current Spotify version from the prefs file.
-      # Create the directory and empty file up front so the CLI has something
-      # stable to point at on first boot.
-      prefs_path="$HOME/.var/app/com.spotify.Client/config/spotify/prefs"
-      mkdir -p "$(dirname "$prefs_path")" "$HOME/.config/spicetify/Themes/Comfy"
-      touch "$prefs_path"
+        return 1
+      }
 
-      # `watch -l` expects `assets/` to be a real directory tree. A symlinked
-      # Hjem directory confused the watcher, so copy it here during bootstrap.
-      rm -rf "$HOME/.config/spicetify/Themes/Comfy/assets"
-      mkdir -p "$HOME/.config/spicetify/Themes/Comfy/assets"
-      cp -r "${comfyThemeSrc}/assets/." "$HOME/.config/spicetify/Themes/Comfy/assets/"
+      spotify_install_patched() {
+        [ -f "$spotify_path/Apps/xpui/helper/spicetifyWrapper.js" ]
+      }
 
-      # Seed the mutable color file once, then leave it writable so Noctalia's
-      # built-in Spicetify template can rewrite it later.
-      if [ ! -e "$HOME/.config/spicetify/Themes/Comfy/color.ini" ]; then
-        cp "${comfyThemeSrc}/color.ini" "$HOME/.config/spicetify/Themes/Comfy/color.ini"
-      fi
-      chmod u+w "$HOME/.config/spicetify/Themes/Comfy/color.ini"
+      spicetify_bootstrap_ready() {
+        backup_exists && spotify_install_patched
+      }
 
-      # Write the active Spicetify config each time so it always points at the
-      # current Flatpak install path and current extension list.
-      cat > "$HOME/.config/spicetify/config-xpui.ini" <<EOF
+      resolve_spotify_path() {
+        flatpak_root="$(${pkgs.flatpak}/bin/flatpak info --user --show-location com.spotify.Client)"
+
+        if [ -d "$flatpak_root/files/extra/share/spotify" ]; then
+          spotify_path="$flatpak_root/files/extra/share/spotify"
+        elif [ -d "$flatpak_root/active/files/extra/share/spotify" ]; then
+          spotify_path="$flatpak_root/active/files/extra/share/spotify"
+        else
+          echo "Could not determine Flatpak Spotify app path" >&2
+          exit 1
+        fi
+      }
+
+      write_spicetify_config() {
+        cat > "$config_file" <<EOF
 [Setting]
 spotify_path           = $spotify_path
 prefs_path             = $prefs_path
@@ -308,25 +374,72 @@ sidebar_config        = 0
 home_config           = 1
 experimental_features = 1
 EOF
+      }
 
-      # Only do the heavy initial patch once. Later theme changes should go
-      # through refresh/reload rather than rebuilding the whole app again.
-      if [ ! -e "$marker" ]; then
-        ${spicetifyManaged}/bin/spicetify backup apply || true
-        touch "$marker"
+      # Ensure the repository exists before trying to install the app.
+      ${pkgs.flatpak}/bin/flatpak remote-add --user --if-not-exists flathub \
+        https://flathub.org/repo/flathub.flatpakrepo
+
+      prepare_flatpak_user_exports
+
+      # Install Spotify only if it is not already present in the user's Flatpak
+      # profile.
+      if ! ${pkgs.flatpak}/bin/flatpak info --user com.spotify.Client >/dev/null 2>&1; then
+        ${pkgs.flatpak}/bin/flatpak install --user --noninteractive -y flathub com.spotify.Client
+      fi
+
+      # Flatpak app layouts can vary a little. Probe the common locations and
+      # stop with a useful error if neither exists.
+      resolve_spotify_path
+
+      # Spicetify reads the current Spotify version from the prefs file.
+      # Create the directory and empty file up front so the CLI has something
+      # stable to point at on first boot.
+      prefs_path="$HOME/.var/app/com.spotify.Client/config/spotify/prefs"
+      mkdir -p "$(dirname "$prefs_path")" "$config_dir/Themes/Comfy"
+      touch "$prefs_path"
+
+      # `watch -l` expects `assets/` to be a real directory tree. A symlinked
+      # Hjem directory confused the watcher, so copy it here during bootstrap.
+      rm -rf "$config_dir/Themes/Comfy/assets"
+      mkdir -p "$config_dir/Themes/Comfy/assets"
+      cp -r "${comfyThemeSrc}/assets/." "$config_dir/Themes/Comfy/assets/"
+
+      # Seed the mutable color file once, then leave it writable so Noctalia's
+      # built-in Spicetify template can rewrite it later.
+      if [ ! -e "$config_dir/Themes/Comfy/color.ini" ]; then
+        cp "${comfyThemeSrc}/color.ini" "$config_dir/Themes/Comfy/color.ini"
+      fi
+      chmod u+w "$config_dir/Themes/Comfy/color.ini"
+
+      # Write the active Spicetify config each time so it always points at the
+      # current Flatpak install path and current extension list.
+      write_spicetify_config
+
+      # Keep the current Flatpak deployment patched and backed up. We cannot
+      # trust a stale marker file here because an earlier failed bootstrap can
+      # leave Spotify customized without any valid backup state, which then
+      # breaks later theme refreshes.
+      if ! spicetify_bootstrap_ready; then
+        if ! ${pkgs.flatpak}/bin/flatpak info --user com.spotify.Client >/dev/null 2>&1; then
+          reinstall_flatpak_spotify
+        elif spotify_install_patched && ! backup_exists; then
+          # The app is already patched but the backup disappeared, usually
+          # because the state dir was wiped. Reset the Flatpak app image back to
+          # pristine files so Spicetify can produce a fresh backup again.
+          reinstall_flatpak_spotify
+        fi
+
+        resolve_spotify_path
+        write_spicetify_config
+        "$raw_spicetify" backup apply
+      fi
+
+      if ! spicetify_bootstrap_ready; then
+        echo "Spicetify bootstrap did not produce a usable backup state" >&2
+        exit 1
       fi
     '';
-  };
-
-  # Extra Noctalia user-template entries to merge into user-templates.toml.
-  userTemplates = {
-    templates.spicetify-refresh = {
-      input_path = spicetifyRefreshTrigger;
-      output_path = "~/.cache/noctalia/spicetify-refresh-trigger.txt";
-      # Run the managed wrapper rather than raw CLI so backup metadata is patched
-      # up before `refresh` runs.
-      post_hook = "${spicetifyManaged}/bin/spicetify refresh || true";
-    };
   };
 
   # Packages this program-specific integration needs in the user environment.
@@ -336,6 +449,7 @@ EOF
   # Persist those homes here, alongside the rest of the Spotify integration.
   persistHomeDirectories = [
     ".local/share/flatpak"
+    ".local/state/spicetify"
     ".var/app/com.spotify.Client"
   ];
 
