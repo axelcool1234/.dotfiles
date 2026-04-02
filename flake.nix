@@ -1,185 +1,134 @@
-# Flake.nix
 {
   description = "Flake Config";
 
+  # Flake inputs are the external dependencies this repository can import.
+  # Each input becomes available later under `inputs.<name>`.
   inputs = {
-    # NixOS
+    # Main nixpkgs source used for packages and NixOS systems.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-25-05.url = "github:NixOS/nixpkgs/nixos-25.05";
 
-    # Home-manager
-    home-manager = {
-      url = "github:nix-community/home-manager/master";
+    # Hardware-specific NixOS modules from the NixOS hardware project.
+    nixos-hardware.url = "github:NixOS/nixos-hardware/master";
+
+    # Declarative disk partitioning and formatting.
+    disko = {
+      url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Nix index
-    nix-index-database = {
-      url = "github:nix-community/nix-index-database";
+    # Opt-in persistence helpers for ephemeral roots.
+    impermanence = {
+      url = "github:nix-community/impermanence";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Hyprland
-    # See: https://github.com/hyprwm/Hyprland/issues/5891
-    hyprland = {
-      type = "git";
-      url = "https://github.com/hyprwm/Hyprland";
-      submodules = true;
+    # Package wrapping libraries.
+    wrappers.url = "github:Lassulus/wrappers";
+    wrapper-modules.url = "github:BirdeeHub/nix-wrapper-modules";
+
+    # Browser input for the configured default browser implementation.
+    glide = {
+      url = "github:glide-browser/glide.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Machine-specific hardware modules and sane defaults for known laptops.
-    nixos-hardware = {
-      url = "github:NixOS/nixos-hardware/master";
-    };
-
-    # Spotify
+    # Spotify theming/configuration helper.
     spicetify-nix = {
       url = "github:Gerg-L/spicetify-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Discord
-    nixcord = {
-      url = "github:kaylorben/nixcord";
-    };
-
-    # Glide Browser
-    glide = {
-      url = "github:glide-browser/glide.nix";
+    # Package index helpers used by the shell environment.
+    nix-index-database = {
+      url = "github:nix-community/nix-index-database";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.home-manager.follows = "home-manager";
     };
 
-    # Modded Helix
+    # Discord/Vesktop configuration module source.
+    nixcord.url = "github:FlameFlag/nixcord";
+
+    # Declarative home file manager for files we want linked into the user's home.
+    hjem = {
+      url = "github:feel-co/hjem";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Custom Helix fork.
     modded-helix = {
       url = "github:axelcool1234/helix/modded";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Stylix
-    stylix = {
-      url = "github:nix-community/stylix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    # LLM Agents
+    # External package source for the LLM harness alias.
     llm-agents.url = "github:numtide/llm-agents.nix";
+
+    # Noctalia Shell plugins
+    noctalia-plugins = {
+      url = "github:noctalia-dev/noctalia-plugins";
+      flake = false;
+    };
   };
 
+  # `outputs` is the function that turns all flake inputs into the values this
+  # flake exports: packages, NixOS configurations, and so on.
   outputs =
-    {
-      self,
-      nixpkgs,
-      nixpkgs-25-05,
-      home-manager,
-      ...
-    }@inputs:
+
+    # Pattern-match the argument attrset passed by the flake system.
+    #
+    # `inputs` is the full attrset of all inputs, including `self`.
+    # `self` is also pulled out separately because we use it often.
+    # `...` means there may be additional attributes in the input attrset and we
+    # do not need to name them all explicitly.
+    { self, ... }@inputs:
     let
-      themeLib = import ./themes { lib = nixpkgs.lib; };
+      # Shared nixpkgs helper library.
+      lib = inputs.nixpkgs.lib;
 
-      # Import nixpkgs for one system with this repo's common package config.
-      # Inputs:
-      # - nixpkgsInput: flake input, nixpkgs source to import
-      # - system: string, target system
-      # Output:
-      # - attrset, package set for the target system
-      mkPkgs = nixpkgsInput: system:
-        import nixpkgsInput {
-          inherit system;
-          config.allowUnfree = true;
-          config.allowUnfreePredicate = (_: true);
-        };
+      # Project-local helper functions from `./lib/default.nix`.
+      myLib = import ./lib { inherit lib; };
 
-      # Build the runtime theme bundle for one nixpkgs/system pair.
-      # Inputs:
-      # - nixpkgsInput: flake input, nixpkgs source to import
-      # - system: string, target system
-      # Output:
-      # - attrset, runtime theme bundle
-      mkTheme = nixpkgsInput: system:
-        let
-          pkgs = mkPkgs nixpkgsInput system;
-        in
-        import ./themes/selected_theme.nix { inherit themeLib pkgs; };
+      # Default choices for things like the browser, shell, and window manager.
+      defaults = import ./defaults.nix;
 
-      # Build one NixOS system configuration.
-      # Inputs:
-      # - nixpkgsInput: flake input, nixpkgs source to import
-      # - system: string, target system
-      # - username: string, primary user name
-      # - hostname: string, target host name
-      # - desktop: string, selected desktop/session id
-      # Output:
-      # - attrset, nixosSystem result
-      mkSystem =
-        nixpkgsInput: system: username: hostname: desktop:
-        let
-          theme = mkTheme nixpkgsInput system;
-        in
-        nixpkgsInput.lib.nixosSystem {
-          system = system;
-          specialArgs = {
-            inherit inputs username hostname desktop theme;
-          };
-          modules = [
-            { networking.hostName = hostname; }
-            ./hosts/${hostname}/configuration.nix
-            ./nixos-modules
-          ] ++ nixpkgs.lib.optionals theme.isStylix [
-            inputs.stylix.nixosModules.stylix
-            (themeLib.stylix.nixosModule theme)
-          ];
-        };
+      # Common argument attrset passed into every file under `outputs/`.
+      # This avoids repeating `inherit self inputs lib myLib;` for each one.
+      args = { inherit self inputs lib myLib; };
 
-      # Build one Home Manager configuration.
-      # Inputs:
-      # - nixpkgsInput: flake input, nixpkgs source to import
-      # - system: string, target system
-      # - username: string, primary user name
-      # - hostname: string, target host name
-      # - desktop: string, selected desktop/session id
-      # Output:
-      # - attrset, homeManagerConfiguration result
-      mkHome =
-        nixpkgsInput: system: username: hostname: desktop:
-        let
-          theme = mkTheme nixpkgsInput system;
-        in
-        home-manager.lib.homeManagerConfiguration {
-          pkgs = mkPkgs nixpkgsInput system;
-          extraSpecialArgs = {
-            inherit inputs username hostname desktop theme;
-          };
-          modules = [
-            {
-              # Some imported Home Manager modules consult nixpkgs.config
-              # even when pkgs is provided explicitly.
-              nixpkgs.config.allowUnfree = true;
-              nixpkgs.config.allowUnfreePredicate = (_: true);
+      # Discover every top-level `.nix` file in `outputs/`.
+      # Example shape:
+      # {
+      #   bundles = ./outputs/bundles.nix;
+      #   features = ./outputs/features.nix;
+      #   packages = ./outputs/packages.nix;
+      #   ...
+      # }
+      outputFiles = myLib.collectImmediateNixFiles ./outputs;
 
-              # Basic info home-manager needs
-              home.username = username;
-              home.homeDirectory = "/home/${username}";
-              home.stateVersion = "23.11"; # Please read https://home-manager-options.extranix.com/?query=home.stateVersion before changing.
-              programs.home-manager.enable = true;
-            }
-            ./home.nix
-          ] ++ nixpkgs.lib.optionals theme.isStylix [
-            inputs.stylix.homeModules.stylix
-            (themeLib.stylix.nixosModule theme)
-          ];
-        };
+      # Import each output file with the shared `args` attrset.
+      #
+      # Input to the lambda:
+      # - `_name`: output name, like `packages`
+      # - `file`: path to the corresponding file in `outputs/`
+      #
+      # Output from the lambda:
+      # - the value exported by that file, such as the packages attrset or the
+      #   nixosConfigurations attrset
+      #
+      # Output from the whole `mapAttrs` call:
+      # {
+      #   bundles = <attrset>;
+      #   features = <attrset>;
+      #   hosts = <attrset>;
+      #   ...
+      # }
+      generatedOutputs = lib.mapAttrs (_name: file: import file args) outputFiles;
     in
-    {
-      nixosConfigurations = {
-        #                    pkgs         Architecture     Username    Hostname  Desktop
-        legion = mkSystem inputs.nixpkgs "x86_64-linux" "axelcool1234" "legion" "hyprland";
-        fermi = mkSystem inputs.nixpkgs "x86_64-linux" "axelcool1234" "fermi" "hyprland";
-      };
-      homeConfigurations = {
-        #                                 pkgs         Architecture     Username    Hostname  Desktop
-        "axelcool1234@legion" = mkHome inputs.nixpkgs "x86_64-linux" "axelcool1234" "legion" "hyprland";
-        "axelcool1234@fermi" = mkHome inputs.nixpkgs "x86_64-linux" "axelcool1234" "fermi" "hyprland";
-      };
+
+    # Final flake outputs.
+    #
+    # Start with everything generated from `outputs/`, then also expose
+    # `defaults` directly as its own top-level flake output.
+    generatedOutputs // {
+      inherit defaults;
     };
 }

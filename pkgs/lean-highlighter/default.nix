@@ -1,7 +1,4 @@
-{
-  pkgs ? import <nixpkgs> { },
-}:
-
+{ pkgs, ... }:
 let
   tree-sitter-lean = pkgs.fetchFromGitHub {
     owner = "Julian";
@@ -13,6 +10,8 @@ in
 pkgs.stdenv.mkDerivation {
   pname = "lean-highlighter";
   version = "0.1.0";
+
+  meta.mainProgram = "lean-highlight";
 
   src = ./.;
 
@@ -47,46 +46,6 @@ pkgs.stdenv.mkDerivation {
     exec ${pkgs.python3}/bin/python3 -u $out/bin/highlighter.py "\$@"
     EOF
 
-    cat > $out/bin/lean-semantic-highlight <<EOF
-    #!/usr/bin/env bash
-    if [ "\$#" -lt 1 ]; then
-      echo "Usage: lean-semantic-highlight <file>"
-      exit 1
-    fi
-    exec $out/bin/lean-highlight --semantic "\$1"
-    EOF
-
-    cat > $out/bin/lean-mixed-highlight <<EOF
-    #!/usr/bin/env bash
-    if [ "\$#" -lt 1 ]; then
-      echo "Usage: lean-mixed-highlight <file>"
-      exit 1
-    fi
-    exec $out/bin/lean-highlight --mixed "\$1"
-    EOF
-
-    cat > $out/bin/lean-treesitter-highlight <<EOF
-    #!/usr/bin/env bash
-    if [ "\$#" -lt 1 ]; then
-      echo "Usage: lean-treesitter-highlight <file>"
-      exit 1
-    fi
-    exec $out/bin/lean-highlight --treesitter "\$1"
-    EOF
-
-    cat > $out/bin/lean-pretty <<EOF
-    #!/usr/bin/env bash
-    if [ "\$#" -lt 1 ]; then
-      echo "Usage: lean-pretty <file>"
-      exit 1
-    fi
-    exec $out/bin/lean-highlight --pretty "\$@"
-    EOF
-
     chmod +x $out/bin/lean-highlight
-    chmod +x $out/bin/lean-semantic-highlight
-    chmod +x $out/bin/lean-mixed-highlight
-    chmod +x $out/bin/lean-treesitter-highlight
-    chmod +x $out/bin/lean-pretty
   '';
 }

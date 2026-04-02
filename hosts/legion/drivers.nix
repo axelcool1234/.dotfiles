@@ -183,7 +183,7 @@ EOF
 
     latest_grub_entry() {
       local selector="$1"
-      local cfg=/boot/grub/grub.cfg
+      local cfg=${config.preferences.grub.efiSysMountPoint}/grub/grub.cfg
 
       if [[ ! -r "$cfg" ]]; then
         printf 'Could not read %s\n' "$cfg" >&2

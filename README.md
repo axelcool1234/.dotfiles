@@ -1,172 +1,119 @@
-<!--toc:start-->
-- [What Is Nix?](#what-is-nix)
-  - [The Operating System](#the-operating-system)
-  - [The Language](#the-language)
-  - [The Package Manager](#the-package-manager)
-- [Update Commands](#update-commands)
-- [Rollback Command](#rollback-command)
-- [Delete Broken Generations](#delete-generations)
-- [Fresh Install](#fresh-install)
-  - [Mismatched-Hash](#Mismatched-Hash)
-  - [Post-Setup](#Post-Setup)
-- [Lost Bootloader](#Lost-Bootloader)
-- [Useful NixOS Resources](#useful-nixos-resources)
-- [TODO](#TODO)
-<!--toc:end-->
+# TODO
+- Add fonts back
+- Add cursors back
+- Add Grub theme back
+- Add new screenshot and screen recording utils
+- Add automatic store optimization and garbage collection configuration
+- Figure out cache servers correctly
+  Source: `https://nixos-and-flakes.thiscute.world/nix-store/intro`
+- GitHub CI
+  Include flake integrity checks and possibly NixOS tests.
+  Source: `https://nixos-and-flakes.thiscute.world/other-usage-of-flakes/testing`
+- Figure out `direnv` + `lorri` and add the needed support for local development
+- Explore `nix-portable`, `nix-appimage`, and `railpack` for portability
+- Improve Kitty
+  - Scratchpads
+  - Motion that yanks filepaths and urls
+  - Look into whether or not a Tmux vim mode where you can move around is possible, or
+    if CTRL+SHIFT+E to explore the scrollback is all we can do
+- Explore possibly throwing out the greeter and autologin into the lockscreen instead
+- Niri + Noctalia configuration and bindings
+  - wlr-which-key
+- Switch from PCManFM to just yazi + ripgdrag
+- Theme related TODOs
+  - Glide browser does not start pywalfox automatically. See if there's a fix.
+    - Also pywalfox does not look great. See if there are solutions.
+  - Neovim's telescope should have rounded text boxes and titles shouldn't have filled backgrounds.
+    - Basically telescope needs some management for Noctalia
+  - See if Code can change theme dynamically (will have to patch Code)
+  - Add themes for MPV and IMV
 
-# What Is Nix?
-Nix refers to the holy trinity: An operating system, a programming language, and a package manager.
+## Fresh Install
+We'll use the `legion` host as an example.
 
-## The Operating System
-- NixOS is a Linux distribution that's configured directly from these dotfiles, and can be rolled back upon a system breaking config change. This allows fearless tinkering!
-- NixOS isn't FHS compliant, and cannot execute random binaries. However, there are workarounds for these two issues.
-## The Language
-- NixLang is a functional programming language which means it's pure and immutable. There is no state in a functional programming language.
+1. Build this flake's installer ISO.
+   ```bash
+   nix build .#nixosConfigurations.iso.config.system.build.isoImage
+   ```
+   The resulting ISO will be available under `./result/iso/`.
+2. Write that ISO to a USB drive and boot it in UEFI mode.
+   You generally do not mount the USB drive for this. Instead, write the ISO
+   directly to the whole USB device.
+   Example:
+   ```bash
+   cd /path/to/this/repo
 
-## The Package Manager
-- By far the best of the three is Nix the package manager. It allows declarative, rather than imperative, package management. This provides repoducibility among many systems, including even MacOS!
-- An interesting (although not very useful for many) result that comes from this declarative structure is the fact that a system configured in this declarative way can survive bit rot. 
-- Nix shells allow you to temporarily download packages for one time uses. The package manager will then garbage collect (at your discretion) and remove these packages. No longer do you have to worry about bloat accumulating from packages you forgot to remove!
+   # Identify the USB drive. Look for the removable disk, for example /dev/sda.
+   lsblk
 
-# Update Commands
-- nix flake update
-- sudo nixos-rebuild switch --flake .#hostname
-- home-manager switch --flake .
-  - This will by default check for `$USER@$(hostname)` then `$USER`.
+   # If the desktop auto-mounted any partitions on the USB, unmount them first.
+   sudo umount /dev/sdX1 2>/dev/null || true
+   sudo umount /dev/sdX2 2>/dev/null || true
 
-# Rollback Command
-- sudo nixos-rebuild switch --flake .#hostname --rollback
+   # Write the ISO to the whole USB disk, not to a partition such as /dev/sdX1.
+   sudo dd \
+     if=./result/iso/<image-name>.iso \
+     of=/dev/sdX \
+     bs=4M \
+     status=progress \
+     conv=fsync
 
-# Delete Generations
-https://discourse.nixos.org/t/why-doesnt-nix-collect-garbage-remove-old-generations-from-efi-menu/17592/2
+   sync
+   sudo eject /dev/sdX
+   ```
+   Replace `/dev/sdX` with your actual USB device, and replace
+   `<image-name>.iso` with the file under `./result/iso/`.
+3. Get networking working in the live environment.
+4. Clone this repo in the live environment.
+   Example:
+   ```bash
+   sudo -i
+   git clone <repo-url> /tmp/dotfiles
+   cd /tmp/dotfiles
+   ```
+5. Use the installer helper package command (recommended).
+   ```bash
+   disko-install legion
+   ```
+6. If you want manual control instead, build the plain `legion` system plus its Disko script.
+   ```bash
+   nix build \
+     .#nixosConfigurations.legion.config.system.build.toplevel \
+     .#nixosConfigurations.legion.config.system.build.diskoScript \
+     --out-link /tmp/dotfiles/result-legion-toplevel
+   ```
+7. Partition, format, and mount the Linux disk.
+   ```bash
+   sudo -i
+   umount -R /mnt/disko-install-root 2>/dev/null || true
+   umount -R /mnt 2>/dev/null || true
+   swapoff -a 2>/dev/null || true
 
-The following doesn't work (or it kind of does). I'm keeping it here just in case.
-- List generations: `sudo nix-env --list-generations --profile /nix/var/nix/profiles/system`
-- Switch to working generation: `sudo nix-env --profile /nix/var/nix/profiles/system --switch-generation [generation number]`
-- Delete generation(s): `sudo nix-env --profile /nix/var/nix/profiles/system --delete-generations [generation number(s)]`
-- Cleanup: `nix-collect-garbage -d`
-
-# Fresh Install
-Firstly... DON'T PANIC! This will be an easy transition - even if we only have the terminal (I'm assuming we start in the base home directory).
-1. Execute `sudo nix-channel --add https://nixos.org/channels/nixos-unstable nixos`
-2. Execute `sudo nix-channel --list` and ensure you only have the unstable branch as a channel. Call `sudo nix-channel --remove [name]` if that's not the case.
-3. Execute `sudo nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager`
-4. Execute `sudo nix-channel --update`
-- This website has more information about installing home-manager (you shouldn't need this, but just in case!): 
-  https://nix-community.github.io/home-manager/index.xhtml#sec-install-standalone
-- To ensure it has been installed correctly, try "man home-configuration.nix" - this might only work after step 5.
-5. Execute `nix-shell -p home-manager git`
-6. Clone this repository - `git clone https://github.com/axelcool1234/.dotfiles.git`
-7. Execute `cp /etc/nixos/hardware-configuration.nix .dotfiles/hosts/Legion-Laptop/hardware-configuration.nix`
-7. Execute `cd .dotfiles`
-8. Execute `nix flake update` (you may need to temporarily enable experimental features for the command)
-9. Execute `sudo nixos-rebuild switch --flake .#hostname`
-10. Execute `home-manager switch --flake .`
-
-## Mismatched Hash
-If home-manager fails to install due to a mismatch in a hash, that means we need to update that hash. If you don't know where the mismatched hash is, I recommend:
-1. Execute `nix-shell -p ripgrep`
-2. Execute `rg` and then part of the name of the derivation with the mismatched hash. You should be able to find where it's located. 
-3. Change the `sha256` of the derivation with the `sha256` the home-manager error outputted.
-4. Try to execute `home-manager switch --flake .` again.
-
-Once this is all done, we can execute `reboot` and get into our system. It should be just as how you remembered it! Remember to commit and push these .dotfiles,
-since you called `nix flake update`! You may need to do the post-setup steps to be able to properly commit and push these changes.
-
-## Post-Setup
-We need to make sure our github is configured with an SSH key so we can actually develop! Arguably, this step should be set up using something like sops Nix. At some point
-I'll have to learn how to use that - or some other secret management system for Nix.
-1. Execute `ssh-keygen`
-2. Execute `cat` and wherever the result of the `ssh-keygen` was stored. We want the `.pub` file to be outputted, so we can copy it.
-3. Paste the copied SSH key on github by going to Settings -> "SSH and GPG Keys" -> "New SSH Key" and then save the new SSH key
-4. Execute `cd .dotfiles`
-5. Execute `git remote set-url origin git@github.com:axelcool1234/.dotfiles.git`
-6. Execute `git fetch`
-
-You can now commit and push changes to the .dotfiles to GitHub!
-
-# Lost Bootloader
-Has your bootloader been wiped? Try this:
-1. Boot up a live installation USB (as long as it's Linux this solution should work)
-2. Execute `lsblk -o +LABEL` and identify your Linux root partition (the one with the most space) and the boot partition (should be something like 512 MB)
-2. Execute `sudo mount /dev/[linux root partition] /mnt` 
-3. Execute `sudo mount /dev/[linux boot partition] /mnt/boot`
-4. `cd` to `/mnt`
-5. Execute `cd /home/axelcool1234/.dotfiles`
-6. Execute `sudo nixos-install --flake .#hostname`
-
-Your bootloader should've been reinstalled. Now, when you reboot, GRUB (or whatever bootloader being used at the time) should start up.
-Make sure to execute `nixos-switch` once you've booted into NixOS so that GRUB can be reconfigured.
-
-For more information, I learned how to do this from this [discussion](https://www.reddit.com/r/NixOS/comments/183jlh5/comment/kapafke/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button).
-
-# Useful NixOS Resources
-- https://mynixos.com/
-  - Search for NixOS options, packages, categories (plus the website has some videos and tutorials)
-- https://search.nixos.org/options
-  - Search for NixOS options
-- https://home-manager-options.extranix.com/
-  - Search for NixOS Home Manager options
-- https://search.nixos.org/packages
-  - Search for Nix packages
-- https://www.nixhub.io/
-  - Search for granular versions of Nix packages
-- https://lazamar.co.uk/nix-versions/
-  - Search for ALL versions of a Nix package and the revision you can download it from
-- https://noogle.dev/
-  - Search the NixLang library
-- https://discourse.nixos.org/t/start-a-nix-shell-from-unstable-channel/36227
-  - Information about using nix-shell with the unstable channel. I need to figure out how to make this easier to deal with.
-
-# TODO:
-- Investigate Spicetify and see if it is themed correctly (for both catppuccin and tokyonight)
-- Certain modules have complicated processing (i.e. unreadable sed/awk calls) of theme provided data. We should simplify these steps into something readable.
-- Scratchpads and pypr need some fixing.
-- Switch from Git and LazyGit to Jujutsu and LazyJJ
-- Explore harps for my Helix fork (https://github.com/helix-editor/helix/commit/b24129030653bc3e0a5f37f1d04cb2b88583e6bb)
-- Remove custom jump motion written as a kitten in Kitty
-- Add a section in README.md that shows off what editor, desktop, etc. I use
-- Figure out why nixcord is not enabling my plugins
-- Explore Kitty (and kittens) a bit more
-  - Specifically I'd like to have a motion that yanks file paths and urls
-  - I'd also like to move around Kitty in a nvim mode of some sort, much like Tmux allows
-- Explore Yazi and Scooter more so I don't end up neglecting nice uses for them
-  - Yazi file tree: https://www.reddit.com/r/HelixEditor/comments/1bgsauh/instruction_how_to_setup_file_tree_in_helix_using/
-- Make Thunar NOT ugly (maybe even look for alternatives)
-- Alternatives to nmtui?
-- Migrate all fish scripts to bash or nu scripts so I can remove Fish from home.nix
-- Set up Nix Impermanence (check out the alternative to Nix Impermanence first)
-- Set up Nix secrets
-- Switch to some desktop shell, like Quickshell
-  - This will consequentially allow me to clean up my custom options for nixos-modules
-  - This will consequentially allow me to clean up hyprland/services.nix
-- Check out gtgreet for greetd
-- Figure out why zathura doesn't copy to my clipboard
-
-
-# Dotfiles Rewrite Plan:
-- Switch from home-manager in favor of wrappers (or prioritize wrappers over in home-manager in most cases...?)
-  - Benefit: MUCH faster debugging! direnv + shell.nix allows hot reloading of modified parts of dotfiles without the need for a full rebuild.
-    This also means packages that rely on whatever you changed do not need to be rebuilt either. 
-  - Benefit: Wrappers are self contained and don't rely on symlinks to work properly.
-  - Benefit: Wrapped packages are _portable_, which means other people can download them (if in a dendritic pattern) and try them out! So cool!!!
-  - Note: Look into Hjem for symlinking and Nix-gl (GUI programs, if needed) if we are to fully switch off of home-manager.
-- Look into Dendritic pattern
-  - Benefit: Much better organization of dotfiles
-  - Benefit: Moving things around will not cause problems
-  - Benefit: Modules are outputs of my flake, so other people can download them to try them out.
-- Switch to Niri
-  - Benefit: It's just cooler, I don't know what else to say.
-- Noctalia Shell
-  - Benefit: Based off Quickshell! I want to eventually make my own desktop shell using quickshell, but this is definitely a good way forward from Waybar.
-  - Benefit: 100+ plugins available.
-- wlr-which-key
-  - Pretty self explanatory. Glide has a whichkey, Helix has a whichkey, why not my desktop too?
-- Figure out how "universal" theming, like my new theme library, would work in this.
-  Probably requires a full rewrite - but is it antithetical to the wrappers + dendritic patten setup?
-  - I'd really like to have the ability to change the theme of my entire system on a whim still.
-- Additional wishes:
-  - Impermanence
-  - Secrets?
-
-This'd probably serve best as another branch here before being merged in.
+   /tmp/dotfiles/result-legion-toplevel-1
+   ```
+8. Install the already-built `legion` system directly.
+   ```bash
+   nixos-install \
+     --no-channel-copy \
+     --no-root-password \
+     --system /tmp/dotfiles/result-legion-toplevel \
+     --root /mnt
+   ```
+9. Reboot into the new system.
+10. Keep the flake checkout at `~/.dotfiles` and rebuild from there.
+   Example:
+   ```bash
+   sudo nixos-rebuild switch --flake ~/.dotfiles#legion
+   ```
+Notes:
+- The installer ISO target lives at `nixosConfigurations.iso` and is meant to be
+  used as the bootstrap environment for fresh installs.
+- `legion` is a UEFI install and should keep `boot.loader.grub.device = "nodev"`.
+  GRUB should install into the EFI System Partition at `/boot`, not to the whole
+  NVMe disk as a BIOS/MBR bootloader.
+- Do not use upstream `disko-install` for this host as-is. Its installer wrapper
+  forces a disk GRUB target during `nixos-install`, which overrides the repo's
+  EFI-only GRUB setup and can trigger the `Installing for i386-pc platform.`
+  failure.
+- `~/.dotfiles` is persisted by default in the impermanence module so the flake
+  checkout survives reboots.
