@@ -76,6 +76,7 @@ in
       };
     };
 
+    skills.host-audit.source = ./skills/host-audit;
     skills.persistence-migration.source = ./skills/persistence-migration;
 
     passthru.persist = {
