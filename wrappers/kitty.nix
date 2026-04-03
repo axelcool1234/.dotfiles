@@ -1,6 +1,6 @@
 {
   config,
-  hostVars ? { },
+  hostVars,
   lib,
   pkgs,
   selfPkgs,
@@ -8,7 +8,7 @@
   ...
 }:
 let
-  useNoctaliaTheme = (hostVars.desktop-shell or null) == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
 
   kittyKeyValue = {
     listsAsDuplicateKeys = true;
@@ -55,7 +55,7 @@ in
     settings = {
       # The shell program to execute and the editor to use.
       shell = lib.getExe selfPkgs.environment;
-      editor = lib.getExe selfPkgs.editor;
+      editor = lib.getExe selfPkgs.${hostVars.editor};
 
       # Disable cursor blinking.
       cursor_blink_interval = 0;
@@ -75,7 +75,7 @@ in
         "ctrl+t new_tab_with_cwd"
         "ctrl+h previous_tab"
         "ctrl+l next_tab"
-        "ctrl+shift+e launch --title=scrollback --type=overlay --stdin-source=@screen_scrollback ${lib.getExe selfPkgs.editor}"
+        "ctrl+shift+e launch --title=scrollback --type=overlay --stdin-source=@screen_scrollback ${lib.getExe selfPkgs.${hostVars.editor}}"
       ];
     };
 

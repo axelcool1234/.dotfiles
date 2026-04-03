@@ -83,8 +83,12 @@
       # Shared nixpkgs helper library.
       lib = inputs.nixpkgs.lib;
 
-      # Default choices for things like the browser, shell, and window manager.
-      defaults = import ./defaults.nix;
+      # Evaluate the typed defaults module once and use the resulting attrset as
+      # the generic package/profile defaults across the flake.
+      defaults =
+        (lib.evalModules {
+          modules = [ ./defaults.nix ];
+        }).config.preferences.defaults;
 
       # Project-local helper functions from `./lib/default.nix`.
       myLib = import ./lib {
@@ -94,7 +98,7 @@
       # Common argument attrset passed into every file under `outputs/`.
       # This avoids repeating `inherit self inputs lib myLib;` for each one.
       args = {
-        inherit self inputs lib myLib;
+        inherit self inputs lib myLib defaults;
       };
 
       # Discover every top-level `.nix` file in `outputs/`.
@@ -128,10 +132,5 @@
     in
 
     # Final flake outputs.
-    #
-    # Start with everything generated from `outputs/`, then also expose
-    # `defaults` directly as its own top-level flake output.
-    generatedOutputs // {
-      inherit defaults;
-    };
+    generatedOutputs;
 }

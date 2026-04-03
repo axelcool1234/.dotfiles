@@ -1,4 +1,4 @@
-{ self, inputs, lib, myLib, ... }:
+{ self, inputs, lib, myLib, defaults, ... }:
 let
   # `specialArgs` are extra arguments injected into every module in every host.
   # This lets modules accept `self`, `inputs`, `lib`, `myLib`, and `baseVars`
@@ -14,11 +14,12 @@ let
     {
       hostName,
       modules,
+      overrides ? { },
       system,
       stateVersion ? "26.05",
     }:
     let
-      hostVars = self.defaults // {
+      hostVars = defaults // overrides // {
         inherit hostName stateVersion;
         desktop = "niri";
         desktop-shell = "noctalia-shell";

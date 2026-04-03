@@ -1,11 +1,11 @@
 {
-  hostVars ? { },
+  hostVars,
   lib,
   wlib,
   ...
 }:
 let
-  useNoctaliaTheme = (hostVars.desktop-shell or null) == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
 in
 {
   imports = [ wlib.wrapperModules.btop ];

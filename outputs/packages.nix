@@ -1,4 +1,4 @@
-{ inputs, myLib, ... }:
+{ defaults, inputs, myLib, ... }:
 
 # Build `self.packages` for every supported system.
 #
@@ -28,7 +28,10 @@ myLib.forAllSystems inputs (
     # `nix run .#niri` do not bake in any machine-specific behavior.
     packageSet = myLib.mkPackageSet {
       inherit pkgs system;
-      hostVars = { };
+      hostVars = defaults // {
+        hostName = null;
+        stateVersion = null;
+      };
     };
   in
   packageSet

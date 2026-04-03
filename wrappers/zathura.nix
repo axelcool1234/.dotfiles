@@ -1,13 +1,13 @@
 {
   config,
-  hostVars ? { },
+  hostVars,
   lib,
   pkgs,
   wlib,
   ...
 }:
 let
-  useNoctaliaTheme = (hostVars.desktop-shell or null) == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
 
   formatLine =
     n: v:

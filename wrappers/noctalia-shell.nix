@@ -1,6 +1,6 @@
 {
   config,
-  hostVars ? { },
+  hostVars,
   inputs,
   lib,
   pkgs,
@@ -9,7 +9,7 @@
   ...
 }:
 let
-  useNoctaliaTheme = (hostVars.desktop-shell or null) == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
 
   activeTemplateIds = [
     "gtk"
@@ -189,7 +189,7 @@ in
         clipboardWatchTextCommand = "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch ${lib.getExe pkgs.cliphist} store";
         clipboardWatchImageCommand = "${pkgs.wl-clipboard}/bin/wl-paste --type image --watch ${lib.getExe pkgs.cliphist} store";
         position = "center";
-        terminalCommand = "${lib.getExe selfPkgs.terminal}";
+        terminalCommand = "${lib.getExe selfPkgs.${hostVars.terminal}}";
         viewMode = "grid";
         density = "comfortable";
       };

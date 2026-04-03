@@ -1,4 +1,5 @@
 {
+  hostVars,
   modulesPath,
   selfPkgs,
   ...
@@ -11,8 +12,8 @@
   ];
 
   environment.systemPackages = [
-    selfPkgs.terminal
-    selfPkgs.browser
+    selfPkgs.${hostVars.terminal}
+    selfPkgs.${hostVars.browser}
   ];
 
   # Fast to build, reasonable for an installer image.

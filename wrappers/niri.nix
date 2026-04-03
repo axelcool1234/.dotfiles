@@ -1,6 +1,6 @@
 {
   config,
-  hostVars ? { },
+  hostVars,
   lib,
   pkgs,
   selfPkgs,
@@ -8,8 +8,7 @@
   ...
 }:
 let
-  useNoctaliaTheme = (hostVars.desktop-shell or null) == "noctalia-shell";
-  hostName = hostVars.hostName or null;
+  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
 in
 {
   imports = [ wlib.wrapperModules.niri ];
@@ -53,7 +52,7 @@ in
     ];
 
     settings = {
-      spawn-at-startup = lib.optionals (hostVars ? "desktop-shell") [
+      spawn-at-startup = lib.optionals (hostVars.desktop-shell != null) [
         (lib.getExe selfPkgs.${hostVars.desktop-shell})
       ];
 
@@ -76,8 +75,8 @@ in
         "Mod+Shift+Escape".toggle-keyboard-shortcuts-inhibit = _: { allow-inhibiting = false; };
 
         # Main Programs
-        "Mod+T".spawn = "${lib.getExe selfPkgs.terminal}";
-        "Mod+B".spawn = "${lib.getExe selfPkgs.browser}";
+        "Mod+T".spawn = "${lib.getExe selfPkgs.${hostVars.terminal}}";
+        "Mod+B".spawn = "${lib.getExe selfPkgs.${hostVars.browser}}";
         "Mod+S".spawn = "${lib.getExe selfPkgs.spicetify}";
         "Mod+D".spawn = "${lib.getExe selfPkgs.nixcord}";
 
@@ -340,7 +339,7 @@ in
       };
 
       outputs =
-        if hostName == "fermi" then
+        if hostVars.hostName == "fermi" then
           {
             "DP-3" = {
               scale = 1.25;

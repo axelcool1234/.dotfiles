@@ -1,4 +1,5 @@
 {
+  hostVars,
   inputs,
   lib,
   myLib,
@@ -15,7 +16,7 @@ let
     pkgs.mpv     # Videos
 
     # Utils
-    selfPkgs.editor  # Edit text within files
+    selfPkgs.${hostVars.editor}  # Edit text within files
     pkgs.ripgrep     # Search text within files
     pkgs.fd          # Search files themselves
     pkgs.fzf         # Fuzzy finder
@@ -43,11 +44,11 @@ in
 inputs.wrapper-modules.lib.wrapPackage {
   inherit pkgs extraPackages;
 
-  package = selfPkgs.shell;
+  package = selfPkgs.${hostVars.shell};
 
   env = {
-    VISUAL = "${lib.getExe selfPkgs.editor}"; # Default editor
-    EDITOR = "${lib.getExe selfPkgs.editor}"; # Default editor
+    VISUAL = "${lib.getExe selfPkgs.${hostVars.editor}}"; # Default editor
+    EDITOR = "${lib.getExe selfPkgs.${hostVars.editor}}"; # Default editor
   };
 
   passthru.persist = {

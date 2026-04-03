@@ -1,6 +1,6 @@
 {
   config,
-  hostVars ? { },
+  hostVars,
   inputs,
   lib,
   pkgs,
@@ -9,7 +9,7 @@
   ...
 }:
 let
-  useNoctaliaTheme = (hostVars.desktop-shell or null) == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
   tomlFormat = pkgs.formats.toml { };
   codeConfigTemplate = tomlFormat.generate "every-code-config.toml" config.settings;
   enabledSkills = lib.filterAttrs (_name: skill: skill.enable) config.skills;
