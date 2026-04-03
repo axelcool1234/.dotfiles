@@ -1,5 +1,7 @@
 { inputs, pkgs, ... }:
 {
+  # Host-specific context and evidence for the kernel pin below:
+  # see ./HOST_AUDIT.md (2026-04-02 update).
   imports = [
     # Include the results of the hardware scan.
     ./hardware-configuration.nix
