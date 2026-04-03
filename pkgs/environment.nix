@@ -8,7 +8,7 @@
   ...
 }:
 let
-  runtimeInputs = [
+  extraPackages = [
     # GUI
     selfPkgs.zathura # PDFs
     pkgs.imv     # Images
@@ -38,10 +38,10 @@ let
     pkgs.nix-prefetch                                              # get hashes
   ];
 
-  collectRuntimePersist = key: myLib.collectPersistFromPackages key runtimeInputs;
+  collectRuntimePersist = key: myLib.collectPersistFromPackages key extraPackages;
 in
-inputs.wrappers.lib.wrapPackage {
-  inherit pkgs runtimeInputs;
+inputs.wrapper-modules.lib.wrapPackage {
+  inherit pkgs extraPackages;
 
   package = selfPkgs.shell;
 

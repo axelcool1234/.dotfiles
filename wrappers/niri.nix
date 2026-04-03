@@ -69,14 +69,14 @@ in
         "Mod+W".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call wallpaper toggle";
         "Mod+Escape".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call sessionMenu toggle";
         "Mod+Ctrl+L".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call lockScreen lock";
-        "Mod+Shift+Slash".show-hotkey-overlay = _: {}; 
+        "Mod+Shift+Slash".show-hotkey-overlay = _: {};
 
         # Escape Hatch
         "Mod+Shift+Escape".toggle-keyboard-shortcuts-inhibit = _: { allow-inhibiting = false; };
 
         # Main Programs
         "Mod+T".spawn = "${lib.getExe selfPkgs.terminal}";
-        "Mod+B".spawn = "${lib.getExe selfPkgs.browser}"; 
+        "Mod+B".spawn = "${lib.getExe selfPkgs.browser}";
         "Mod+S".spawn = "${lib.getExe selfPkgs.spicetify}";
         "Mod+D".spawn = "${lib.getExe selfPkgs.nixcord}";
 
@@ -138,6 +138,8 @@ in
         "Mod+SHIFT+Q".close-window = _: {};
 
         # Utils
+        "Mod+R".spawn-sh = "${lib.getExe selfPkgs.region-recorder} toggle video";
+        "Mod+Shift+R".spawn-sh = "${lib.getExe selfPkgs.region-recorder} toggle gif";
         "Mod+Shift+S".screenshot = _: { show-pointer = _: { }; };
       };
       workspaces = {

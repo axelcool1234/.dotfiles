@@ -22,8 +22,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Package wrapping libraries.
-    wrappers.url = "github:Lassulus/wrappers";
+    # Package wrapping library.
     wrapper-modules.url = "github:BirdeeHub/nix-wrapper-modules";
 
     # Browser input for the configured default browser implementation.
