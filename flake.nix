@@ -83,15 +83,19 @@
       # Shared nixpkgs helper library.
       lib = inputs.nixpkgs.lib;
 
-      # Project-local helper functions from `./lib/default.nix`.
-      myLib = import ./lib { inherit lib; };
-
       # Default choices for things like the browser, shell, and window manager.
       defaults = import ./defaults.nix;
 
+      # Project-local helper functions from `./lib/default.nix`.
+      myLib = import ./lib {
+        inherit lib self inputs defaults;
+      };
+
       # Common argument attrset passed into every file under `outputs/`.
       # This avoids repeating `inherit self inputs lib myLib;` for each one.
-      args = { inherit self inputs lib myLib; };
+      args = {
+        inherit self inputs lib myLib;
+      };
 
       # Discover every top-level `.nix` file in `outputs/`.
       # Example shape:

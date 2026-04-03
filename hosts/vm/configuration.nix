@@ -1,7 +1,4 @@
-{ lib, pkgs, self, ... }:
-let
-  selfPkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
-in
+{ lib, selfPkgs, ... }:
 {
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 

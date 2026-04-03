@@ -43,16 +43,20 @@ lib.mapAttrs (
   # - `lib`: nixpkgs lib
   # - `pkgs`: package set for the current system
   # - your `specialArgs`
-  moduleArgs@{ pkgs, ... }:
+  moduleArgs@{
+    pkgs,
+    selfPkgs ? self.packages.${pkgs.stdenv.hostPlatform.system},
+    ...
+  }:
 
   # Import the feature file and extend the arguments with repo-specific values
-  # like `selfPkgs`. `selfPkgs` is the package set for the current system, for
-  # example `self.packages.x86_64-linux`.
+  # like `selfPkgs`. `selfPkgs` is the package set for the current system and host,
+  # for example `self.packages.x86_64-linux` and `"fermi"`.
   import featureFile (
     moduleArgs
     // {
       inherit self;
-      selfPkgs = self.packages.${pkgs.stdenv.hostPlatform.system};
+      inherit selfPkgs;
     }
   )
 ) featureFiles

@@ -9,6 +9,35 @@ let
       username = "axelcool1234";
     };
   };
+
+  mkHostConfiguration =
+    {
+      hostName,
+      modules,
+      system,
+      stateVersion ? "26.05",
+    }:
+    let
+      hostVars = {
+        inherit hostName stateVersion;
+      };
+
+      # Host builds get a package set that knows which machine is being
+      # evaluated so wrappers can branch on `hostVars.hostName` when needed.
+      selfPkgs = myLib.mkPackageSet {
+        pkgs = import inputs.nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
+        inherit system hostVars;
+      };
+    in
+    lib.nixosSystem {
+      inherit system modules;
+      specialArgs = specialArgs // {
+        inherit hostVars selfPkgs;
+      };
+    };
 in
 {
   # Concrete machine definition for the Legion laptop.
@@ -17,14 +46,9 @@ in
   # 1. foundation bundle: shared baseline modules
   # 2. workstation bundle: shared desktop/laptop stack
   # 3. host module: machine-specific overrides and hardware config
-  legion = lib.nixosSystem {
-    specialArgs = specialArgs // {
-      # `hostVars` are host-specific arguments shared across this machine's modules.
-      hostVars = {
-        hostName = "legion";
-        stateVersion = "26.05";
-      };
-    };
+  legion = mkHostConfiguration {
+    hostName = "legion";
+    system = "x86_64-linux";
     modules = [
       self.bundles.foundation
       self.bundles.workstation
@@ -34,13 +58,9 @@ in
   };
 
   # Concrete machine definition for the Fermi system.
-  fermi = lib.nixosSystem {
-    specialArgs = specialArgs // {
-      hostVars = {
-        hostName = "fermi";
-        stateVersion = "26.05";
-      };
-    };
+  fermi = mkHostConfiguration {
+    hostName = "fermi";
+    system = "x86_64-linux";
     modules = [
       self.bundles.foundation
       self.bundles.workstation
@@ -54,13 +74,9 @@ in
   # Make sure to run the virtual machine with GDK_BACKEND=x11.
   # `nix build .#nixosConfigurations.vm.config.system.build.vm`
   # GDK_BACKEND=x11 ./result/bin/run-vm-vm
-  vm = lib.nixosSystem {
-    specialArgs = specialArgs // {
-      hostVars = {
-        hostName = "vm";
-        stateVersion = "26.05";
-      };
-    };
+  vm = mkHostConfiguration {
+    hostName = "vm";
+    system = "x86_64-linux";
     modules = [
       self.bundles.foundation
       self.bundles.workstation
@@ -72,14 +88,9 @@ in
   #
   # Build with:
   # `nix build .#nixosConfigurations.iso.config.system.build.isoImage`
-  iso = lib.nixosSystem {
+  iso = mkHostConfiguration {
+    hostName = "installer";
     system = "x86_64-linux";
-    specialArgs = specialArgs // {
-      hostVars = {
-        hostName = "installer";
-        stateVersion = "26.05";
-      };
-    };
     modules = [
       self.bundles.foundation
       self.features.environment

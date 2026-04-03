@@ -1,5 +1,6 @@
 {
   config,
+  hostVars ? { },
   lib,
   pkgs,
   selfPkgs,
@@ -9,6 +10,7 @@
 }:
 let
   useNoctaliaTheme = self.defaults.desktop-shell == "noctalia-shell";
+  hostName = hostVars.hostName or null;
 in
 {
   imports = [ wlib.wrapperModules.niri ];
@@ -337,6 +339,41 @@ in
             }";
         };
       };
+
+      outputs =
+        if hostName == "fermi" then
+          {
+            "DP-3" = {
+              scale = 1.25;
+              position = _: {
+                props = {
+                  x = -2048;
+                  y = 0;
+                };
+              };
+            };
+            "DP-4" = {
+              scale = 1.5;
+              position = _: {
+                props = {
+                  x = 0;
+                  y = 0;
+                };
+              };
+            };
+            "DP-1" = {
+              scale = 0.85;
+              transform = "90";
+              position = _: {
+                props = {
+                  x = 2560;
+                  y = 0;
+                };
+              };
+            };
+          }
+        else
+          { };
 
       xwayland-satellite.path = lib.getExe pkgs.xwayland-satellite;
 
