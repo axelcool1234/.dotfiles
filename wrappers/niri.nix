@@ -342,16 +342,16 @@ in
         if hostVars.hostName == "fermi" then
           {
             "DP-3" = {
-              scale = 1.25;
+              scale = 1.3333333;
               position = _: {
                 props = {
-                  x = -2048;
+                  x = -1920;
                   y = 0;
                 };
               };
             };
             "DP-4" = {
-              scale = 1.5;
+              scale = 2.0;
               position = _: {
                 props = {
                   x = 0;
@@ -360,12 +360,12 @@ in
               };
             };
             "DP-1" = {
-              scale = 0.85;
+              scale = 0.625;
               transform = "90";
               position = _: {
                 props = {
-                  x = 2560;
-                  y = 0;
+                  x = 1920;
+                  y = -996;
                 };
               };
             };
