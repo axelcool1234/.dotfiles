@@ -1,6 +1,6 @@
 {
+  hostVars ? { },
   inputs,
-  self,
   pkgs,
   wlib,
   system,
@@ -13,7 +13,7 @@ let
 
   # The entire Flatpak launcher path is only for the Noctalia desktop shell.
   # Other shells keep using the simpler prebuilt Spicetify package below.
-  useNoctaliaTheme = self.defaults.desktop-shell == "noctalia-shell";
+  useNoctaliaTheme = (hostVars.desktop-shell or null) == "noctalia-shell";
 
   flatpakSpotifyLauncher = pkgs.writeShellApplication {
     name = "spotify";

@@ -1,4 +1,6 @@
 {
+  config,
+  hostVars,
   self,
   lib,
   selfPkgs,
@@ -9,7 +11,7 @@
 
   options.preferences.desktop = lib.mkOption {
     type = lib.types.enum [ "niri" ];
-    default = self.defaults.desktop;
+    default = hostVars.desktop;
     description = "Desktop implementation to enable.";
   };
 
@@ -18,7 +20,7 @@
 
     environment.systemPackages = [
       selfPkgs.environment # Default interactive shell environment
-      selfPkgs.desktop     # Default desktop/session package
+      selfPkgs.${config.preferences.desktop} # Default desktop/session package
     ];
 
     users.users.greeter = {

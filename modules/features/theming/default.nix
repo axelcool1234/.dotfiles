@@ -1,7 +1,7 @@
 {
+  hostVars,
   inputs,
   lib,
-  self,
   ...
 }:
 {
@@ -14,7 +14,7 @@
 
   options.preferences.desktop-shell = lib.mkOption {
     type = lib.types.enum [ "noctalia-shell" ];
-    default = self.defaults.desktop-shell;
+    default = hostVars.desktop-shell;
     description = "Desktop shell implementation to use for the session UI layer.";
   };
 }

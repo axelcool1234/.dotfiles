@@ -7,6 +7,4 @@
   };
   shell = "fish";
   terminal = "kitty";
-  desktop = "niri";
-  desktop-shell = "noctalia-shell";
 }

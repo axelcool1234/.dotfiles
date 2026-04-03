@@ -4,12 +4,11 @@
   lib,
   pkgs,
   selfPkgs,
-  self,
   wlib,
   ...
 }:
 let
-  useNoctaliaTheme = self.defaults.desktop-shell == "noctalia-shell";
+  useNoctaliaTheme = (hostVars.desktop-shell or null) == "noctalia-shell";
   hostName = hostVars.hostName or null;
 in
 {
@@ -54,8 +53,8 @@ in
     ];
 
     settings = {
-      spawn-at-startup = [
-        (lib.getExe selfPkgs.desktop-shell)
+      spawn-at-startup = lib.optionals (hostVars ? "desktop-shell") [
+        (lib.getExe selfPkgs.${hostVars.desktop-shell})
       ];
 
       prefer-no-csd = _: {};

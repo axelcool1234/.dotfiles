@@ -18,8 +18,10 @@ let
       stateVersion ? "26.05",
     }:
     let
-      hostVars = {
+      hostVars = self.defaults // {
         inherit hostName stateVersion;
+        desktop = "niri";
+        desktop-shell = "noctalia-shell";
       };
 
       # Host builds get a package set that knows which machine is being

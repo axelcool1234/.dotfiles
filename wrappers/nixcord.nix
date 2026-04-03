@@ -1,12 +1,13 @@
 {
+  hostVars ? { },
   inputs,
   pkgs,
-  self,
   wlib,
   system,
   ...
 }:
 let
+  useNoctaliaTheme = (hostVars.desktop-shell or null) == "noctalia-shell";
   evaluated = inputs.nixpkgs.lib.nixosSystem {
     inherit system;
 
@@ -23,7 +24,7 @@ let
             # Noctalia writes the Midnight Discord theme to `noctalia.theme.css`
             # inside the client's `themes/` directory. If Noctalia is the active
             # desktop shell, pre-enable that theme in Vesktop/Vencord.
-            enabledThemes = inputs.nixpkgs.lib.optionals (self.defaults.desktop-shell == "noctalia-shell") [
+            enabledThemes = inputs.nixpkgs.lib.optionals useNoctaliaTheme [
               "noctalia.theme.css"
             ];
           };
