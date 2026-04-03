@@ -2,7 +2,6 @@
 - Add fonts back
 - Add cursors back
 - Add Grub theme back
-- Add new screenshot and screen recording utils
 - Add automatic store optimization and garbage collection configuration
 - Figure out cache servers correctly
   Source: `https://nixos-and-flakes.thiscute.world/nix-store/intro`
@@ -28,6 +27,9 @@
   - See if Code can change theme dynamically (will have to patch Code)
   - Add themes for MPV and IMV
 - https://www.reddit.com/r/niri/comments/1rjrd26/border_color_depending_on_the_current_neovim_mode/
+- Steal this: https://github.com/flickowoa/zephyr/issues/1
+- Switch to this: https://github.com/niri-wm/niri/pull/3483
+- Figure out a way to determine host specific configuration with wrapper packages.
 
 ## Fresh Install
 We'll use the `legion` host as an example.
