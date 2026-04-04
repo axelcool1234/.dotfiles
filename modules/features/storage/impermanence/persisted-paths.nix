@@ -19,23 +19,41 @@ let
   wrapperHomeFiles = myLib.collectPersist "homeFiles" packagePersist;
 in
 {
-  config = lib.mkIf cfg.enable {
-    environment.persistence."/persist" = {
-      hideMounts = true;
+  config = lib.mkMerge [
+    {
+      preferences.impermanence.persist.systemDirectories = [
+        "/var/log"
+        "/var/lib/nixos"
+      ];
 
-      directories = wrapperSystemDirectories
-      ++ cfg.persist.systemDirectories;
+      preferences.impermanence.persist.systemFiles = [
+        "/etc/machine-id"
+      ];
 
-      files = wrapperSystemFiles
-      ++ cfg.persist.systemFiles;
+      preferences.impermanence.persist.homeDirectories = [
+        ".dotfiles"
+        { directory = ".ssh"; mode = "0700"; }
+        ".cache/nix"
+      ];
+    }
+    (lib.mkIf cfg.enable {
+      environment.persistence."/persist" = {
+        hideMounts = true;
 
-      users.${cfg.user} = {
-        directories = wrapperHomeDirectories
-        ++ cfg.persist.homeDirectories;
+        directories = wrapperSystemDirectories
+        ++ cfg.persist.systemDirectories;
 
-        files = wrapperHomeFiles
-        ++ cfg.persist.homeFiles;
+        files = wrapperSystemFiles
+        ++ cfg.persist.systemFiles;
+
+        users.${cfg.user} = {
+          directories = wrapperHomeDirectories
+          ++ cfg.persist.homeDirectories;
+
+          files = wrapperHomeFiles
+          ++ cfg.persist.homeFiles;
+        };
       };
-    };
-  };
+    })
+  ];
 }

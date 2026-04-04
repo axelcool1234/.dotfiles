@@ -7,7 +7,7 @@ let
   #
   # It does not recurse into private implementation helpers such as
   # `desktop/niri.nix`, only the entrypoints (`default.nix`) are exported.
-  featureFiles = myLib.collectImmediateModules ../modules/features;
+  featureFiles = myLib.importTree.entries ../modules/features;
 in
 # Build the exported `self.features` attrset.
 #

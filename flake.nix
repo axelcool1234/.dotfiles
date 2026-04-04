@@ -103,7 +103,13 @@
         inherit self inputs lib myLib defaults;
       };
 
-      # Discover every top-level `.nix` file in `outputs/`.
+      # Discover every exported output module entrypoint under `outputs/`.
+      # This collects:
+      # - `name.nix`
+      # - `name/default.nix`
+      #
+      # It does not recurse into nested helper trees. To nest outputs, add a
+      # boundary directory with its own `default.nix` entrypoint.
       # Example shape:
       # {
       #   bundles = ./outputs/bundles.nix;
@@ -111,7 +117,7 @@
       #   packages = ./outputs/packages.nix;
       #   ...
       # }
-      outputFiles = myLib.collectImmediateNixFiles ./outputs;
+      outputFiles = myLib.importTree.entries ./outputs;
 
       # Import each output file with the shared `args` attrset.
       #

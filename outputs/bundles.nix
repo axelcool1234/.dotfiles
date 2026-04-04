@@ -7,18 +7,18 @@ let
   #
   # Example output shape:
   # {
-  #   foundation = ../modules/bundles/foundation;
-  #   workstation = ../modules/bundles/workstation;
+  #   foundation = ../modules/bundles/foundation.nix;
+  #   workstation = ../modules/bundles/workstation.nix;
   #   ...
   # }
-  bundleFiles = myLib.collectImmediateModules ../modules/bundles;
+  bundleFiles = myLib.importTree.entries ../modules/bundles;
 in
 # Import each discovered bundle entrypoint.
 #
 # Input shape:
 # {
-#   foundation = ../modules/bundles/foundation;
-#   workstation = ../modules/bundles/workstation;
+#   foundation = ../modules/bundles/foundation.nix;
+#   workstation = ../modules/bundles/workstation.nix;
 #   ...
 # }
 #
@@ -35,8 +35,8 @@ lib.mapAttrs (
 
   # `bundleFile` is the path for that exported bundle entrypoint.
   # Example values:
-  # - ../modules/bundles/foundation
-  # - ../modules/bundles/workstation
+  # - ../modules/bundles/foundation.nix
+  # - ../modules/bundles/workstation.nix
   import bundleFile {
     inherit self;
   }

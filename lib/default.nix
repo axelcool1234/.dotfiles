@@ -5,6 +5,8 @@
   aliases,
 }:
 let
+  importTree = import ./import-tree.nix { inherit lib; };
+
   # Systems this flake builds package and dev-shell outputs for.
   supportedSystems = [
     "aarch64-darwin"
@@ -53,171 +55,6 @@ let
       }
     );
 
-  # Expand a mixed list of files and directories into a flat list of `.nix` modules.
-  # Inputs:
-  # - list: list containing paths or module values to include
-  # Output:
-  # - list of `.nix` paths and passthrough non-path values
-  # Example:
-  # - input: [ ./modules/features ./hosts/vm ({ pkgs, ... }: { }) ]
-  # - output: [ ./modules/features/nix.nix ./modules/features/users.nix ./hosts/vm/configuration.nix <lambda> ]
-  recursivelyImport =
-    list:
-    let
-      inherit (lib) hasSuffix;
-      inherit (builtins)
-        concatMap
-        filter
-        isPath
-        readFileType
-        ;
-
-      # Turn one list element into zero or more elements.
-      #
-      # Input:
-      # - `elem`: one element from the original input list
-      #
-      # Output:
-      # - `[ elem ]` when it is not a directory
-      # - all files inside the directory when it is a directory
-      expandIfFolder =
-        elem:
-        if !isPath elem || readFileType elem != "directory" then
-          [ elem ]
-        else
-          lib.filesystem.listFilesRecursive elem;
-    in
-
-    # First, `concatMap expandIfFolder list` walks the input list and replaces any
-    # directory with the files inside it.
-    #
-    # Example:
-    # - input: [ ./modules/features ./hosts/vm ({ pkgs, ... }: { }) ]
-    # - after concatMap: [ ./modules/features/desktop/default.nix ./modules/features/grub.nix ./hosts/vm/configuration.nix <lambda> ... ]
-    #
-    # Then `filter` removes any path that is not a `.nix` file, while leaving
-    # non-path values (like an inline module lambda) untouched.
-    filter
-      # Filter out any path that doesn't look like `*.nix`. Don't forget to use
-      # toString to prevent copying paths to the store unnecessarily
-      (elem: !isPath elem || hasSuffix ".nix" (toString elem))
-      # Expand any folder to all the files within it.
-      (concatMap expandIfFolder list);
-
-  # Collect top-level `.nix` files from a directory and name them by filename.
-  # Inputs:
-  # - dir: path, directory to scan without recursion
-  # Output:
-  # - attrset mapping basename-without-extension to file path
-  # Example:
-  # - input: ./modules/features
-  # - output: { desktop = ./modules/features/desktop.nix; environment = ./modules/features/environment.nix; }
-  collectImmediateNixFiles =
-    dir:
-    let
-      # Read the immediate children of `dir` only.
-      # Example:
-      # {
-      #   desktop = "directory";
-      #   environment.nix = "regular";
-      #   README.md = "regular";
-      # }
-      entries = builtins.readDir dir;
-
-      # Keep only top-level regular files ending in `.nix`, except `default.nix`.
-      # The result is just the file names, not full paths yet.
-      #
-      # Example output:
-      # [ "environment.nix" "grub.nix" ]
-      nixFiles = lib.attrNames (
-        lib.filterAttrs (
-          name: type:
-          type == "regular"
-          && lib.hasSuffix ".nix" name
-          && name != "default.nix"
-        ) entries
-      );
-    in
-
-    # Convert each filename into the `{ name, value }` shape expected by
-    # `builtins.listToAttrs`.
-    #
-    # Example:
-    # - input filename: "environment.nix"
-    # - output record: { name = "environment"; value = ./modules/features/environment.nix; }
-    builtins.listToAttrs (
-      map (name: {
-        name = lib.removeSuffix ".nix" name;
-        value = dir + "/${name}";
-      }) nixFiles
-    );
-
-  # Collect top-level module entrypoints from a directory.
-  # Inputs:
-  # - dir: path, directory containing `name.nix` files or `name/default.nix` folders
-  # Output:
-  # - attrset mapping module name to module path
-  # Example:
-  # - input: ./modules/features
-  # - output: { desktop = ./modules/features/desktop; environment = ./modules/features/environment.nix; }
-  collectImmediateModules =
-    dir:
-    let
-      # Read the immediate children of `dir` only.
-      entries = builtins.readDir dir;
-
-      # Walk each top-level entry and convert it into either:
-      # - a `{ name, value }` record for exported modules
-      # - `null` when the entry should not be exported
-      #
-      # This lets one folder mix:
-      # - `desktop/default.nix` style modules
-      # - `environment.nix` style modules
-      # - private helper folders/files we do not want to export directly
-      modules = lib.mapAttrsToList (
-        name: type:
-        if type == "regular" && lib.hasSuffix ".nix" name && name != "default.nix" then
-          {
-            name = lib.removeSuffix ".nix" name;
-            value = dir + "/${name}";
-          }
-        else if type == "directory" && builtins.pathExists (dir + "/${name}/default.nix") then
-          {
-            inherit name;
-            value = dir + "/${name}";
-          }
-        else
-          null
-      ) entries;
-    in
-
-    # Remove the `null` entries for non-exported items, then convert the remaining
-    # `{ name, value }` records into the final attrset.
-    builtins.listToAttrs (builtins.filter (entry: entry != null) modules);
-
-  # Collect immediate child directories that contain a specific marker file.
-  # Inputs:
-  # - dir: path, directory to scan without recursion
-  # - marker: string, file name required inside each kept child directory
-  # Output:
-  # - attrset mapping directory name to directory path
-  collectImmediateDirectoriesWithFile =
-    dir: marker:
-    let
-      entries = builtins.readDir dir;
-      directories = lib.mapAttrsToList (
-        name: type:
-        if type == "directory" && builtins.pathExists (dir + "/${name}/${marker}") then
-          {
-            inherit name;
-            value = dir + "/${name}";
-          }
-        else
-          null
-      ) entries;
-    in
-    builtins.listToAttrs (builtins.filter (entry: entry != null) directories);
-
   # Detect whether a package exposes impermanence metadata via
   # `passthru.persist`.
   packageHasPersist = pkg:
@@ -263,7 +100,7 @@ let
       #
       # These are modules evaluated by `wrapper-modules`, and they produce wrapped
       # packages such as `fish`, `kitty`, `niri`, and so on.
-      wrapperModules = collectImmediateModules ../wrappers;
+      wrapperModules = myLib.importTree.entries ../wrappers;
       
       # Real package implementations under `pkgs/`.
       # This also collects only top-level package entrypoints:
@@ -272,7 +109,7 @@ let
       #
       # We use this folder for custom packages that need logic beyond the wrapper
       # layer.
-      directPackages = collectImmediateModules ../pkgs;
+      directPackages = myLib.importTree.entries ../pkgs;
 
       
       # Resolve alias specification from the evaluated aliases attrset.
@@ -419,14 +256,11 @@ let
 
   helpers = rec {
   inherit
-    collectImmediateModules
-    collectImmediateDirectoriesWithFile
-    collectImmediateNixFiles
+    importTree
     collectPersist
     collectPersistFromPackages
     forAllSystems
     packageHasPersist
-    recursivelyImport
     supportedSystems
     ;
 

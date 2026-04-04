@@ -1,6 +1,7 @@
 { lib, ... }:
 let
-  fontPresets = import ./fonts;
+  importTree = import ./lib/import-tree.nix { inherit lib; };
+  fontPresets = lib.mapAttrs (_name: file: import file) (importTree.entries ./fonts);
   selectedFontPreset = fontPresets."jetbrains";
 
   # Reuse the common option fragments across multiple font role submodules.

@@ -1,15 +1,8 @@
-{ lib, ... }:
+{ lib, myLib, ... }:
 let
   templatesDir = ../templates;
-
-  templateNames =
-    lib.attrNames (
-      lib.filterAttrs (
-        name: type:
-        type == "directory"
-        && builtins.pathExists (templatesDir + "/${name}/flake.nix")
-      ) (builtins.readDir templatesDir)
-    );
+  templateDirs = myLib.importTree.dirsWithFile templatesDir "flake.nix";
+  templateNames = lib.attrNames templateDirs;
 
   templates = builtins.listToAttrs (
     map (name: {

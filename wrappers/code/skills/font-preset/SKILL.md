@@ -13,7 +13,7 @@ this dotfiles repo.
 This skill is specific to the current font preset architecture:
 
 - preset data lives under `fonts/*.nix`
-- the preset registry lives in `fonts/default.nix`
+- preset files are discovered automatically from `fonts/*.nix`
 - the active preset is selected in `defaults.nix` via the local preset name
 - the schema is declared under `preferences.defaults.fonts`
 - consumers read the shared font roles and do their own string formatting
@@ -47,7 +47,6 @@ current repo grows consumers for them again.
 ## Files To Inspect First
 
 - `defaults.nix`
-- `fonts/default.nix`
 - the target preset file under `fonts/`
 - `modules/features/fonts.nix`
 - `modules/features/theming/noctalia-shell/gtk.nix`
@@ -132,7 +131,8 @@ If you cannot verify a PostScript name, omit it rather than guessing.
 
 Put the pure data in `fonts/<preset-name>.nix`.
 
-Then register it in `fonts/default.nix`.
+No manual registry update is needed because `defaults.nix` discovers preset
+files automatically.
 
 If the user wants the new preset selected immediately, update the local preset
 selection in `defaults.nix`.
@@ -171,7 +171,7 @@ nix build .#packages.x86_64-linux.zathura
 ## Completion Checklist
 
 - [ ] Preset file added or updated under `fonts/`
-- [ ] `fonts/default.nix` registry updated if needed
+- [ ] New preset file is discoverable by the automatic font preset import flow
 - [ ] Family names verified against the actual installed font files where necessary
 - [ ] `packageAttrPath` values verified against nixpkgs
 - [ ] `postscriptName` verified with `fc-scan` when present

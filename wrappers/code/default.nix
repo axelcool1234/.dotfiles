@@ -13,7 +13,7 @@ let
   useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
   tomlFormat = pkgs.formats.toml { };
   codeConfigTemplate = tomlFormat.generate "every-code-config.toml" config.settings;
-  discoveredSkills = myLib.collectImmediateDirectoriesWithFile ./skills "SKILL.md";
+  discoveredSkills = myLib.importTree.dirsWithFile ./skills "SKILL.md";
   enabledSkills = lib.filterAttrs (_name: skill: skill.enable) config.skills;
   declarativeSkillNames = lib.attrNames enabledSkills;
   declarativeSkills = pkgs.linkFarm "every-code-skills" (
