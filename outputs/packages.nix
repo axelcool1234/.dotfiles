@@ -28,7 +28,8 @@ myLib.forAllSystems inputs (
     # `nix run .#niri` do not bake in any machine-specific behavior.
     packageSet = myLib.mkPackageSet {
       inherit pkgs system;
-      hostVars = defaults // {
+      hostVars = defaults.aliases // {
+        fonts = defaults.fonts;
         hostName = null;
         stateVersion = null;
       };

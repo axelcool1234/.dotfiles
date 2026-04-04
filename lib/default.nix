@@ -2,7 +2,7 @@
   lib,
   self,
   inputs,
-  defaults,
+  aliases,
 }:
 let
   # Systems this flake builds package and dev-shell outputs for.
@@ -195,6 +195,29 @@ let
     # `{ name, value }` records into the final attrset.
     builtins.listToAttrs (builtins.filter (entry: entry != null) modules);
 
+  # Collect immediate child directories that contain a specific marker file.
+  # Inputs:
+  # - dir: path, directory to scan without recursion
+  # - marker: string, file name required inside each kept child directory
+  # Output:
+  # - attrset mapping directory name to directory path
+  collectImmediateDirectoriesWithFile =
+    dir: marker:
+    let
+      entries = builtins.readDir dir;
+      directories = lib.mapAttrsToList (
+        name: type:
+        if type == "directory" && builtins.pathExists (dir + "/${name}/${marker}") then
+          {
+            inherit name;
+            value = dir + "/${name}";
+          }
+        else
+          null
+      ) entries;
+    in
+    builtins.listToAttrs (builtins.filter (entry: entry != null) directories);
+
   # Detect whether a package exposes impermanence metadata via
   # `passthru.persist`.
   packageHasPersist = pkg:
@@ -252,7 +275,7 @@ let
       directPackages = collectImmediateModules ../pkgs;
 
       
-      # Resolve alias specification from the evaluated defaults attrset.
+      # Resolve alias specification from the evaluated aliases attrset.
       #
       # Supported forms:
       # - string: look up a package from `basePackages`, then fall back to `pkgs` if it isn't in `basePackages`.
@@ -276,7 +299,7 @@ let
           else
             inputs.${spec.input}.packages.${system}.${spec.target}
         else
-          throw "Unsupported package alias spec in defaults";
+          throw "Unsupported package alias spec in aliases";
     in
     lib.fix (
       # Full flake output package set for the current system and host.
@@ -365,17 +388,17 @@ let
         # All real packages for the current system before generating public aliases.
         basePackages = wrappedPackages // importedPackages;
 
-        # Generate public package aliases from the evaluated defaults attrset.
+        # Generate public package aliases from the evaluated aliases attrset.
         # Example:
-        # - defaults.browser = "glide-browser"
+        # - aliases.browser = "glide-browser"
         # - result.browser = basePackages.glide-browser
         #
         # Or for external specs:
-        # - defaults.helix-nightly = { input = "modded-helix"; target = "default"; }
+        # - aliases.helix-nightly = { input = "modded-helix"; target = "default"; }
         # - result.helix-nightly = inputs.modded-helix.packages.${system}.default
         #
         # Or for local wrapper specs:
-        # - defaults.harness = { input = "wrappers"; target = "code"; }
+        # - aliases.harness = { input = "wrappers"; target = "code"; }
         # - result.harness = basePackages.code
         generatedAliases = lib.mapAttrs (
           _name: spec:
@@ -384,7 +407,7 @@ let
           lib.filterAttrs (
             _name: spec:
             spec != null
-          ) defaults
+          ) aliases
         );
       in
       # Final package set for one system:
@@ -397,6 +420,7 @@ let
   helpers = rec {
   inherit
     collectImmediateModules
+    collectImmediateDirectoriesWithFile
     collectImmediateNixFiles
     collectPersist
     collectPersistFromPackages

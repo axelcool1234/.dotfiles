@@ -19,11 +19,18 @@ let
       stateVersion ? "26.05",
     }:
     let
-      hostVars = defaults // overrides // {
-        inherit hostName stateVersion;
-        desktop = "niri";
-        desktop-shell = "noctalia-shell";
-      };
+      hostVars =
+        (lib.recursiveUpdate
+          (defaults.aliases // {
+            fonts = defaults.fonts;
+          })
+          overrides
+        )
+        // {
+          inherit hostName stateVersion;
+          desktop = "niri";
+          desktop-shell = "noctalia-shell";
+        };
 
       # Host builds get a package set that knows which machine is being
       # evaluated so wrappers can branch on `hostVars.hostName` when needed.

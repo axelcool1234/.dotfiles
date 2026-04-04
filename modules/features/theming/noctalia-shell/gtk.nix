@@ -1,6 +1,7 @@
 {
   config,
   baseVars,
+  hostVars,
   lib,
   pkgs,
   ...
@@ -8,7 +9,8 @@
 let
   gtkTheme = "adw-gtk3";
   iconTheme = "Adwaita";
-  fontName = "Adwaita Sans 11";
+  uiFont = hostVars.fonts.ui;
+  fontName = "${uiFont.family}${lib.optionalString (uiFont.size != null) " ${toString uiFont.size}"}";
   cursorTheme = "Adwaita";
   cursorSize = 24;
 

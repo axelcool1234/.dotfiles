@@ -1,17 +1,25 @@
 {
   config,
   baseVars,
+  hostVars,
   lib,
   pkgs,
   ...
 }:
 let
+  uiFont = hostVars.fonts.ui;
+  monospaceFont = hostVars.fonts.monospace;
+  qtFont = font: "${font.family}${lib.optionalString (font.size != null) ",${toString font.size}"}";
   qt6ctConf = pkgs.writeText "qt6ct.conf" ''
     [Appearance]
     color_scheme_path=/home/${baseVars.username}/.config/qt6ct/colors/noctalia.conf
     custom_palette=true
     standard_dialogs=default
     style=Fusion
+
+    [Fonts]
+    fixed="${qtFont monospaceFont}"
+    general="${qtFont uiFont}"
   '';
 in
 {

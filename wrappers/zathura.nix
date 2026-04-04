@@ -8,6 +8,8 @@
 }:
 let
   useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
+  uiFont = hostVars.fonts.ui;
+  zathuraFont = "${uiFont.family}${lib.optionalString (uiFont.size != null) " ${toString uiFont.size}"}";
 
   formatLine =
     n: v:
@@ -35,6 +37,8 @@ in
       zathura_djvu
       zathura_ps
     ];
+
+    settings.font = zathuraFont;
 
     escapingFunction = wlib.escapeShellArgWithEnv;
 

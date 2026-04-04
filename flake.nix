@@ -83,16 +83,18 @@
       # Shared nixpkgs helper library.
       lib = inputs.nixpkgs.lib;
 
-      # Evaluate the typed defaults module once and use the resulting attrset as
-      # the generic package/profile defaults across the flake.
-      defaults =
-        (lib.evalModules {
-          modules = [ ./defaults.nix ];
-        }).config.preferences.defaults;
+      # Evaluate the typed defaults module once and reuse both package aliases
+      # and font metadata across the flake.
+      evaluatedDefaults = lib.evalModules {
+        modules = [ ./defaults.nix ];
+      };
+
+      defaults = evaluatedDefaults.config.preferences.defaults;
+      aliases = defaults.aliases;
 
       # Project-local helper functions from `./lib/default.nix`.
       myLib = import ./lib {
-        inherit lib self inputs defaults;
+        inherit lib self inputs aliases;
       };
 
       # Common argument attrset passed into every file under `outputs/`.

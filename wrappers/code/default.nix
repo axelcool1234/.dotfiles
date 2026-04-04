@@ -3,6 +3,7 @@
   hostVars,
   inputs,
   lib,
+  myLib,
   pkgs,
   system,
   wlib,
@@ -12,6 +13,7 @@ let
   useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
   tomlFormat = pkgs.formats.toml { };
   codeConfigTemplate = tomlFormat.generate "every-code-config.toml" config.settings;
+  discoveredSkills = myLib.collectImmediateDirectoriesWithFile ./skills "SKILL.md";
   enabledSkills = lib.filterAttrs (_name: skill: skill.enable) config.skills;
   declarativeSkillNames = lib.attrNames enabledSkills;
   declarativeSkills = pkgs.linkFarm "every-code-skills" (
@@ -76,8 +78,7 @@ in
       };
     };
 
-    skills.host-audit.source = ./skills/host-audit;
-    skills.persistence-migration.source = ./skills/persistence-migration;
+    skills = lib.mapAttrs (_name: source: { inherit source; }) discoveredSkills;
 
     passthru.persist = {
       homeDirectories = [

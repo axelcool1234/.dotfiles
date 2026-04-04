@@ -7,6 +7,7 @@
     self.features.sound                  # Audio
     self.features.printing               # Printing
     self.features.dirs                   # Standard directories
+    self.features.fonts                  # Centralized font defaults + fontconfig
     self.features.theming                # Theming
     self.features.grub                   # Bootloader
     self.features.bluetooth              # Bluetooth
