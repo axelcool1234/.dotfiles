@@ -6,17 +6,10 @@
 }:
 let
   cfg = config.preferences.impermanence;
-
-  packagePersist = map (
-    pkg: pkg.passthru.persist
-  ) (builtins.filter (
-    pkg: myLib.packageHasPersist pkg
-  ) config.environment.systemPackages);
-
-  wrapperSystemDirectories = myLib.collectPersist "systemDirectories" packagePersist;
-  wrapperSystemFiles = myLib.collectPersist "systemFiles" packagePersist;
-  wrapperHomeDirectories = myLib.collectPersist "homeDirectories" packagePersist;
-  wrapperHomeFiles = myLib.collectPersist "homeFiles" packagePersist;
+  wrapperSystemDirectories = myLib.collectPersistFromPackages "systemDirectories" config.environment.systemPackages;
+  wrapperSystemFiles = myLib.collectPersistFromPackages "systemFiles" config.environment.systemPackages;
+  wrapperHomeDirectories = myLib.collectPersistFromPackages "homeDirectories" config.environment.systemPackages;
+  wrapperHomeFiles = myLib.collectPersistFromPackages "homeFiles" config.environment.systemPackages;
 in
 {
   config = lib.mkMerge [

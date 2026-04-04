@@ -62,24 +62,20 @@ let
     && pkg ? passthru
     && pkg.passthru ? persist;
 
-  # Collect one persist key from a list of persist attrsets.
-  collectPersist = key: persists:
-    lib.unique (
-      lib.flatten (
-        map (
-          persist: persist.${key} or [ ]
-        ) persists
-      )
-    );
-
   # Collect one persist key from a list of packages that may or may not expose
   # `passthru.persist`.
   collectPersistFromPackages = key: packages:
-    collectPersist key (
-      map (
+    lib.pipe packages [
+      (builtins.filter packageHasPersist)
+      (map (
         pkg: pkg.passthru.persist
-      ) (builtins.filter packageHasPersist packages)
-    );
+      ))
+      (map (
+        persist: persist.${key} or [ ]
+      ))
+      lib.flatten
+      lib.unique
+    ];
 
   # Build a package set for a specific evaluation context.
   #
@@ -257,11 +253,8 @@ let
   helpers = rec {
   inherit
     importTree
-    collectPersist
     collectPersistFromPackages
     forAllSystems
-    packageHasPersist
-    supportedSystems
     ;
 
     mkPackageSet = mkPackageSetImpl helpers;
