@@ -29,6 +29,7 @@
 - https://www.reddit.com/r/niri/comments/1rjrd26/border_color_depending_on_the_current_neovim_mode/
 - Steal this: https://github.com/flickowoa/zephyr/issues/1
 - Switch to this: https://github.com/niri-wm/niri/pull/3483
+- improve some of the import stuff in modules/ to use import-tree when possible
 
 ## Fresh Install
 We'll use the `legion` host as an example.
