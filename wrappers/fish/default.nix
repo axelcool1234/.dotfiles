@@ -23,7 +23,12 @@ in
       pkgs.zoxide
     ];
 
-    shellAliases.lgit = "lazygit";
+    # The "standalone" wrapper allows helix to take over if
+    # a file was selected to be edited from lazygit
+    shellAliases = {
+      lazygit = "lazygit-standalone";
+      lgit = "lazygit-standalone";
+    };
 
     shellInit = ''
       ${lib.getExe pkgs.zoxide} init fish | source

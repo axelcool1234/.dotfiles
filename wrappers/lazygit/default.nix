@@ -10,25 +10,23 @@
     constructFiles.openInEditor = {
       relPath = "bin/lazygit-open-in-editor";
       builder = ''mkdir -p "$(dirname "$2")" && cp "$1" "$2" && chmod +x "$2"'';
-      # TODO: Figure out if there's a way to refer to selfPkgs.editor without getting
-      # stuck in an infinite evluation loop. For now, do hardcoded "hx" instead.
       content = ''
         #!${pkgs.bash}/bin/bash
         set -euo pipefail
 
         file_path="$1"
         line_number="''${2-}"
+        shell_pid="$PPID"
+        lazygit_pid="$(ps -o ppid= -p "$shell_pid" | tr -d '[:space:]')"
+        target_path_file="''${LAZYGIT_OPEN_PATH_FILE:-}"
 
-        if [[ -n "''${HELIX_LAZYGIT_BUFFER_PATH:-}" ]]; then
-          shell_pid="$PPID"
-          lazygit_pid="$(ps -o ppid= -p "$shell_pid" | tr -d '[:space:]')"
-
+        if [[ -n "$target_path_file" ]]; then
           target="$file_path"
           if [[ -n "$line_number" ]]; then
             target="$target:$line_number"
           fi
 
-          printf '%s\n' "$target" > "$HELIX_LAZYGIT_BUFFER_PATH"
+          printf '%s\n' "$target" > "$target_path_file"
 
           if [[ -n "$lazygit_pid" ]]; then
             kill -TERM "$lazygit_pid"
@@ -42,6 +40,33 @@
         fi
 
         exec hx "$file_path"
+      '';
+    };
+
+    constructFiles.openStandalone = {
+      relPath = "bin/lazygit-standalone";
+      builder = ''mkdir -p "$(dirname "$2")" && cp "$1" "$2" && chmod +x "$2"'';
+      content = ''
+        #!${pkgs.bash}/bin/bash
+        set -euo pipefail
+
+        script_dir="$(cd "$(dirname "$0")" && pwd)"
+
+        target_path_file="$(mktemp)"
+        trap 'rm -f "$target_path_file"' EXIT
+        export LAZYGIT_OPEN_PATH_FILE="$target_path_file"
+
+        set +e
+        "$script_dir/lazygit" "$@"
+        status=$?
+        set -e
+
+        if [[ -s "$target_path_file" ]]; then
+          target="$(cat "$target_path_file")"
+          exec hx "$target"
+        fi
+
+        exit "$status"
       '';
     };
 
