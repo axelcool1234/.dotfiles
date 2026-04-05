@@ -30,6 +30,7 @@
 - Steal this: https://github.com/flickowoa/zephyr/issues/1
 - Switch to this: https://github.com/niri-wm/niri/pull/3483
 - improve some of the import stuff in modules/ to use import-tree when possible
+- https://www.reddit.com/r/niri/comments/1mwnoil/niri_run_or_raise_focus_app_rotate_between/
 
 ## Fresh Install
 We'll use the `legion` host as an example.
