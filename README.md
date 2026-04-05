@@ -25,7 +25,6 @@
 - https://www.reddit.com/r/niri/comments/1rjrd26/border_color_depending_on_the_current_neovim_mode/
 - Steal this: https://github.com/flickowoa/zephyr/issues/1
 - Switch to this: https://github.com/niri-wm/niri/pull/3483
-- improve some of the import stuff in modules/ to use import-tree when possible
 - https://www.reddit.com/r/niri/comments/1mwnoil/niri_run_or_raise_focus_app_rotate_between/
 - Look at old dotfiles for `hhx`, aka headless helix.
 

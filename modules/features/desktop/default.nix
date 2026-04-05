@@ -3,11 +3,12 @@
   hostVars,
   self,
   lib,
+  myLib,
   selfPkgs,
   ...
 }:
 {
-  imports = [ ./niri.nix ];
+  imports = builtins.attrValues (myLib.importTree.entries ./desktops);
 
   options.preferences.desktop = lib.mkOption {
     type = lib.types.enum [ "niri" ];

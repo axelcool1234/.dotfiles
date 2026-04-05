@@ -3,7 +3,7 @@
   imports = [
     self.features.locale
     self.features.networking
-    self.features.storage
+    self.features.impermanence # Adds impermanence options; disabled by default.
     self.features.nix
     self.features.users
   ];
