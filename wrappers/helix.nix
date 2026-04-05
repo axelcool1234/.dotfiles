@@ -87,10 +87,17 @@ in
 
           # Lazygit integration
           "C-g" = [
+            ":sh rm -f /tmp/lazygit-path"
             ":write-all"
-            ":insert-output ${lib.getExe pkgs.lazygit} out> /dev/tty"
+            ":new"
+            ":insert-output ${lib.getExe selfPkgs.lazygit}"
+            ":sh printf \"\\x1b[?1049h\" > /dev/tty"
+            ":buffer-close!"
+            ":open %sh{cat /tmp/lazygit-path}"
             ":redraw"
             ":reload-all"
+            ":set mouse false"
+            ":set mouse true"
           ];
 
           # Scooter integration

@@ -2,6 +2,7 @@
   inputs,
   lib,
   pkgs,
+  selfPkgs,
   system,
   ...
 }:
@@ -17,7 +18,7 @@ in
   config = {
     extraPackages = [
       pkgs.direnv
-      pkgs.lazygit
+      selfPkgs.lazygit
       pkgs.lorri
       pkgs.zoxide
     ];
