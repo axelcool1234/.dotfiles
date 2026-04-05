@@ -1,5 +1,4 @@
 # TODO
-- Add fonts back
 - Add cursors back
 - Add Grub theme back
 - Add automatic store optimization and garbage collection configuration
