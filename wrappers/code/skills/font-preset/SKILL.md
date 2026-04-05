@@ -51,7 +51,7 @@ current repo grows consumers for them again.
 - `modules/features/fonts.nix`
 - `modules/features/theming/noctalia-shell/gtk.nix`
 - `modules/features/theming/noctalia-shell/qt.nix`
-- `wrappers/kitty.nix`
+- `wrappers/kitty/default.nix`
 - `wrappers/zathura.nix`
 
 ## Workflow

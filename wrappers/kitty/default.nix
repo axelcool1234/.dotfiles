@@ -2,9 +2,7 @@
   config,
   hostVars,
   lib,
-  pkgs,
   selfPkgs,
-  wlib,
   ...
 }:
 let
@@ -12,48 +10,12 @@ let
   terminalFont = hostVars.fonts.terminal;
   symbolFont = hostVars.fonts.symbols;
   postscriptSuffix = lib.optionalString (terminalFont.postscriptName != null) " postscript_name=${terminalFont.postscriptName}";
-
-  kittyKeyValue = {
-    listsAsDuplicateKeys = true;
-    mkKeyValue = lib.generators.mkKeyValueDefault { } " ";
-  };
-
-  kittyKeyValueFormat = pkgs.formats.keyValue kittyKeyValue; 
 in
 {
-  imports = [ wlib.modules.default ];
-
-  options = {
-    settings = lib.mkOption {
-      type = kittyKeyValueFormat.type;
-      default = { };
-      description = ''
-        Configuration for kitty.
-        The fast, feature-rich, GPU based terminal emulator.
-      '';
-    };
-
-    extraSettings = lib.mkOption {
-      type = lib.types.lines;
-      default = "";
-      description = ''
-        Extra lines appended to the config file.
-        This can be used to maintain order for settings.
-      '';
-    };
-  };
+  imports = [ ./module.nix ];
 
   config = {
-    package = pkgs.kitty;
-
-    env.KITTY_CONFIG_DIRECTORY = dirOf config.constructFiles.generatedConfig.path;
-
-    constructFiles.generatedConfig = {
-      relPath = "kitty.conf";
-      content =
-        lib.generators.toKeyValue kittyKeyValue config.settings
-        + lib.optionalString (config.extraSettings != "") "\n${config.extraSettings}\n";
-    };
+    env.KITTY_CONFIG_DIRECTORY = dirOf config."kitty.conf".path;
 
     settings = {
       # The shell program to execute and the editor to use.
@@ -92,11 +54,9 @@ in
       font_size = terminalFont.size;
     };
 
-    # Noctalia handles Kitty's theme
+    # Noctalia handles Kitty's theme.
     extraSettings = lib.mkAfter (lib.optionalString useNoctaliaTheme ''
       include ~/.config/kitty/themes/noctalia.conf
     '');
-
-    meta.platforms = lib.platforms.linux;
   };
 }
