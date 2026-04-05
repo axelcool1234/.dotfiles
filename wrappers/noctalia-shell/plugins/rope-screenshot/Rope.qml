@@ -44,6 +44,12 @@ Rectangle {
         ShapePath {
             id: dotPath
 
+            // These arcs are only the rope simulation points; the visible rope is
+            // drawn by `ropePath`, so keep the joints themselves invisible.
+            strokeColor: "transparent"
+            fillColor: "transparent"
+            strokeWidth: 0
+
             PathAngleArc {
                 id: startPoint
 
