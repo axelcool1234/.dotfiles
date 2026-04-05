@@ -9,14 +9,9 @@ let
   useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
   discoveredSkills = myLib.importTree.dirsWithFile ./skills "SKILL.md";
   runtimeHome = config.outOfStoreConfig;
-  persistFromHome = runtimeHome == null || lib.hasPrefix ''${"$"}HOME/'' runtimeHome;
   persistRoot =
-    if runtimeHome == null then
-      ".code"
-    else if lib.hasPrefix ''${"$"}HOME/'' runtimeHome then
-      lib.removePrefix ''${"$"}HOME/'' runtimeHome
-    else
-      null;
+    assert lib.hasPrefix ''${"$"}HOME/'' runtimeHome;
+    lib.removePrefix ''${"$"}HOME/'' runtimeHome;
 
   persistPath = suffix:
     if suffix == null then
@@ -56,7 +51,7 @@ in
       "$HOME/.cache/noctalia/every-code-theme.toml"
     ];
 
-    passthru.persist = lib.mkIf persistFromHome {
+    passthru.persist = {
       homeDirectories = [
         (persistPath "debug_logs")
         (persistPath "sessions")

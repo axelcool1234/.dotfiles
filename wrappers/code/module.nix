@@ -10,7 +10,7 @@
 let
   tomlFmt = pkgs.formats.toml { };
   mergeTomlPython = pkgs.python3.withPackages (ps: [ ps."tomli-w" ]);
-  runtimeCodeHome = if config.outOfStoreConfig != null then config.outOfStoreConfig else ''${"$"}HOME/.code'';
+  runtimeCodeHome = config.outOfStoreConfig;
   generatedSkillsDir = "${config.binName}-skills";
   generatedSkillsPath = dirOf config.constructFiles.generatedSkills.path;
   generatedSkillsOutPath = dirOf config.constructFiles.generatedSkills.outPath;
@@ -46,18 +46,16 @@ in
     };
 
     outOfStoreConfig = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
+      type = lib.types.str;
       default = ''${"$"}HOME/.code'';
       example = ''${"$"}HOME/.local/share/every-code'';
       description = ''
-        Writable runtime directory for Code. Defaults to `~/.code`.
+        Writable runtime Code home. Defaults to `~/.code`.
 
-        When set, the wrapper exports `CODE_HOME` by default and mirrors
-        generated runtime files into that directory on startup while
+        Code writes to its home directory at runtime, so this must point to a
+        writable location. The wrapper exports `CODE_HOME` to this path and can
+        seed and refresh wrapper-managed files there on startup while
         preserving existing mutable runtime config.
-
-        Set this to `null` to stop exporting `CODE_HOME` and disable automatic
-        runtime mirroring.
       '';
     };
 
@@ -65,14 +63,13 @@ in
       type = lib.types.bool;
       default = true;
       description = ''
-        Whether to automatically copy generated config and declared skills into
+        Whether to automatically provision and refresh wrapper-managed files in
         the active runtime Code home on startup.
 
         Existing `config.toml` is preserved after the first seed so Code does
         not lose runtime-managed changes. The wrapper still refreshes
-        wrapper-managed skill content and optional merged config fragments.
-
-        This only has an effect when `outOfStoreConfig` is not `null`.
+        wrapper-managed skill content and applies optional merged config
+        fragments.
       '';
     };
 
@@ -148,7 +145,7 @@ in
   config = {
     package = lib.mkDefault inputs.llm-agents.packages.${system}.code;
 
-    envDefault.CODE_HOME = lib.mkIf (config.outOfStoreConfig != null) {
+    envDefault.CODE_HOME = {
       data = config.outOfStoreConfig;
       esc-fn = wlib.escapeShellArgWithEnv;
     };
@@ -285,7 +282,7 @@ PY
     }
     ;
 
-    runShell = lib.mkIf (config.outOfStoreConfig != null && config.autoCopyConfig) [
+    runShell = lib.mkIf config.autoCopyConfig [
       {
         name = "COPY_CODE_HOME";
         data = ''${config.constructFiles.copyCodeHome.path}'';
