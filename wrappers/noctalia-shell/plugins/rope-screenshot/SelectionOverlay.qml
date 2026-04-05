@@ -3,6 +3,12 @@ import Quickshell
 import Quickshell.Wayland
 import qs.Commons
 
+// The overlay is intentionally dumb: it only draws the frozen image, collects a
+// rectangle, and reports the chosen region back to `Main.qml`.
+//
+// Keeping the selection window focused on presentation makes the async flow much
+// easier to reason about. The controller decides when the overlay exists; the
+// overlay only decides what rectangle the user selected.
 PanelWindow {
     id: overlay
 
@@ -13,12 +19,20 @@ PanelWindow {
         : (frozenImagePath.indexOf("file://") === 0 ? frozenImagePath : "file://" + frozenImagePath)
     readonly property bool freezeFileReady: frozenImagePath.length > 0
     readonly property bool usingFrozenImage: freezeFileReady && frozenImage.status === Image.Ready
-    readonly property bool previewReady: liveFreeze.hasContent || usingFrozenImage
-    readonly property int sourceWidth: usingFrozenImage ? frozenImage.sourceSize.width : liveFreeze.sourceSize.width
-    readonly property int sourceHeight: usingFrozenImage ? frozenImage.sourceSize.height : liveFreeze.sourceSize.height
+    readonly property bool previewReady: usingFrozenImage
+    readonly property int sourceWidth: frozenImage.sourceSize.width
+    readonly property int sourceHeight: frozenImage.sourceSize.height
+
+    // `closing` keeps cancel/accept idempotent so repeated inputs cannot make the
+    // overlay emit contradictory signals during teardown.
+    property bool closing: false
 
     signal accepted(var selection)
     signal canceled()
+
+    // This explicit teardown signal is easier for the controller to consume than
+    // relying on QObject destruction timing from QML internals.
+    signal finished()
 
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
@@ -34,6 +48,7 @@ PanelWindow {
     }
 
     function clampX(value) {
+        // Clamp all geometry to the overlay bounds so drag math stays valid.
         return Math.max(0, Math.min(Math.round(value), width));
     }
 
@@ -42,6 +57,7 @@ PanelWindow {
     }
 
     function requestRepaint() {
+        // These canvases are imperative, so property changes need explicit repaints.
         if (selectionCanvas) {
             selectionCanvas.requestPaint();
         }
@@ -52,29 +68,56 @@ PanelWindow {
     }
 
     function cancelSelection() {
+        if (closing) {
+            return;
+        }
+
+        // Cancel keeps no geometry; it simply notifies the controller that this
+        // selection should be abandoned and the temp freeze can be cleaned up.
+        closing = true;
         selection.active = false;
         canceled();
+        finished();
         destroy();
     }
 
     function completeSelection() {
+        if (closing) {
+            return;
+        }
+
+        // Snapshot the final rectangle before flipping `active` off. Earlier bugs
+        // came from reading geometry after bindings had already collapsed.
+        var x1 = Math.min(selection.startX, selection.currentX);
+        var y1 = Math.min(selection.startY, selection.currentY);
+        var x2 = Math.max(selection.startX, selection.currentX);
+        var y2 = Math.max(selection.startY, selection.currentY);
+        var selectionWidth = x2 - x1;
+        var selectionHeight = y2 - y1;
+
+        closing = true;
         selection.active = false;
 
-        if (selection.selectionWidth < 2 || selection.selectionHeight < 2) {
-            cancelSelection();
+        if (selectionWidth < 2 || selectionHeight < 2) {
+            // Tiny drags are treated as cancellations rather than degenerate crops.
+            canceled();
+            finished();
+            destroy();
             return;
         }
 
         var localGeometry =
-            selection.x1
+            x1
             + ","
-            + selection.y1
+            + y1
             + " "
-            + selection.selectionWidth
+            + selectionWidth
             + "x"
-            + selection.selectionHeight;
+            + selectionHeight;
 
         accepted({
+            // The helper script crops against the frozen image, not the scaled UI.
+            // Pass both the logical geometry and the overlay-to-image scale factors.
             localGeometry: localGeometry,
             scaleX: overlay.sourceWidth > 0 && overlay.width > 0
                 ? overlay.sourceWidth / overlay.width
@@ -83,12 +126,14 @@ PanelWindow {
                 ? overlay.sourceHeight / overlay.height
                 : 1,
         });
+        finished();
         destroy();
     }
 
     QtObject {
         id: selection
 
+        // Start centered so the initial ropes have a deterministic resting point.
         property bool active: false
         property int startX: overlay.clampX(overlay.width / 2)
         property int startY: overlay.clampY(overlay.height / 2)
@@ -111,6 +156,8 @@ PanelWindow {
     }
 
     MouseArea {
+        // The overlay only needs simple drag semantics: press starts a rectangle,
+        // move updates it, release finalizes it, and right-click cancels it.
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         cursorShape: overlay.previewReady ? Qt.CrossCursor : Qt.WaitCursor
@@ -153,48 +200,32 @@ PanelWindow {
         }
     }
 
-    ScreencopyView {
-        id: liveFreeze
-
-        anchors.fill: parent
-        captureSource: overlay.targetScreen
-        visible: !overlay.usingFrozenImage
-    }
-
     Image {
         id: frozenImage
 
         anchors.fill: parent
         source: overlay.frozenImageSource
+
+        // Stretch the preview to the overlay size, then use scale factors above to
+        // map the final selection back into the real image coordinates.
         fillMode: Image.Stretch
         cache: false
         smooth: false
         visible: overlay.usingFrozenImage
     }
 
-    Timer {
-        interval: 80
-        running: !overlay.previewReady
-        repeat: true
-
-        onTriggered: {
-            if (overlay.previewReady) {
-                stop();
-                return;
-            }
-
-            liveFreeze.captureFrame();
-        }
-    }
-
     Canvas {
         id: selectionCanvas
 
         anchors.fill: parent
+        visible: overlay.previewReady
 
         onPaint: {
             var ctx = getContext("2d");
             ctx.reset();
+
+            // First dim the whole screen, then punch out the selected area so the
+            // user is effectively looking through a spotlight.
             ctx.fillStyle = Color.mSurface;
             ctx.globalAlpha = 0.82;
             ctx.fillRect(0, 0, width, height);
@@ -213,8 +244,10 @@ PanelWindow {
     }
 
     Rope {
+        // Each corner rope is decorative, but they also make the origin of the
+        // dragged rectangle visually obvious as it grows and shrinks.
         anchors.fill: parent
-        visible: true
+        visible: overlay.previewReady
         anchorX: 0
         anchorY: 0
         pullX: selection.x1
@@ -224,7 +257,7 @@ PanelWindow {
 
     Rope {
         anchors.fill: parent
-        visible: true
+        visible: overlay.previewReady
         anchorX: parent.width
         anchorY: 0
         pullX: selection.x2
@@ -234,7 +267,7 @@ PanelWindow {
 
     Rope {
         anchors.fill: parent
-        visible: true
+        visible: overlay.previewReady
         anchorX: 0
         anchorY: parent.height
         pullX: selection.x1
@@ -244,7 +277,7 @@ PanelWindow {
 
     Rope {
         anchors.fill: parent
-        visible: true
+        visible: overlay.previewReady
         anchorX: parent.width
         anchorY: parent.height
         pullX: selection.x2
@@ -256,6 +289,7 @@ PanelWindow {
         id: handleCanvas
 
         anchors.fill: parent
+        visible: overlay.previewReady
 
         onPaint: {
             var ctx = getContext("2d");
@@ -263,6 +297,8 @@ PanelWindow {
             ctx.fillStyle = Color.mPrimary;
 
             function drawCorner(x, y) {
+                // Corner handles are visual affordances only; dragging still happens
+                // through the full-screen mouse area above.
                 ctx.beginPath();
                 ctx.arc(x, y, selection.handleRadius, 0, 2 * Math.PI);
                 ctx.fill();
@@ -278,6 +314,9 @@ PanelWindow {
     Rectangle {
         anchors.centerIn: parent
         visible: !overlay.previewReady
+
+        // A tiny status card avoids the "why is the screen dimmed?" confusion while
+        // the frozen preview is still being prepared.
         radius: Math.round(18 * Style.uiScaleRatio)
         color: Color.mSurface
         opacity: 0.92
