@@ -37,6 +37,13 @@ in
 
     package = pkgs.noctalia-shell;
 
+    # The local rope-screenshot plugin shells out to these helpers at runtime,
+    # so keep them on the wrapped Noctalia PATH rather than in a broader module.
+    extraPackages = [
+      pkgs.grim
+      pkgs.wl-clipboard
+    ];
+
     passthru.persist = {
       # cliphist stores its database here.
       # also persist downloaded color schemes
@@ -53,6 +60,7 @@ in
 
     preInstalledPlugins = {
       custom-commands.src = "${inputs.noctalia-plugins.outPath}/custom-commands";
+      rope-screenshot.src = "${./plugins/rope-screenshot}";
     };
 
     # Make noctalia-shell's configuration mutable for color scheme selection and experimentation.

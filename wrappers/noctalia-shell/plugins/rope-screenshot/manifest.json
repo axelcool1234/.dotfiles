@@ -1,0 +1,19 @@
+{
+  "id": "rope-screenshot",
+  "name": "Rope Screenshot",
+  "version": "1.0.0",
+  "minNoctaliaVersion": "3.6.0",
+  "author": "axelcool1234",
+  "description": "Region screenshots with a Zephyr-style rope selector for Noctalia.",
+  "tags": [
+    "Utility",
+    "Control Center"
+  ],
+  "entryPoints": {
+    "main": "Main.qml",
+    "controlCenterWidget": "ControlCenterWidget.qml"
+  },
+  "metadata": {
+    "defaultSettings": {}
+  }
+}

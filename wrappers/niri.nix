@@ -145,7 +145,7 @@ in
         # Utils
         "Mod+R".spawn-sh = "${lib.getExe selfPkgs.region-recorder} toggle video";
         "Mod+Shift+R".spawn-sh = "${lib.getExe selfPkgs.region-recorder} toggle gif";
-        "Mod+Shift+S".screenshot = _: { show-pointer = _: { }; };
+        "Mod+Shift+S".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call plugin:rope-screenshot takeScreenshot region >/dev/null 2>&1 || niri msg action screenshot";
       };
       workspaces = {
         w01 = _: { };
