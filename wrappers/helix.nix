@@ -43,7 +43,7 @@ in
         line-number = "relative";
         popup-border = "all";
         shell = [
-          "nu"
+          (lib.getExe pkgs.${hostVars.shell})
           "-c"
         ];
         idle-timeout = 0;
@@ -103,9 +103,10 @@ in
 
           # Yaziao integration
           "-" = [
-            ":sh rm -f /tmp/unique-file"
-            ":insert-output ${lib.getExe selfPkgs.yazi} %{buffer_name} --chooser-file=/tmp/unique-file"
-            ":open %sh{cat /tmp/unique-file}"
+            ":sh rm -f /tmp/helix-yazi"
+            ":insert-output ${lib.getExe selfPkgs.yazi} \"%{buffer_name}\" --chooser-file=/tmp/helix-yazi"
+            ":sh printf \"\\x1b[?1049h\\x1b[?2004h\" > /dev/tty"
+            ":open %sh{cat /tmp/helix-yazi}"
             ":redraw"
           ];
 
