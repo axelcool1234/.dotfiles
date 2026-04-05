@@ -20,6 +20,12 @@ in
       includeGrammarIf = grammar: grammar.name != "bovex";
     };
 
+    # Helix's terminal-code clipboard backend can copy in Kitty, but paste is
+    # unreliable and it breaks entirely when Helix is spawned from Lazygit.
+    # Keep wl-copy/wl-paste available in the wrapper so the Wayland backend can
+    # be used consistently on the desktop host.
+    extraPackages = [ pkgs.wl-clipboard ];
+
     escapingFunction = wlib.escapeShellArgWithEnv;
 
     # In Noctalia mode, keep Helix's config root on the real ~/.config so the
@@ -34,6 +40,7 @@ in
       })
       {
       editor = {
+        clipboard-provider = "wayland";
         scrolloff = 8;
         auto-pairs = false;
         insert-final-newline = false;
