@@ -90,7 +90,7 @@ in
             ":sh rm -f /tmp/lazygit-path"
             ":write-all"
             ":new"
-            ":insert-output ${lib.getExe selfPkgs.lazygit}"
+            ":insert-output env HELIX_LAZYGIT_BUFFER_PATH=/tmp/lazygit-path ${lib.getExe selfPkgs.lazygit}"
             ":sh printf \"\\x1b[?1049h\" > /dev/tty"
             ":buffer-close!"
             ":open %sh{cat /tmp/lazygit-path}"
