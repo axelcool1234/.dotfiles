@@ -8,6 +8,19 @@ output_path="$screenshot_dir/Screenshot_${timestamp}.png"
 
 mkdir -p "$screenshot_dir"
 
+normalize_path() {
+  local value="$1"
+
+  case "$value" in
+    file://*)
+      printf '%s\n' "${value#file://}"
+      ;;
+    *)
+      printf '%s\n' "$value"
+      ;;
+  esac
+}
+
 scale_coord() {
   local value="$1"
   local scale="$2"
@@ -32,6 +45,7 @@ case "$mode" in
     ;;
   freeze)
     screen_name="${2:-}"
+    requested_path="$(normalize_path "${3:-}")"
     runtime_dir="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
 
     if [ -z "$screen_name" ]; then
@@ -39,16 +53,25 @@ case "$mode" in
       exit 2
     fi
 
-    freeze_path="$(mktemp "$runtime_dir/rope-screenshot-freeze.XXXXXX.png")"
+    if [ -n "$requested_path" ]; then
+      freeze_path="$requested_path"
+      mkdir -p "$(dirname "$freeze_path")"
+      rm -f "$freeze_path"
+    else
+      freeze_path="$(mktemp "$runtime_dir/rope-screenshot-freeze.XXXXXX.png")"
+    fi
+
     if ! grim -l 0 -o "$screen_name" "$freeze_path"; then
       rm -f "$freeze_path"
       exit 1
     fi
 
-    printf '%s\n' "$freeze_path"
+    if [ -z "$requested_path" ]; then
+      printf '%s\n' "$freeze_path"
+    fi
     ;;
   region-frozen)
-    frozen_path="${2:-}"
+    frozen_path="$(normalize_path "${2:-}")"
     geometry="${3:-}"
     scale_x="${4:-1}"
     scale_y="${5:-$scale_x}"
@@ -93,7 +116,7 @@ case "$mode" in
     rm -f "$frozen_path"
     ;;
   cleanup)
-    frozen_path="${2:-}"
+    frozen_path="$(normalize_path "${2:-}")"
     if [ -n "$frozen_path" ]; then
       rm -f "$frozen_path"
     fi

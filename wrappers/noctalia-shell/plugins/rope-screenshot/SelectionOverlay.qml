@@ -8,6 +8,14 @@ PanelWindow {
 
     property var targetScreen: null
     property string frozenImagePath: ""
+    readonly property string frozenImageSource: frozenImagePath.length === 0
+        ? ""
+        : (frozenImagePath.indexOf("file://") === 0 ? frozenImagePath : "file://" + frozenImagePath)
+    readonly property bool freezeFileReady: frozenImagePath.length > 0
+    readonly property bool usingFrozenImage: freezeFileReady && frozenImage.status === Image.Ready
+    readonly property bool previewReady: liveFreeze.hasContent || usingFrozenImage
+    readonly property int sourceWidth: usingFrozenImage ? frozenImage.sourceSize.width : liveFreeze.sourceSize.width
+    readonly property int sourceHeight: usingFrozenImage ? frozenImage.sourceSize.height : liveFreeze.sourceSize.height
 
     signal accepted(var selection)
     signal canceled()
@@ -68,11 +76,11 @@ PanelWindow {
 
         accepted({
             localGeometry: localGeometry,
-            scaleX: frozenImage.sourceSize.width > 0 && overlay.width > 0
-                ? frozenImage.sourceSize.width / overlay.width
+            scaleX: overlay.sourceWidth > 0 && overlay.width > 0
+                ? overlay.sourceWidth / overlay.width
                 : 1,
-            scaleY: frozenImage.sourceSize.height > 0 && overlay.height > 0
-                ? frozenImage.sourceSize.height / overlay.height
+            scaleY: overlay.sourceHeight > 0 && overlay.height > 0
+                ? overlay.sourceHeight / overlay.height
                 : 1,
         });
         destroy();
@@ -105,12 +113,16 @@ PanelWindow {
     MouseArea {
         anchors.fill: parent
         acceptedButtons: Qt.LeftButton | Qt.RightButton
-        cursorShape: Qt.CrossCursor
+        cursorShape: overlay.previewReady ? Qt.CrossCursor : Qt.WaitCursor
         hoverEnabled: true
 
         onPressed: mouse => {
             if (mouse.button === Qt.RightButton) {
                 overlay.cancelSelection();
+                return;
+            }
+
+            if (!overlay.previewReady) {
                 return;
             }
 
@@ -141,14 +153,38 @@ PanelWindow {
         }
     }
 
+    ScreencopyView {
+        id: liveFreeze
+
+        anchors.fill: parent
+        captureSource: overlay.targetScreen
+        visible: !overlay.usingFrozenImage
+    }
+
     Image {
         id: frozenImage
 
         anchors.fill: parent
-        source: overlay.frozenImagePath.length > 0 ? "file://" + overlay.frozenImagePath : ""
+        source: overlay.frozenImageSource
         fillMode: Image.Stretch
         cache: false
         smooth: false
+        visible: overlay.usingFrozenImage
+    }
+
+    Timer {
+        interval: 80
+        running: !overlay.previewReady
+        repeat: true
+
+        onTriggered: {
+            if (overlay.previewReady) {
+                stop();
+                return;
+            }
+
+            liveFreeze.captureFrame();
+        }
     }
 
     Canvas {
@@ -236,6 +272,27 @@ PanelWindow {
             drawCorner(selection.x2, selection.y1);
             drawCorner(selection.x1, selection.y2);
             drawCorner(selection.x2, selection.y2);
+        }
+    }
+
+    Rectangle {
+        anchors.centerIn: parent
+        visible: !overlay.previewReady
+        radius: Math.round(18 * Style.uiScaleRatio)
+        color: Color.mSurface
+        opacity: 0.92
+        border.width: 2
+        border.color: Color.mPrimary
+        implicitWidth: loadingLabel.implicitWidth + Math.round(28 * Style.uiScaleRatio)
+        implicitHeight: loadingLabel.implicitHeight + Math.round(20 * Style.uiScaleRatio)
+
+        Text {
+            id: loadingLabel
+
+            anchors.centerIn: parent
+            color: Color.mPrimary
+            text: overlay.freezeFileReady ? "Preparing preview..." : "Freezing screen..."
+            font.pixelSize: Math.max(16, Math.round(18 * Style.uiScaleRatio))
         }
     }
 }

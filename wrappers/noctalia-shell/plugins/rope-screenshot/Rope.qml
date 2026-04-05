@@ -128,12 +128,26 @@ Rectangle {
                 property double vx: 0
                 property double vy: 0
 
-                onCenterXChanged: ropePath.pathElements[index].x = centerX
-                onCenterYChanged: ropePath.pathElements[index].y = centerY
+                onCenterXChanged: {
+                    var point = ropePath.pathElements[index];
+                    if (point) {
+                        point.x = centerX;
+                    }
+                }
+
+                onCenterYChanged: {
+                    var point = ropePath.pathElements[index];
+                    if (point) {
+                        point.y = centerY;
+                    }
+                }
 
                 Component.onCompleted: {
-                    ropePath.pathElements[index].x = centerX;
-                    ropePath.pathElements[index].y = centerY;
+                    var point = ropePath.pathElements[index];
+                    if (point) {
+                        point.x = centerX;
+                        point.y = centerY;
+                    }
                 }
 
                 centerX: ropeRect.anchorX + index
