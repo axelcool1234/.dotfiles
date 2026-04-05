@@ -34,6 +34,13 @@ in
       ${lib.getExe pkgs.zoxide} init fish | source
       ${lib.getExe pkgs.direnv} hook fish | source
 
+      function fish_user_key_bindings
+        for mode in default insert visual
+          bind -M $mode \cz 'fg >/dev/null 2>&1; commandline -f repaint'
+          bind -M $mode \cg 'commandline -r lazygit; commandline -f execute'
+        end
+      end
+
       function __fish_command_not_found_handler --on-event fish_command_not_found
         ${commandNotFoundWrapper} $argv
       end
