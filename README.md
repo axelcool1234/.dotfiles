@@ -1,9 +1,6 @@
 # TODO
 - Add cursors back
 - Add Grub theme back
-- Add automatic store optimization and garbage collection configuration
-- Figure out cache servers correctly
-  Source: `https://nixos-and-flakes.thiscute.world/nix-store/intro`
 - GitHub CI
   Include flake integrity checks and possibly NixOS tests.
   Source: `https://nixos-and-flakes.thiscute.world/other-usage-of-flakes/testing`
