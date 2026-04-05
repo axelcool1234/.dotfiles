@@ -53,12 +53,17 @@
         script_dir="$(cd "$(dirname "$0")" && pwd)"
 
         target_path_file="$(mktemp)"
-        trap 'rm -f "$target_path_file"' EXIT
+        stderr_log="$(mktemp)"
+        trap 'rm -f "$target_path_file" "$stderr_log"' EXIT
         export LAZYGIT_OPEN_PATH_FILE="$target_path_file"
 
         set +e
+        exec 3>&2
+        exec 2>"$stderr_log"
         "$script_dir/lazygit" "$@"
         status=$?
+        exec 2>&3
+        exec 3>&-
         set -e
 
         if [[ -s "$target_path_file" ]]; then
@@ -66,13 +71,21 @@
           exec hx "$target"
         fi
 
+        if [[ -s "$stderr_log" ]]; then
+          cat "$stderr_log" >&2
+        fi
+
         exit "$status"
       '';
     };
 
-    settings.os = {
-      edit = ''${config.constructFiles.openInEditor.path} "{{filename}}"'';
-      editAtLine = ''${config.constructFiles.openInEditor.path} "{{filename}}" "{{line}}"'';
+    settings = {
+      gui.showCommandLog = false;
+      promptToReturnFromSubprocess = false;
+      os = {
+        edit = ''${config.constructFiles.openInEditor.path} "{{filename}}"'';
+        editAtLine = ''${config.constructFiles.openInEditor.path} "{{filename}}" "{{line}}"'';
+      };
     };
   };
 }

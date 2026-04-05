@@ -25,9 +25,11 @@ in
 
     # The "standalone" wrapper allows helix to take over if
     # a file was selected to be edited from lazygit
+    # The >/dev/null suppresses stdout noise when running
+    # edit command to open helix from lazgit
     shellAliases = {
-      lazygit = "lazygit-standalone";
-      lgit = "lazygit-standalone";
+      lazygit = "lazygit-standalone >/dev/null";
+      lgit = "lazygit-standalone >/dev/null";
     };
 
     shellInit = ''
