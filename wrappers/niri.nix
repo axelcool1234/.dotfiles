@@ -162,6 +162,16 @@ in
       window-rule = {
         open-maximized = true;
       };
+      layer-rules = [
+        {
+          matches = [
+            {
+              namespace = "^rope-screenshot$";
+            }
+          ];
+          block-out-from = "screen-capture";
+        }
+      ];
       # https://github.com/liixini/shaders
       # https://github.com/XansiVA/nirimation
       # https://github.com/jgarza9788/niri-animation-collection

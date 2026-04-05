@@ -41,6 +41,7 @@ in
     # so keep them on the wrapped Noctalia PATH rather than in a broader module.
     extraPackages = [
       pkgs.grim
+      pkgs.imagemagick
       pkgs.wl-clipboard
     ];
 
