@@ -9,6 +9,11 @@
 }:
 let
   useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
+  desktopShellPersist =
+    if hostVars.desktop-shell != null && selfPkgs.${hostVars.desktop-shell}.passthru ? persist then
+      selfPkgs.${hostVars.desktop-shell}.passthru.persist
+    else
+      { };
 in
 {
   imports = [ wlib.wrapperModules.niri ];
@@ -378,6 +383,18 @@ in
       extraConfig = lib.optionalString useNoctaliaTheme ''
         include "noctalia.kdl"
       '';
+    };
+
+    # Impermanence only harvests wrapper `passthru.persist` from packages that
+    # are actually installed into `environment.systemPackages`. On this host the
+    # desktop package is `niri`, while the desktop shell (`noctalia-shell`) is
+    # launched by niri rather than installed as a top-level system package. So
+    # forward the desktop-shell wrapper's persistence metadata through niri.
+    passthru.persist = lib.mkIf (hostVars.desktop-shell != null) {
+      systemDirectories = desktopShellPersist.systemDirectories or [ ];
+      systemFiles = desktopShellPersist.systemFiles or [ ];
+      homeDirectories = desktopShellPersist.homeDirectories or [ ];
+      homeFiles = desktopShellPersist.homeFiles or [ ];
     };
   };
 }

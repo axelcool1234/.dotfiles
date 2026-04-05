@@ -44,6 +44,11 @@ in
         ".cache/cliphist"
         "~/.config/noctalia-shell/colorschemes/"
       ];
+      # This prevents noctalia-shell from showing the
+      # privacy policy popup on every reboot
+      homeFiles = [
+        ".cache/noctalia/shell-state.json"
+      ];
     };
 
     preInstalledPlugins = {
@@ -60,6 +65,9 @@ in
         activeTemplates = activeTemplates;
       };
       general = {
+        showChangelogOnStartup = false;
+        telemetryEnabled = false;
+
         # Lock Screen
         lockScreenAnimations = true;
         lockOnSuspend = true;

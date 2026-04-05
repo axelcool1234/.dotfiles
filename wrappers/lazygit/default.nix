@@ -80,6 +80,7 @@
     };
 
     settings = {
+      disableStartupPopups = true;
       gui.showCommandLog = false;
       promptToReturnFromSubprocess = false;
       os = {
