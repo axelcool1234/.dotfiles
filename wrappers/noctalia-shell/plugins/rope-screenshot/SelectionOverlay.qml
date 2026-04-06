@@ -42,8 +42,9 @@ PanelWindow {
     // Selector appearance:
     // - larger `selectionAnchorRadius` = chunkier corner anchors/handles
     // - larger `selectionBorderWidth` = more prominent selection border
-    //   By default this follows `ropeStrokeWidth` exactly so the border and rope
-    //   read as one visual system.
+    //   By default this is a touch thicker than `ropeStrokeWidth`, because the
+    //   `Rectangle` border renderer reads slightly thinner than the rope's
+    //   `ShapePath` stroke at the same numeric width.
     // - larger `selectionMaskOpacity` = darker area outside the crop box
     // - larger `minimumSelectionSize` = less likely to accept tiny accidental drags
     property int selectionAnchorRadius: Math.max(6, Math.round(8 * Style.uiScaleRatio))
@@ -62,7 +63,7 @@ PanelWindow {
     property real ropeSpringStrength: 0.7
     property int ropeSubstepsPerFrame: 2
     property real ropeStrokeWidth: 2.5
-    property real selectionBorderWidth: ropeStrokeWidth
+    property real selectionBorderWidth: ropeStrokeWidth * 2
     property real selectionMaskOpacity: 0.82
     property int minimumSelectionSize: 2
 
@@ -446,6 +447,32 @@ PanelWindow {
             velocityCarry: overlay.ropeVelocityCarry
             springStrength: overlay.ropeSpringStrength
             substepsPerFrame: overlay.ropeSubstepsPerFrame
+        }
+
+        Item {
+            // This is the more principled fix for ropes visually intruding into the
+            // clear selection area: repaint the frozen preview over that area after
+            // the ropes are drawn. The screenshot output was already correct, but
+            // this keeps the on-screen presentation clean without distorting the
+            // rope physics or forcing awkward endpoint offsets.
+            x: selection.x1
+            y: selection.y1
+            width: selection.selectionWidth
+            height: selection.selectionHeight
+            clip: true
+
+            Image {
+                // Reuse the same frozen frame, but position it so only the exact
+                // selected region is shown inside this clipped cover item.
+                x: -selection.x1
+                y: -selection.y1
+                width: overlay.width
+                height: overlay.height
+                source: overlay.frozenImageSource
+                fillMode: Image.Stretch
+                cache: false
+                smooth: false
+            }
         }
 
         // Corner handles are visual affordances only; dragging still happens
