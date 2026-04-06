@@ -11,16 +11,60 @@ import qs.Commons
 // overlay only decides what rectangle the user selected.
 //
 // Tuning guide for this file:
-// - `handleRadius`: size of the circular corner handles
-// - `borderWidth`: thickness of the highlighted selection border
-// - mask rectangle `opacity`: how dark the outside area feels
+// - `decorationRevealDelayMs`: how long to hide ropes/handles after the preview appears
+// - `decorationRevealFadeDurationMs`: how long the decorative layer takes to fade in
+// - if both reveal values are `0`, the reveal effect is effectively disabled
+// - `selectionHandleRadius`: size of the circular corner handles
+// - `selectionBorderWidth`: thickness of the highlighted selection border
+// - `selectionMaskOpacity`: how dark the outside area feels
+// - `minimumSelectionSize`: smallest accepted drag before it counts as cancel
+// - `rope*`: all decorative rope feel/appearance knobs are surfaced here
 // - `Color.mPrimary`: main accent used for ropes, handles, and selection border
-// - the four `Rope` items below: where each corner rope attaches
 PanelWindow {
     id: overlay
 
     property var targetScreen: null
     property string frozenImagePath: ""
+
+    // -----------------------------------------------------------------------
+    // Top-level tuning knobs
+    // -----------------------------------------------------------------------
+    // These properties are intentionally gathered near the top of the file so you
+    // can tune the whole overlay from one place without hunting through the tree.
+    //
+    // Decorative reveal timing:
+    // - increase `decorationRevealDelayMs` to hide more of the rope settle wobble
+    // - increase `decorationRevealFadeDurationMs` for a softer reveal
+    // - set both to `0` to disable the feature and show decorations immediately
+    property int decorationRevealDelayMs: 50
+    property int decorationRevealFadeDurationMs: 60
+
+    // Selector appearance:
+    // - larger `selectionHandleRadius` = chunkier corner handles
+    // - larger `selectionBorderWidth` = more prominent selection border
+    // - larger `selectionMaskOpacity` = darker area outside the crop box
+    // - larger `minimumSelectionSize` = less likely to accept tiny accidental drags
+    property int selectionHandleRadius: Math.max(10, Math.round(12 * Style.uiScaleRatio))
+    property int selectionBorderWidth: Math.max(4, Math.round(5 * Style.uiScaleRatio))
+    property real selectionMaskOpacity: 0.82
+    property int minimumSelectionSize: 2
+
+    // Rope appearance + feel. These are forwarded into each `Rope` instance.
+    // - more `ropeSegments` = smoother but heavier and usually laggier
+    // - more `ropeSegmentLength` = longer/deeper rope curves
+    // - more `ropeGravity` = more sag
+    // - more `ropeVelocityCarry` = more trailing / inertia
+    // - more `ropeSpringStrength` = snappier follow
+    // - more `ropeSubstepsPerFrame` = tighter/stabler, but more CPU work
+    // - more `ropeStrokeWidth` = thicker rope line only
+    property int ropeSegments: 8
+    property int ropeSegmentLength: 16
+    property real ropeGravity: 4.5
+    property real ropeVelocityCarry: 0.3
+    property real ropeSpringStrength: 0.7
+    property int ropeSubstepsPerFrame: 2
+    property real ropeStrokeWidth: 5
+
     readonly property string frozenImageSource: frozenImagePath.length === 0
         ? ""
         : (frozenImagePath.indexOf("file://") === 0 ? frozenImagePath : "file://" + frozenImagePath)
@@ -29,6 +73,12 @@ PanelWindow {
     readonly property bool previewReady: usingFrozenImage
     readonly property int sourceWidth: frozenImage.sourceSize.width
     readonly property int sourceHeight: frozenImage.sourceSize.height
+    readonly property bool decorationRevealEnabled:
+        decorationRevealDelayMs > 0 || decorationRevealFadeDurationMs > 0
+
+    // Delay decorative elements very slightly so the rope solver can settle
+    // before the user sees it. This avoids the initial "pop into place" wobble.
+    property bool decorationsShown: false
 
     // `closing` keeps cancel/accept idempotent so repeated inputs cannot make the
     // overlay emit contradictory signals during teardown.
@@ -63,6 +113,25 @@ PanelWindow {
         return Math.max(0, Math.min(Math.round(value), height));
     }
 
+    onPreviewReadyChanged: {
+        // Reset decorative visibility every time a preview becomes available.
+        // The mask/border still appear immediately; only the ropes/handles wait.
+        if (previewReady) {
+            if (decorationRevealEnabled) {
+                decorationsShown = false;
+                decorationRevealTimer.restart();
+            } else {
+                // If both timing knobs are zero, treat the feature as disabled and
+                // show decorations immediately with no delayed fade-in.
+                decorationsShown = true;
+                decorationRevealTimer.stop();
+            }
+        } else {
+            decorationsShown = false;
+            decorationRevealTimer.stop();
+        }
+    }
+
     function cancelSelection() {
         if (closing) {
             return;
@@ -94,7 +163,7 @@ PanelWindow {
         closing = true;
         selection.active = false;
 
-        if (selectionWidth < 2 || selectionHeight < 2) {
+        if (selectionWidth < minimumSelectionSize || selectionHeight < minimumSelectionSize) {
             // Tiny drags are treated as cancellations rather than degenerate crops.
             canceled();
             finished();
@@ -142,11 +211,10 @@ PanelWindow {
         property int selectionWidth: x2 - x1
         property int selectionHeight: y2 - y1
 
-        // Visual knobs for the selector itself.
-        // Increasing `handleRadius` makes handles easier to spot but visually heavier.
-        // Increasing `borderWidth` makes the selection box more prominent.
-        property int handleRadius: Math.max(10, Math.round(12 * Style.uiScaleRatio))
-        property int borderWidth: Math.max(4, Math.round(5 * Style.uiScaleRatio))
+        // Mirror the top-level tuning knobs into the geometry object so the rest of
+        // the overlay can keep reading `selection.*` values naturally.
+        property int handleRadius: overlay.selectionHandleRadius
+        property int borderWidth: overlay.selectionBorderWidth
     }
 
     MouseArea {
@@ -208,6 +276,17 @@ PanelWindow {
         visible: overlay.usingFrozenImage
     }
 
+    Timer {
+        id: decorationRevealTimer
+
+        // Roughly 6-8 frames on a high-refresh display: enough time for the rope
+        // to relax a bit, short enough that the UI still feels immediate.
+        interval: overlay.decorationRevealDelayMs
+        repeat: false
+
+        onTriggered: overlay.decorationsShown = true
+    }
+
     Item {
         // Use regular scenegraph rectangles instead of a full-screen canvas so
         // drag updates only change geometry, not repaint an entire texture.
@@ -231,7 +310,7 @@ PanelWindow {
 
             // This opacity is the main "how dark should the rest of the screen be?"
             // tuning knob for the overlay mask.
-            opacity: 0.82
+            opacity: overlay.selectionMaskOpacity
         }
 
         Rectangle {
@@ -240,7 +319,7 @@ PanelWindow {
             width: parent.leftEdge
             height: parent.middleHeight
             color: Color.mSurface
-            opacity: 0.82
+            opacity: overlay.selectionMaskOpacity
         }
 
         Rectangle {
@@ -249,7 +328,7 @@ PanelWindow {
             width: Math.max(0, parent.width - parent.rightEdge)
             height: parent.middleHeight
             color: Color.mSurface
-            opacity: 0.82
+            opacity: overlay.selectionMaskOpacity
         }
 
         Rectangle {
@@ -258,7 +337,7 @@ PanelWindow {
             width: parent.width
             height: Math.max(0, parent.height - parent.bottomEdge)
             color: Color.mSurface
-            opacity: 0.82
+            opacity: overlay.selectionMaskOpacity
         }
 
         Rectangle {
@@ -274,53 +353,91 @@ PanelWindow {
         }
     }
 
-    Rope {
-        // Each corner rope is decorative, but they also make the origin of the
-        // dragged rectangle visually obvious as it grows and shrinks.
-        // Changing `anchor*` changes where the rope is nailed to the screen.
-        // Changing `pull*` changes which selection corner the rope follows.
-        anchors.fill: parent
-        visible: overlay.previewReady
-        anchorX: 0
-        anchorY: 0
-        pullX: selection.x1
-        pullY: selection.y1
-        strokeColor: Color.mPrimary
-    }
-
-    Rope {
-        anchors.fill: parent
-        visible: overlay.previewReady
-        anchorX: parent.width
-        anchorY: 0
-        pullX: selection.x2
-        pullY: selection.y1
-        strokeColor: Color.mPrimary
-    }
-
-    Rope {
-        anchors.fill: parent
-        visible: overlay.previewReady
-        anchorX: 0
-        anchorY: parent.height
-        pullX: selection.x1
-        pullY: selection.y2
-        strokeColor: Color.mPrimary
-    }
-
-    Rope {
-        anchors.fill: parent
-        visible: overlay.previewReady
-        anchorX: parent.width
-        anchorY: parent.height
-        pullX: selection.x2
-        pullY: selection.y2
-        strokeColor: Color.mPrimary
-    }
-
     Item {
         anchors.fill: parent
         visible: overlay.previewReady
+        opacity: overlay.decorationsShown ? 1 : 0
+
+        // Fade only the decorative layer. The selection mask and border remain
+        // immediate so the user gets instant feedback that screenshot mode started.
+        Behavior on opacity {
+            NumberAnimation {
+                duration: overlay.decorationRevealFadeDurationMs
+                easing.type: Easing.InOutQuad
+            }
+        }
+
+        Rope {
+            // Each corner rope is decorative, but they also make the origin of the
+            // dragged rectangle visually obvious as it grows and shrinks.
+            // Changing `anchor*` changes where the rope is nailed to the screen.
+            // Changing `pull*` changes which selection corner the rope follows.
+            anchors.fill: parent
+            visible: overlay.previewReady
+            anchorX: 0
+            anchorY: 0
+            pullX: selection.x1
+            pullY: selection.y1
+            strokeColor: Color.mPrimary
+            strokeWidth: overlay.ropeStrokeWidth
+            segments: overlay.ropeSegments
+            segmentLength: overlay.ropeSegmentLength
+            gravity: overlay.ropeGravity
+            velocityCarry: overlay.ropeVelocityCarry
+            springStrength: overlay.ropeSpringStrength
+            substepsPerFrame: overlay.ropeSubstepsPerFrame
+        }
+
+        Rope {
+            anchors.fill: parent
+            visible: overlay.previewReady
+            anchorX: parent.width
+            anchorY: 0
+            pullX: selection.x2
+            pullY: selection.y1
+            strokeColor: Color.mPrimary
+            strokeWidth: overlay.ropeStrokeWidth
+            segments: overlay.ropeSegments
+            segmentLength: overlay.ropeSegmentLength
+            gravity: overlay.ropeGravity
+            velocityCarry: overlay.ropeVelocityCarry
+            springStrength: overlay.ropeSpringStrength
+            substepsPerFrame: overlay.ropeSubstepsPerFrame
+        }
+
+        Rope {
+            anchors.fill: parent
+            visible: overlay.previewReady
+            anchorX: 0
+            anchorY: parent.height
+            pullX: selection.x1
+            pullY: selection.y2
+            strokeColor: Color.mPrimary
+            strokeWidth: overlay.ropeStrokeWidth
+            segments: overlay.ropeSegments
+            segmentLength: overlay.ropeSegmentLength
+            gravity: overlay.ropeGravity
+            velocityCarry: overlay.ropeVelocityCarry
+            springStrength: overlay.ropeSpringStrength
+            substepsPerFrame: overlay.ropeSubstepsPerFrame
+        }
+
+        Rope {
+            anchors.fill: parent
+            visible: overlay.previewReady
+            anchorX: parent.width
+            anchorY: parent.height
+            pullX: selection.x2
+            pullY: selection.y2
+            strokeColor: Color.mPrimary
+            strokeWidth: overlay.ropeStrokeWidth
+            segments: overlay.ropeSegments
+            segmentLength: overlay.ropeSegmentLength
+            gravity: overlay.ropeGravity
+            velocityCarry: overlay.ropeVelocityCarry
+            springStrength: overlay.ropeSpringStrength
+            substepsPerFrame: overlay.ropeSubstepsPerFrame
+        }
 
         // Corner handles are visual affordances only; dragging still happens
         // through the full-screen mouse area above.

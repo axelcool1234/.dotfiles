@@ -15,8 +15,26 @@ import QtQuick.Shapes
 // - `velocityCarry`: larger values = more inertia/trailing, smaller values = snappier rope
 // - `springStrength`: larger values = rope chases the cursor more aggressively
 // - `substepsPerFrame`: more substeps = tighter, more stable rope at higher CPU cost
+// - `strokeWidth`: purely visual thickness; does not affect the simulation
 Rectangle {
     id: ropeRect
+
+    // -----------------------------------------------------------------------
+    // Top-level tuning knobs
+    // -----------------------------------------------------------------------
+    // These properties are grouped here on purpose so you can tune the rope feel
+    // from one place without digging through the solver below.
+    //
+    // Shape / appearance:
+    // - more `segments` = smoother curve, more CPU work, often more visible lag
+    // - more `segmentLength` = longer rope spans and deeper curves
+    // - more `strokeWidth` = thicker line only; no physics impact
+    //
+    // Motion / feel:
+    // - more `gravity` = more sag
+    // - more `velocityCarry` = more inertia / trailing
+    // - more `springStrength` = snappier follow
+    // - more `substepsPerFrame` = tighter/stabler rope at higher CPU cost
 
     // `anchor*` is the fixed point at the screen corner.
     property int anchorX: 0
@@ -30,6 +48,7 @@ Rectangle {
     property int segments: 8
     property int segmentLength: 16
     property color strokeColor: "white"
+    property real strokeWidth: 5
     property real gravity: 4.5
     property real velocityCarry: 0.3
     property real springStrength: 0.7
@@ -140,7 +159,7 @@ Rectangle {
             // - `strokeColor` is inherited from the overlay theme
             strokeColor: ropeRect.strokeColor
             fillColor: "transparent"
-            strokeWidth: 5
+            strokeWidth: ropeRect.strokeWidth
             startX: ropeRect.anchorX
             startY: ropeRect.anchorY
         }

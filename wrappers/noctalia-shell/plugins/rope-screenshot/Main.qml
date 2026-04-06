@@ -16,6 +16,26 @@ import qs.Services.UI
 Item {
     id: root
 
+    // -----------------------------------------------------------------------
+    // Top-level tuning knobs
+    // -----------------------------------------------------------------------
+    // This file mostly owns state transitions rather than visuals, so the useful
+    // knobs here are operational/UX values instead of animation constants.
+    //
+    // Toast timings:
+    // - `noticeDurationMs`: success toast lifetime
+    // - `errorDurationMs`: error toast lifetime
+    //
+    // Messages:
+    // - change these if you want different user-facing phrasing without touching
+    //   the state machine itself
+    property int noticeDurationMs: 3000
+    property int errorDurationMs: 5000
+    property string selectorOpenErrorMessage: "Failed to open the region selector."
+    property string freezeErrorFallbackMessage: "Failed to freeze the screen."
+    property string captureErrorFallbackMessage: "Capture failed."
+    property string captureSuccessMessage: "Copied to the clipboard and saved to Pictures/Screenshots."
+
     // `pluginApi` is provided by Noctalia when the plugin is instantiated.
     property var pluginApi: null
 
@@ -193,7 +213,7 @@ Item {
 
         if (!overlay) {
             cleanupFrozenFrame(frozenImagePath);
-            ToastService.showError("Screenshot", "Failed to open the region selector.", 3000);
+            ToastService.showError("Screenshot", selectorOpenErrorMessage, errorDurationMs);
             return null;
         }
 
@@ -333,8 +353,8 @@ Item {
 
                 ToastService.showError(
                     "Screenshot",
-                    freezeMessage.length > 0 ? freezeMessage : "Failed to freeze the screen.",
-                    5000
+                    freezeMessage.length > 0 ? freezeMessage : freezeErrorFallbackMessage,
+                    errorDurationMs
                 );
             }
         }
@@ -362,12 +382,12 @@ Item {
             root.cleanupFrozenFrame(frozenPath);
 
             if (exitCode === 0) {
-                ToastService.showNotice("Screenshot", "Copied to the clipboard and saved to Pictures/Screenshots.", "camera", 3000);
+                ToastService.showNotice("Screenshot", captureSuccessMessage, "camera", noticeDurationMs);
             } else {
                 ToastService.showError(
                     "Screenshot",
-                    root.captureErrorText.length > 0 ? root.captureErrorText : "Capture failed.",
-                    5000
+                    root.captureErrorText.length > 0 ? root.captureErrorText : captureErrorFallbackMessage,
+                    errorDurationMs
                 );
             }
 
