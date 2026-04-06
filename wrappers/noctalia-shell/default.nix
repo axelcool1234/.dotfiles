@@ -50,7 +50,7 @@ in
       # also persist downloaded color schemes
       homeDirectories = [
         ".cache/cliphist"
-        "~/.config/noctalia-shell/colorschemes/"
+        ".config/noctalia-shell/colorschemes"
       ];
       # This prevents noctalia-shell from showing the
       # privacy policy popup on every reboot
