@@ -14,7 +14,7 @@ import qs.Commons
 // - `decorationRevealDelayMs`: how long to hide ropes/handles after the preview appears
 // - `decorationRevealFadeDurationMs`: how long the decorative layer takes to fade in
 // - if both reveal values are `0`, the reveal effect is effectively disabled
-// - `selectionHandleRadius`: size of the circular corner handles
+// - `selectionAnchorRadius`: size of the circular corner anchors/handles
 // - `selectionBorderWidth`: thickness of the highlighted selection border
 // - `selectionMaskOpacity`: how dark the outside area feels
 // - `minimumSelectionSize`: smallest accepted drag before it counts as cancel
@@ -40,15 +40,13 @@ PanelWindow {
     property int decorationRevealFadeDurationMs: 500
 
     // Selector appearance:
-    // - larger `selectionHandleRadius` = chunkier corner handles
+    // - larger `selectionAnchorRadius` = chunkier corner anchors/handles
     // - larger `selectionBorderWidth` = more prominent selection border
+    //   By default this follows `ropeStrokeWidth` exactly so the border and rope
+    //   read as one visual system.
     // - larger `selectionMaskOpacity` = darker area outside the crop box
     // - larger `minimumSelectionSize` = less likely to accept tiny accidental drags
-    property int selectionHandleRadius: Math.max(10, Math.round(12 * Style.uiScaleRatio))
-    property int selectionBorderWidth: Math.max(4, Math.round(5 * Style.uiScaleRatio))
-    property real selectionMaskOpacity: 0.82
-    property int minimumSelectionSize: 2
-
+    property int selectionAnchorRadius: Math.max(6, Math.round(8 * Style.uiScaleRatio))
     // Rope appearance + feel. These are forwarded into each `Rope` instance.
     // - more `ropeSegments` = smoother but heavier and usually laggier
     // - more `ropeSegmentLength` = longer/deeper rope curves
@@ -63,7 +61,10 @@ PanelWindow {
     property real ropeVelocityCarry: 0.3
     property real ropeSpringStrength: 0.7
     property int ropeSubstepsPerFrame: 2
-    property real ropeStrokeWidth: 5
+    property real ropeStrokeWidth: 2.5
+    property real selectionBorderWidth: ropeStrokeWidth
+    property real selectionMaskOpacity: 0.82
+    property int minimumSelectionSize: 2
 
     readonly property string frozenImageSource: frozenImagePath.length === 0
         ? ""
@@ -213,8 +214,16 @@ PanelWindow {
 
         // Mirror the top-level tuning knobs into the geometry object so the rest of
         // the overlay can keep reading `selection.*` values naturally.
-        property int handleRadius: overlay.selectionHandleRadius
-        property int borderWidth: overlay.selectionBorderWidth
+        property int handleRadius: overlay.selectionAnchorRadius
+        property real borderWidth: overlay.selectionBorderWidth
+
+        // These "outer" edges describe the visible selection border rather than
+        // the raw drag rectangle. Using them everywhere keeps the ropes, border,
+        // and mask aligned to the same geometry.
+        readonly property real outerLeft: x1 - borderWidth / 2
+        readonly property real outerTop: y1 - borderWidth / 2
+        readonly property real outerRight: x2 + borderWidth / 2
+        readonly property real outerBottom: y2 + borderWidth / 2
     }
 
     MouseArea {
@@ -295,11 +304,11 @@ PanelWindow {
 
         // These derived edges define the "hole" around the selected area.
         // The four rectangles below cover everything outside that hole.
-        readonly property int topEdge: Math.max(0, selection.y1 - selection.borderWidth)
-        readonly property int leftEdge: Math.max(0, selection.x1 - selection.borderWidth)
-        readonly property int rightEdge: Math.min(parent.width, selection.x2 + selection.borderWidth)
-        readonly property int bottomEdge: Math.min(parent.height, selection.y2 + selection.borderWidth)
-        readonly property int middleHeight: Math.max(0, bottomEdge - topEdge)
+        readonly property real topEdge: Math.max(0, selection.outerTop)
+        readonly property real leftEdge: Math.max(0, selection.outerLeft)
+        readonly property real rightEdge: Math.min(parent.width, selection.outerRight)
+        readonly property real bottomEdge: Math.min(parent.height, selection.outerBottom)
+        readonly property real middleHeight: Math.max(0, bottomEdge - topEdge)
 
         Rectangle {
             x: 0
@@ -343,10 +352,10 @@ PanelWindow {
         Rectangle {
             // Keep the border mostly outside the clear region like the old canvas
             // version by offsetting the stroke half a border width outward.
-            x: selection.x1 - selection.borderWidth / 2
-            y: selection.y1 - selection.borderWidth / 2
-            width: selection.selectionWidth + selection.borderWidth
-            height: selection.selectionHeight + selection.borderWidth
+            x: selection.outerLeft
+            y: selection.outerTop
+            width: selection.outerRight - selection.outerLeft
+            height: selection.outerBottom - selection.outerTop
             color: "transparent"
             border.width: selection.borderWidth
             border.color: Color.mPrimary
@@ -376,8 +385,8 @@ PanelWindow {
             visible: overlay.previewReady
             anchorX: 0
             anchorY: 0
-            pullX: selection.x1
-            pullY: selection.y1
+            pullX: selection.outerLeft
+            pullY: selection.outerTop
             strokeColor: Color.mPrimary
             strokeWidth: overlay.ropeStrokeWidth
             segments: overlay.ropeSegments
@@ -393,8 +402,8 @@ PanelWindow {
             visible: overlay.previewReady
             anchorX: parent.width
             anchorY: 0
-            pullX: selection.x2
-            pullY: selection.y1
+            pullX: selection.outerRight
+            pullY: selection.outerTop
             strokeColor: Color.mPrimary
             strokeWidth: overlay.ropeStrokeWidth
             segments: overlay.ropeSegments
@@ -410,8 +419,8 @@ PanelWindow {
             visible: overlay.previewReady
             anchorX: 0
             anchorY: parent.height
-            pullX: selection.x1
-            pullY: selection.y2
+            pullX: selection.outerLeft
+            pullY: selection.outerBottom
             strokeColor: Color.mPrimary
             strokeWidth: overlay.ropeStrokeWidth
             segments: overlay.ropeSegments
@@ -427,8 +436,8 @@ PanelWindow {
             visible: overlay.previewReady
             anchorX: parent.width
             anchorY: parent.height
-            pullX: selection.x2
-            pullY: selection.y2
+            pullX: selection.outerRight
+            pullY: selection.outerBottom
             strokeColor: Color.mPrimary
             strokeWidth: overlay.ropeStrokeWidth
             segments: overlay.ropeSegments
@@ -441,8 +450,8 @@ PanelWindow {
 
         // Corner handles are visual affordances only; dragging still happens
         // through the full-screen mouse area above.
-        // If you want a subtler look, reduce `handleRadius` in the `selection`
-        // object rather than tweaking these rectangles individually.
+        // If you want a subtler look, reduce `selectionAnchorRadius` at the top of
+        // the file rather than tweaking these rectangles individually.
         Rectangle {
             x: selection.x1 - selection.handleRadius
             y: selection.y1 - selection.handleRadius
