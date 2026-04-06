@@ -36,8 +36,8 @@ PanelWindow {
     // - increase `decorationRevealDelayMs` to hide more of the rope settle wobble
     // - increase `decorationRevealFadeDurationMs` for a softer reveal
     // - set both to `0` to disable the feature and show decorations immediately
-    property int decorationRevealDelayMs: 50
-    property int decorationRevealFadeDurationMs: 60
+    property int decorationRevealDelayMs: 25
+    property int decorationRevealFadeDurationMs: 500
 
     // Selector appearance:
     // - larger `selectionHandleRadius` = chunkier corner handles
