@@ -9,6 +9,13 @@ import qs.Commons
 // Keeping the selection window focused on presentation makes the async flow much
 // easier to reason about. The controller decides when the overlay exists; the
 // overlay only decides what rectangle the user selected.
+//
+// Tuning guide for this file:
+// - `handleRadius`: size of the circular corner handles
+// - `borderWidth`: thickness of the highlighted selection border
+// - mask rectangle `opacity`: how dark the outside area feels
+// - `Color.mPrimary`: main accent used for ropes, handles, and selection border
+// - the four `Rope` items below: where each corner rope attaches
 PanelWindow {
     id: overlay
 
@@ -54,17 +61,6 @@ PanelWindow {
 
     function clampY(value) {
         return Math.max(0, Math.min(Math.round(value), height));
-    }
-
-    function requestRepaint() {
-        // These canvases are imperative, so property changes need explicit repaints.
-        if (selectionCanvas) {
-            selectionCanvas.requestPaint();
-        }
-
-        if (handleCanvas) {
-            handleCanvas.requestPaint();
-        }
     }
 
     function cancelSelection() {
@@ -145,14 +141,12 @@ PanelWindow {
         property int y2: Math.max(startY, currentY)
         property int selectionWidth: x2 - x1
         property int selectionHeight: y2 - y1
+
+        // Visual knobs for the selector itself.
+        // Increasing `handleRadius` makes handles easier to spot but visually heavier.
+        // Increasing `borderWidth` makes the selection box more prominent.
         property int handleRadius: Math.max(10, Math.round(12 * Style.uiScaleRatio))
         property int borderWidth: Math.max(4, Math.round(5 * Style.uiScaleRatio))
-
-        onActiveChanged: overlay.requestRepaint()
-        onStartXChanged: overlay.requestRepaint()
-        onStartYChanged: overlay.requestRepaint()
-        onCurrentXChanged: overlay.requestRepaint()
-        onCurrentYChanged: overlay.requestRepaint()
     }
 
     MouseArea {
@@ -214,38 +208,77 @@ PanelWindow {
         visible: overlay.usingFrozenImage
     }
 
-    Canvas {
-        id: selectionCanvas
-
+    Item {
+        // Use regular scenegraph rectangles instead of a full-screen canvas so
+        // drag updates only change geometry, not repaint an entire texture.
         anchors.fill: parent
         visible: overlay.previewReady
 
-        onPaint: {
-            var ctx = getContext("2d");
-            ctx.reset();
+        // These derived edges define the "hole" around the selected area.
+        // The four rectangles below cover everything outside that hole.
+        readonly property int topEdge: Math.max(0, selection.y1 - selection.borderWidth)
+        readonly property int leftEdge: Math.max(0, selection.x1 - selection.borderWidth)
+        readonly property int rightEdge: Math.min(parent.width, selection.x2 + selection.borderWidth)
+        readonly property int bottomEdge: Math.min(parent.height, selection.y2 + selection.borderWidth)
+        readonly property int middleHeight: Math.max(0, bottomEdge - topEdge)
 
-            // First dim the whole screen, then punch out the selected area so the
-            // user is effectively looking through a spotlight.
-            ctx.fillStyle = Color.mSurface;
-            ctx.globalAlpha = 0.82;
-            ctx.fillRect(0, 0, width, height);
+        Rectangle {
+            x: 0
+            y: 0
+            width: parent.width
+            height: parent.topEdge
+            color: Color.mSurface
 
-            ctx.globalAlpha = 1;
-            ctx.fillStyle = Color.mPrimary;
-            ctx.fillRect(
-                selection.x1 - selection.borderWidth,
-                selection.y1 - selection.borderWidth,
-                selection.selectionWidth + selection.borderWidth * 2,
-                selection.selectionHeight + selection.borderWidth * 2
-            );
+            // This opacity is the main "how dark should the rest of the screen be?"
+            // tuning knob for the overlay mask.
+            opacity: 0.82
+        }
 
-            ctx.clearRect(selection.x1, selection.y1, selection.selectionWidth, selection.selectionHeight);
+        Rectangle {
+            x: 0
+            y: parent.topEdge
+            width: parent.leftEdge
+            height: parent.middleHeight
+            color: Color.mSurface
+            opacity: 0.82
+        }
+
+        Rectangle {
+            x: parent.rightEdge
+            y: parent.topEdge
+            width: Math.max(0, parent.width - parent.rightEdge)
+            height: parent.middleHeight
+            color: Color.mSurface
+            opacity: 0.82
+        }
+
+        Rectangle {
+            x: 0
+            y: parent.bottomEdge
+            width: parent.width
+            height: Math.max(0, parent.height - parent.bottomEdge)
+            color: Color.mSurface
+            opacity: 0.82
+        }
+
+        Rectangle {
+            // Keep the border mostly outside the clear region like the old canvas
+            // version by offsetting the stroke half a border width outward.
+            x: selection.x1 - selection.borderWidth / 2
+            y: selection.y1 - selection.borderWidth / 2
+            width: selection.selectionWidth + selection.borderWidth
+            height: selection.selectionHeight + selection.borderWidth
+            color: "transparent"
+            border.width: selection.borderWidth
+            border.color: Color.mPrimary
         }
     }
 
     Rope {
         // Each corner rope is decorative, but they also make the origin of the
         // dragged rectangle visually obvious as it grows and shrinks.
+        // Changing `anchor*` changes where the rope is nailed to the screen.
+        // Changing `pull*` changes which selection corner the rope follows.
         anchors.fill: parent
         visible: overlay.previewReady
         anchorX: 0
@@ -285,29 +318,48 @@ PanelWindow {
         strokeColor: Color.mPrimary
     }
 
-    Canvas {
-        id: handleCanvas
-
+    Item {
         anchors.fill: parent
         visible: overlay.previewReady
 
-        onPaint: {
-            var ctx = getContext("2d");
-            ctx.reset();
-            ctx.fillStyle = Color.mPrimary;
+        // Corner handles are visual affordances only; dragging still happens
+        // through the full-screen mouse area above.
+        // If you want a subtler look, reduce `handleRadius` in the `selection`
+        // object rather than tweaking these rectangles individually.
+        Rectangle {
+            x: selection.x1 - selection.handleRadius
+            y: selection.y1 - selection.handleRadius
+            width: selection.handleRadius * 2
+            height: selection.handleRadius * 2
+            radius: selection.handleRadius
+            color: Color.mPrimary
+        }
 
-            function drawCorner(x, y) {
-                // Corner handles are visual affordances only; dragging still happens
-                // through the full-screen mouse area above.
-                ctx.beginPath();
-                ctx.arc(x, y, selection.handleRadius, 0, 2 * Math.PI);
-                ctx.fill();
-            }
+        Rectangle {
+            x: selection.x2 - selection.handleRadius
+            y: selection.y1 - selection.handleRadius
+            width: selection.handleRadius * 2
+            height: selection.handleRadius * 2
+            radius: selection.handleRadius
+            color: Color.mPrimary
+        }
 
-            drawCorner(selection.x1, selection.y1);
-            drawCorner(selection.x2, selection.y1);
-            drawCorner(selection.x1, selection.y2);
-            drawCorner(selection.x2, selection.y2);
+        Rectangle {
+            x: selection.x1 - selection.handleRadius
+            y: selection.y2 - selection.handleRadius
+            width: selection.handleRadius * 2
+            height: selection.handleRadius * 2
+            radius: selection.handleRadius
+            color: Color.mPrimary
+        }
+
+        Rectangle {
+            x: selection.x2 - selection.handleRadius
+            y: selection.y2 - selection.handleRadius
+            width: selection.handleRadius * 2
+            height: selection.handleRadius * 2
+            radius: selection.handleRadius
+            color: Color.mPrimary
         }
     }
 
@@ -317,6 +369,8 @@ PanelWindow {
 
         // A tiny status card avoids the "why is the screen dimmed?" confusion while
         // the frozen preview is still being prepared.
+        // This is a pure UX affordance; it can be removed without affecting the
+        // actual screenshot flow if a more minimal look is preferred.
         radius: Math.round(18 * Style.uiScaleRatio)
         color: Color.mSurface
         opacity: 0.92
