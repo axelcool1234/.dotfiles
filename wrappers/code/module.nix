@@ -96,8 +96,11 @@ in
       type = lib.types.attrsOf (lib.types.submodule ({ ... }: {
         options = {
           source = lib.mkOption {
-            type = lib.types.path;
-            description = "Path to the skill directory containing SKILL.md.";
+            type = lib.types.oneOf [
+              lib.types.path
+              lib.types.package
+            ];
+            description = "Path or package providing the skill directory containing SKILL.md.";
           };
         };
       }));
@@ -129,6 +132,8 @@ in
         skills subtree. The wrapper owns `skills/declarative/` and may remove
         undeclared entries there; runtime-managed skills must live outside that
         subtree. Each value must point to a skill folder containing `SKILL.md`.
+        Derivation outputs are allowed when they are rooted at the skill
+        directory itself.
       '';
     };
 

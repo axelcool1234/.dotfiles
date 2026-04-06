@@ -54,6 +54,9 @@ pkgs.writeShellApplication {
   };
 
   passthru.persist = {
-    homeDirectories = [ ".local/share/mqreborn" ];
+    homeDirectories = [
+      ".local/share/mqreborn"
+      ".local/share/umu"
+    ];
   };
 }

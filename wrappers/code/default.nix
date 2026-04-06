@@ -3,6 +3,7 @@
   hostVars,
   lib,
   myLib,
+  selfPkgs,
   ...
 }:
 let
@@ -25,6 +26,12 @@ in
   ];
 
   config = {
+    env = {
+      LEAN4_PLUGIN_ROOT = "${selfPkgs."lean4-skill"}";
+      LEAN4_SCRIPTS = "${selfPkgs."lean4-skill"}/lib/scripts";
+      LEAN4_REFS = "${selfPkgs."lean4-skill"}/references";
+    };
+
     settings = lib.mkDefault {
       model = "gpt-5.4";
       model_reasoning_effort = "high";
@@ -35,17 +42,27 @@ in
         auto_review_enabled = false;
       };
 
-      mcp_servers.nixos = {
-        command = "nix";
-        args = [
-          "run"
-          "github:utensils/mcp-nixos"
-          "--"
-        ];
+      mcp_servers = {
+        nixos = {
+          command = "nix";
+          args = [
+            "run"
+            "github:utensils/mcp-nixos"
+            "--"
+          ];
+        };
+
+        "lean-lsp" = {
+          command = "${selfPkgs."lean-lsp-mcp"}/bin/lean-lsp-mcp";
+        };
       };
     };
 
-    skills = lib.mapAttrs (_name: source: { inherit source; }) discoveredSkills;
+    skills =
+      (lib.mapAttrs (_name: source: { inherit source; }) discoveredSkills)
+      // {
+        lean4.source = selfPkgs."lean4-skill";
+      };
 
     extraConfigFiles = lib.optionals useNoctaliaTheme [
       "$HOME/.cache/noctalia/every-code-theme.toml"

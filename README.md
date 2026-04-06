@@ -1,9 +1,20 @@
 # TODO
 - Add cursors back
 - Add Grub theme back
-- GitHub CI
-  Include flake integrity checks and possibly NixOS tests.
-  Source: `https://nixos-and-flakes.thiscute.world/other-usage-of-flakes/testing`
+- Steal features from: https://noctalia.dev/plugins/screen-toolkit/
+- Replace recorder script with: https://noctalia.dev/plugins/screen-recorder/
+- Get calendar: https://noctalia.dev/plugins/weekly-calendar/
+- Get colorscheme creator: https://noctalia.dev/plugins/color-scheme-creator/
+- Get keybind cheatsheet: https://noctalia.dev/plugins/keybind-cheatsheet/
+- Get: https://noctalia.dev/plugins/privacy-indicator/
+- Get: https://noctalia.dev/plugins/fancy-audiovisualizer/
+- Get: https://noctalia.dev/plugins/unicode-picker/
+- Get: https://noctalia.dev/plugins/kaomoji-provider/
+- Get: https://noctalia.dev/plugins/file-search/
+- Get (for fun): https://noctalia.dev/plugins/activate-linux/
+- Investigate: https://noctalia.dev/plugins/assistant-panel/
+- Configure mime types for files
+- Add .face back to get a profile picture for noctalia-shell
 - Figure out `direnv` + `lorri` and add the needed support for local development
 - Explore `nix-portable`, `nix-appimage`, and `railpack` for portability
 - Improve Kitty
@@ -27,6 +38,19 @@
 - Switch to this: https://github.com/niri-wm/niri/pull/3483
 - https://www.reddit.com/r/niri/comments/1mwnoil/niri_run_or_raise_focus_app_rotate_between/
 - Look at old dotfiles for `hhx`, aka headless helix.
+- Overhaul README
+  - Table of contents
+  - Showcase (pictures and video)
+  - Defaults section (what editor, terminal, desktop, desktop shell, etc. am I using?)
+  - Steal from old README
+  - TODO for .dotfiles section at the bottom
+  - TODO for personal forks (like Helix) at the bottom
+- Consider recreating my website
+  - Pure HTML, CSS, and whatever shiny things interest me (like pretext)
+    - Mozilla HTML docs
+  - Create a custom landing page for Firefox but for fun put it on the website.
+  - Notes? Could place all these TODO stuff in there maybe.
+  - Could also journal work I'm doing each day - may be a good way to stay organized?
 
 ## Fresh Install
 We'll use the `legion` host as an example.
