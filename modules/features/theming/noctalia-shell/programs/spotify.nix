@@ -249,8 +249,8 @@ let
   spicetifyExtensionNames = [
     spicePkgs.extensions.adblock.name
     spicePkgs.extensions.shuffle.name
-    spicePkgs.extensions.keyboardShortcut.name
-    spicePkgs.extensions.fullAppDisplay.name
+    # spicePkgs.extensions.keyboardShortcut.name
+    # spicePkgs.extensions.fullAppDisplay.name
   ];
 
   # Static pieces of the Comfy theme can remain declarative. The one mutable
