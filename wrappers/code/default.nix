@@ -55,6 +55,10 @@ in
         "lean-lsp" = {
           command = "${selfPkgs."lean-lsp-mcp"}/bin/lean-lsp-mcp";
         };
+
+        typst = {
+          command = "${selfPkgs."typst-mcp"}/bin/typst-mcp";
+        };
       };
     };
 
