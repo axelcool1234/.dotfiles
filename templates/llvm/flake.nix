@@ -39,6 +39,7 @@
               mold
               ninja
               zlib
+              python3
             ];
             text = ''
               set -euo pipefail
