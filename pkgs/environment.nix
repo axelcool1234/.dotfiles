@@ -22,6 +22,7 @@ let
     pkgs.fzf         # Fuzzy finder
     selfPkgs.git     # Version control
     selfPkgs.jujutsu # Version control
+    selfPkgs.jjui    # Jujutsu TUI
     selfPkgs.harness # Default LLM harness
     selfPkgs.neovim  # Secondary editor
     selfPkgs.yazi    # Terminal file manager
