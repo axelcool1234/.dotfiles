@@ -1,316 +1,572 @@
--- Leader Key
 vim.g.mapleader = " "
+vim.g.loaded_matchit = 1
 
--- Helpers
-_G.find_files_in_git_root = function()
-    local root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
-    if vim.v.shell_error == 0 then
-        require("telescope.builtin").find_files({ cwd = root })
-    else
-        require("telescope.builtin").find_files()
-    end
-end
+local helix = require("axelcool1234.helix")
+local completion = require("axelcool1234.cmp")
+local buffers = require("axelcool1234.buffers")
+local gitlinker = require("axelcool1234.gitlinker")
+local gh_dash = require("axelcool1234.gh_dash")
+local octo = require("axelcool1234.octo")
+local pickers = require("axelcool1234.pickers")
+local terminal = require("axelcool1234.terminal")
+local wk = require("which-key")
 
-_G.live_grep_in_git_root = function()
-    local root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
-    if vim.v.shell_error == 0 then
-        require("telescope.builtin").live_grep({ cwd = root })
-    else
-        require("telescope.builtin").live_grep()
-    end
-end
+local function normalize_key(entry)
+  local label = entry[1]
+  local bind = entry[2]
+  local action = entry[3]
+  local mode = entry.mode or "n"
+  local opts = entry.opts or {}
+  local hidden = entry.hidden == true or label == "which_key_ignore"
 
-_G.open_submissions = function()
-  -- Get the number under the cursor
-  local number = vim.fn.expand("<cword>")
-
-  -- Define the directory to search
-  local search_dir = "submissions"
-  -- Use fd with the number to find matching files
-  local handle = io.popen("fd " .. number .. " " .. search_dir)
-  local result = handle:read("*a")
-  handle:close()
-
-  -- Split result by lines (each file is a line)
-  for file in result:gmatch("[^\r\n]+") do
-    -- Open each file in a new tab
-    vim.cmd("tabnew " .. file)
+  if hidden and action == nil then
+    action = "<Nop>"
   end
+
+  return {
+    label = label,
+    bind = bind,
+    action = action,
+    mode = mode,
+    opts = opts,
+    hidden = hidden,
+    context = entry.context,
+    expand = entry.expand,
+  }
 end
 
--- Texlab variables
--- _G.is_compiling = false
--- _G.compilation_buffer = nil
--- _G.compilation_timer = nil
---
--- -- Function to start compilation
--- _G.texlab_build_and_search = function() 
---     -- Set flag to indicate compilation is active
---     _G.is_compiling = true
---
---     -- Trigger build in the designated compilation buffer
---     if _G.compilation_buffer then
---         vim.api.nvim_buf_call(_G.compilation_buffer, function()
---             vim.cmd('TexlabBuild')
---         end)
---     else
---         _G.is_compiling = false
---         -- Stop any running timer
---         if _G.compilation_timer then
---             _G.compilation_timer:stop()
---             _G.compilation_timer:close()
---             _G.compilation_timer = nil
---         end
---         print("Compilation buffer not set")
---         return
---     end
---
---     -- Wait for build to complete (adjust delay as needed)
---     _G.compilation_timer = vim.loop.new_timer()
---     _G.compilation_timer:start(1000, 0, vim.schedule_wrap(function()
---         -- Check if still compiling (flag could be cleared if compilation is stopped)
---         if _G.is_compiling then
---             vim.api.nvim_buf_call(_G.compilation_buffer, function()
---                 vim.cmd('TexlabForward')
---             end)
---         end
---     end))
--- end
---
--- _G.start_compilation = function()
---     if not _G.is_compiling then
---         _G.compilation_buffer = vim.api.nvim_get_current_buf()
---         vim.cmd('autocmd BufWritePost * lua if _G.is_compiling then _G.texlab_build_and_search() end')
---         _G.is_compiling = true
---     end
--- end
---
--- _G.stop_compilation = function()
---     if _G.is_compiling then
---         vim.cmd('autocmd! BufWritePost *')
---         _G.is_compiling = false
---         _G.compilation_buffer = nil
---         -- Stop any running timer
---         if _G.compilation_timer then
---             _G.compilation_timer:stop()
---             _G.compilation_timer:close()
---             _G.compilation_timer = nil
---         end
---         print("Compilation stopped")
---     else
---         print("No active compilation to stop")
---     end
--- end
+local function mode_values(mode)
+  if type(mode) == "table" then
+    return mode
+  end
+  return { mode }
+end
 
--- Mappings
-function set_mappings(mappings, default_opts)
-  local keymap = vim.api.nvim_set_keymap
-  for _, mapping in ipairs(mappings) do
-      local desc, lhs, rhs, modes, opts = unpack(mapping)
-      opts = opts or {}
-      modes = type(modes) == "table" and modes or {modes}
+local function context_values(context)
+  if context == nil then
+    return nil
+  end
+  if type(context) == "table" then
+    return context
+  end
+  return { context }
+end
 
+local function values_overlap(left, right)
+  if left == nil or right == nil then
+    return left == nil and right == nil
+  end
+
+  for _, left_value in ipairs(left) do
+    if vim.tbl_contains(right, left_value) then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function keys_share_scope(left, right)
+  return values_overlap(mode_values(left.mode), mode_values(right.mode))
+    and values_overlap(context_values(left.context), context_values(right.context))
+end
+
+local function has_child_key(keys, parent)
+  for _, candidate in ipairs(keys) do
+    if candidate.bind ~= parent.bind
+      and vim.startswith(candidate.bind, parent.bind)
+      and keys_share_scope(parent, candidate) then
+      return true
+    end
+  end
+
+  return false
+end
+
+local function normalized_keys(keys)
+  local normalized = {}
+  for _, entry in ipairs(keys) do
+    normalized[#normalized + 1] = normalize_key(entry)
+  end
+
+  for _, key in ipairs(normalized) do
+    key.group = not key.hidden
+      and key.action == nil
+      and (key.expand ~= nil or has_child_key(normalized, key))
+  end
+
+  return normalized
+end
+
+local function add_wk_entry(entries, key, extra)
+  extra = extra or {}
+  local wk_entry = { key.bind }
+  for field, value in pairs(extra) do
+    wk_entry[field] = value
+  end
+  wk_entry.mode = key.mode
+  entries[#entries + 1] = wk_entry
+end
+
+local function derive_which_key_triggers(keys)
+  local triggers = {}
+  local seen = {}
+  local group_binds = {}
+
+  for _, key in ipairs(keys) do
+    if key.context == nil and key.group then
+      local modes = mode_values(key.mode)
       for _, mode in ipairs(modes) do
-          local final_opts = vim.tbl_extend("force", default_opts, opts, { desc = desc })
-          keymap(mode, lhs, rhs, final_opts)
+        group_binds[#group_binds + 1] = { bind = key.bind, mode = mode }
       end
+    end
+  end
+
+  local function has_parent_group(bind, mode)
+    for _, group in ipairs(group_binds) do
+      if group.mode == mode and group.bind ~= bind and vim.startswith(bind, group.bind) then
+        return true
+      end
+    end
+    return false
+  end
+
+  for _, key in ipairs(keys) do
+    if key.context == nil and key.group and key.opts.trigger ~= false then
+      local modes = mode_values(key.mode)
+      for _, mode in ipairs(modes) do
+        local signature = table.concat({ mode, key.bind }, "\0")
+        if not seen[signature] and not has_parent_group(key.bind, mode) then
+          triggers[#triggers + 1] = { key.bind, mode = mode }
+          seen[signature] = true
+        end
+      end
+    end
+  end
+
+  return triggers
+end
+
+local function apply_global_keys(keys)
+  local seen = {}
+
+  for _, key in ipairs(keys) do
+    if key.context == nil and key.action ~= nil and not key.group then
+      local modes = mode_values(key.mode)
+      for _, mode in ipairs(modes) do
+        local signature = table.concat({ mode, key.bind }, "\0")
+        if not seen[signature] then
+          local final_opts = vim.tbl_extend("force", { silent = true }, key.opts, { desc = key.label })
+          vim.keymap.set(mode, key.bind, key.action, final_opts)
+          seen[signature] = true
+        end
+      end
+    end
   end
 end
 
-local default_opts = { noremap = true, silent = true }
-local mappings = {
-    -- Telescope keymappings
-    { "Find Files", '<leader>f', "<cmd>lua find_files_in_git_root()<CR>", 'n' },
-    { "Live Grep", '<leader>/', "<cmd>lua live_grep_in_git_root()<CR>", 'n' },
+local function add_global_which_key(keys)
+  local entries = {}
+  local seen = {}
 
-    -- LaTeX Build Command (texlab LSP) (replaced with vimtex)
-    -- { "Build LaTeX", '<leader>\\ll', "<cmd>lua start_compilation()<CR><cmd>lua texlab_build_and_search()<CR>", 'n' }, 
-    -- { "End LaTeX Building", '<leader>\\lk', "<cmd>lua stop_compilation()<CR>", 'n' }, 
+  for _, key in ipairs(keys) do
+    if key.context == nil then
+      local modes = mode_values(key.mode)
+      for _, mode in ipairs(modes) do
+        local signature = table.concat({ mode, key.bind }, "\0")
+        if not seen[signature] then
+          if key.group then
+            add_wk_entry(entries, key, { group = key.label, expand = key.expand })
+          elseif key.hidden then
+            add_wk_entry(entries, key, { hidden = true })
+          else
+            add_wk_entry(entries, key, { desc = key.label })
+          end
+          seen[signature] = true
+        end
+      end
+    end
+  end
 
-    -- Paste from system clipboard
-    { "Clipboard Paste", '<leader>p', '"+p', {'n', 'v'} },
+  wk.add(entries)
+end
 
-    -- Yank to system clipboard
-    { "Clipboard Yank", '<leader>y', '"+y', {'n', 'v'} },
+local function add_hidden_keys(keys, binds, mode, context)
+  for _, bind in ipairs(binds) do
+    keys[#keys + 1] = { "which_key_ignore", bind, hidden = true, mode = mode, context = context }
+  end
+end
 
-    -- Replace
-    { "Replace", 'gR', '<cmd>normal! "_d0P"<CR>', {'n', 'v'} },
-    { "Clipboard Replace ", '<leader>gR', '<cmd>normal! "_d"+P<CR>', {'n', 'v'} },
+local function set_register_prefix_mappings()
+  for _, name in ipairs(helix.register_selectable_names()) do
+    vim.keymap.set("n", '"' .. name, function()
+      helix.select_register(name)
+    end, { silent = true, desc = "which_key_ignore" })
+  end
+end
 
-    -- CTRL+D / CTRL+U keeps cursor in the middle
-    { "CTRL+D", '<C-d>', '<C-d>zz', 'n' },
-    { "CTRL+U", '<C-u>', '<C-u>zz', 'n' },
-
-    -- Alternatives to ^/$/G/CTRL+R (Helix-like bindings)
-    { "Goto line end", 'gl', '$', { 'n', 'v' } },
-    { "Goto line start", 'gh', '^', { 'n', 'v' } },
-    { "Goto last line", 'ge', 'G', { 'n', 'v' } },
-    { "Redo", 'U', '<C-R>', { 'n' , 'v' } },
-
-    -- Replace symbol
-    { "Replace symbol", '<leader>r', "<cmd>lua vim.lsp.buf.rename()<CR>", 'n' },
-
-    -- Code Action
-    { "Code Action", '<leader>a', "<cmd>lua vim.lsp.buf.code_action()<CR>", 'n' },
-
-    -- Move through diagnostic
-    { "Move through diagnostic (prev)", '[d', "<cmd>lua vim.lsp.diagnostic.goto_prev()<CR>", 'n' },
-    { "Move through diagnostic (next)", ']d', "<cmd>lua vim.lsp.diagnostic.goto_next()<CR>", 'n' },
-
-    -- Goto declaration/definition/implementation/references
-    { "Goto declaration", 'gD', "<cmd>lua vim.lsp.buf.declaration()<CR>", 'n' },
-    -- { "Goto Definition", 'gd', "<cmd>lua vim.lsp.buf.definition()<CR>", 'n' },
-    -- { "Goto Implementation", 'gI', "<cmd>lua vim.lsp.buf.implementation()<CR>", 'n' },
-    -- { "Goto Type Definition", 'gy', "<cmd>lua vim.lsp.buf.type_definition()<CR>", 'n' },
-    -- { "Goto References", 'gr', "<cmd>lua vim.lsp.buf.references()<CR>", 'n' },
-    { "Goto Definition", "gd", '<cmd>lua require("telescope.builtin").lsp_definitions({ reuse_win = true })<CR>', 'n' },
-    { "Goto Implementation", "gI", '<cmd>lua require("telescope.builtin").lsp_implementations({ reuse_win = true })<CR>', 'n' },
-    { "Goto Type Definition", "gy", '<cmd>lua require("telescope.builtin").lsp_type_definitions({ reuse_win = true })<CR>', 'n' },
-    { "References", "gr", "<cmd>Telescope lsp_references<CR>", 'n', { nowait = true } },
-
-    -- Diagnostics
-    { "Hover", '<leader> ', "<cmd>lua vim.lsp.buf.hover()<CR>", { 'n', 'v' } },
-    { "Signature Help", '<leader>s', "<cmd>lua vim.lsp.buf.signature_help()<CR>", 'n' },
-    { "Open Diagnostic float", '<leader>dd', "<cmd>lua vim.diagnostic.open_float()<CR>", 'n' },
-    { "Set Diagnostic loclist", '<leader>q', "<cmd>lua vim.diagnostic.setloclist()<CR>", 'n' },
-
-    -- Key mappings for nvim-cmp (completion-nvim)
-    { "Completion: Previous item", '<C-p>', "<cmd>lua require('cmp').select_prev_item()<CR>", 'i' },
-    { "Completion: Next item", '<C-n>', "<cmd>lua require('cmp').select_next_item()<CR>", 'i' },
-    { "Completion: Close", '<C-e>', "<cmd>lua require('cmp').close()<CR>", 'i' },
-    { "Completion: Accept", '<C-Space>', "<cmd>lua require('cmp').confirm({ select = true })<CR>", 'i' },
-
-    -- Key mappings for nvim-dap (debug adapter)
-    { "+Debug", "<leader>d", "", { "n", "v" } },
-    { "Breakpoint Condition", "<leader>dB", "<cmd>lua require('dap').set_breakpoint(vim.fn.input('Breakpoint condition: '))<CR>", 'n' },
-    { "Toggle Breakpoint", "<leader>db", "<cmd>lua require('dap').toggle_breakpoint()<CR>", 'n' },
-    { "Continue", "<leader>dc", "<cmd>lua require('dap').continue()<CR>", 'n' },
-    { "Run with Args", "<leader>da", "<cmd>lua require('dap').continue({ before = get_args })<CR>", 'n' },
-    { "Run to Cursor", "<leader>dC", "<cmd>lua require('dap').run_to_cursor()<CR>", 'n' },
-    { "Go to Line (No Execute)", "<leader>dg", "<cmd>lua require('dap').goto_()<CR>", 'n' },
-    { "Step Into", "<leader>di", "<cmd>lua require('dap').step_into()<CR>", 'n' },
-    { "Down", "<leader>dj", "<cmd>lua require('dap').down()<CR>", 'n' },
-    { "Up", "<leader>dk", "<cmd>lua require('dap').up()<CR>", 'n' },
-    { "Run Last", "<leader>dl", "<cmd>lua require('dap').run_last()<CR>", 'n' },
-    { "Step Out", "<leader>do", "<cmd>lua require('dap').step_out()<CR>", 'n' },
-    { "Step Over", "<leader>dO", "<cmd>lua require('dap').step_over()<CR>", 'n' },
-    { "Pause", "<leader>dp", "<cmd>lua require('dap').pause()<CR>", 'n' },
-    { "Toggle REPL", "<leader>dr", "<cmd>lua require('dap').repl.toggle()<CR>", 'n' },
-    { "Session", "<leader>ds", "<cmd>lua require('dap').session()<CR>", 'n' },
-    { "Terminate", "<leader>dt", "<cmd>lua require('dap').terminate()<CR>", 'n' },
-    { "Widgets", "<leader>dw", "<cmd>lua require('dap.ui.widgets').hover()<CR>", 'n' },
-    { "Eval", "<leader>de", "<cmd>lua require('dapui').eval()<CR>", { 'n', 'v' } },
-    { "Dap UI", "<leader>du", "<cmd>lua require('dapui').toggle()<CR>", 'n' },
-
-    -- Testing (with Neotest)
-    { "+Test", "<leader>t", "", 'n' },
-    { "Run File", "<leader>tt", "<cmd>lua require('neotest').run.run(vim.fn.expand('%'))<CR>", 'n' },
-    { "Run All Test Files", "<leader>tT", "<cmd>lua require('neotest').run.run(vim.uv.cwd())<CR>", 'n' },
-    { "Run Nearest", "<leader>tr", "<cmd>lua require('neotest').run.run()<CR>", 'n' },
-    { "Run Last", "<leader>tl", "<cmd>lua require('neotest').run.run_last()<CR>", 'n' },
-    { "Toggle Summary", "<leader>ts", "<cmd>lua require('neotest').summary.toggle()<CR>", 'n' },
-    { "Show Output", "<leader>to", "<cmd>lua require('neotest').output.open({ enter = true, auto_close = true })<CR>", 'n' },
-    { "Toggle Output Panel", "<leader>tO", "<cmd>lua require('neotest').output_panel.toggle()<CR>", 'n' },
-    { "Stop", "<leader>tS", "<cmd>lua require('neotest').run.stop()<CR>", 'n' },
-    { "Toggle Watch", "<leader>tw", "<cmd>lua require('neotest').watch.toggle(vim.fn.expand('%'))<CR>", 'n' },
-    -- { "Debug Nearest", '<leader>td', "<cmd>lua require('neotest').run.run({ strategy = 'dap' })<CR>", 'n' },
-
-    -- Key mappings for undotree
-    { "Toggle Undotree", '<leader>u', "<cmd>lua vim.cmd.UndotreeToggle()<CR>", 'n' },
-
-    -- UltiSnips keymappings
-    { "UltiSnips: Expand Trigger", '<tab>', "<cmd>call UltiSnips#ExpandSnippet()<CR>", { "i", "s" } },
-    -- { "UltiSnips: Jump Forward", '<C-;>', "<cmd>call UltiSnips#JumpForwards()<CR>", { "i", "s" } },
-    { "UltiSnips: Jump Forward", '<Up>', "<cmd>call UltiSnips#JumpForwards()<CR>", { "i", "s" } },
-    -- { "UltiSnips: Jump Backward", '<C-:>', "<cmd>call UltiSnips#JumpBackwards()<CR>", { "i", "s" } },
-    { "UltiSnips: Jump Backward", '<Down>', "<cmd>call UltiSnips#JumpBackwards()<CR>", { "i", "s" } },
-
-    -- Flash plugin keymappings
-    { "Flash", 's', "<cmd>lua require('flash').jump()<CR>", {'n', 'x', 'o'} },
-    { "Flash Treesitter", 'S', "<cmd>lua require('flash').treesitter()<CR>", {'n', 'x', 'o'} },
-    { "Remote Flash", 'r', "<cmd>lua require('flash').remote()<CR>", 'o' },
-    { "Treesitter Search", 'R', "<cmd>lua require('flash').treesitter_search()<CR>", {'o', 'x'} },
-    { "Toggle Flash Search", '<c-s>', "<cmd>lua require('flash').toggle()<CR>", 'c' },
-
-    -- Bufferline keymappings
-    { "Prev Buffer", 'H', "<cmd>BufferLineCyclePrev<cr>", 'n' },
-    { "Next Buffer", 'L', "<cmd>BufferLineCycleNext<cr>", 'n' },
-    { "Close Buffer", 'gq', "<cmd>bdelete<CR>", 'n' },
-
-    -- Oil keymappings
-    { "Open Parent Directory", "-", "<cmd>Oil<CR>", 'n' },
-    { "Open Parent Directory (Float)", "<leader>-", "<cmd>lua require('oil').toggle_float()<CR>", 'n' },
-
-    -- Harpoon keymappings
-    { "+Harpoon", "<leader>h", "", 'n' },
-    { "Harpoon File 1", '<leader>h1', "<cmd>lua require('harpoon'):list():select(1) <CR>", 'n' },
-    { "Harpoon File 2", '<leader>h2', "<cmd>lua require('harpoon'):list():select(2) <CR>", 'n' },
-    { "Harpoon File 3", '<leader>h3', "<cmd>lua require('harpoon'):list():select(3) <CR>", 'n' },
-    { "Harpoon File 4", '<leader>h4', "<cmd>lua require('harpoon'):list():select(4) <CR>", 'n' },
-    { "Harpoon File 5", '<leader>h5', "<cmd>lua require('harpoon'):list():select(5) <CR>", 'n' },
-    { "Harpoon Add File", '<leader>ha', "<cmd>lua require('harpoon'):list():add() <CR>", 'n' },
-    { "Harpoon Quick Menu", '<leader>hh', "<cmd>lua require('harpoon').ui:toggle_quick_menu(require('harpoon'):list()) <CR>", 'n' },
-
-    -- Overseer keymappings
-    { "+Overseer", '<leader>o', "", 'n' },
-    { "Task list", "<leader>ow", "<cmd>OverseerToggle<cr>", 'n' },
-    { "Run task", "<leader>oo", "<cmd>OverseerRun<cr>", 'n' },
-    { "Action recent task", "<leader>oq", "<cmd>OverseerQuickAction<cr>", 'n' },
-    { "Overseer Info", "<leader>oi", "<cmd>OverseerInfo<cr>", 'n' },
-    { "Task builder", "<leader>ob", "<cmd>OverseerBuild<cr>", 'n' },
-    { "Task action", "<leader>ot", "<cmd>OverseerTaskAction<cr>", 'n' },
-    { "Clear cache", "<leader>oc", "<cmd>OverseerClearCache<cr>", 'n' },
-
-    -- Precognition keymappings
-    { "Precognition toggle", '<leader>gp', "<cmd>lua require('precognition').toggle() <CR>", 'n' },
-
-    -- Grading
-    { "Open Submission By ID", '<leader>z', "<cmd>lua open_submissions()<CR>", 'n'},
-
-    -- Remove keymappings (probably not the correct way to do this)
-    { "None", '<C-t>', "", 'n'},
+local hidden_keys = {
+  { binds = { "]A", "]b", "]B", "]l", "]L", "]q", "]Q", "]T", "]%", "](", "]<", "]M", "]m", "]s", "]{", "]]", "]<C-L>", "]<C-Q>", "]<C-T>" } },
+  { binds = { "[A", "[b", "[B", "[l", "[L", "[q", "[Q", "[T", "[%", "[(", "[<", "[M", "[m", "[s", "[{", "[[", "[<C-L>", "[<C-Q>", "[<C-T>" } },
+  { binds = { "g`", "g'", "gu", "gU", "g~", "gw", "gO", "gcc", "gR", "gx", "g%" } },
+  { binds = { "<C-t>", "V" } },
 }
-set_mappings(mappings, default_opts)
+local keys = {
+  { "Right bracket", "]" },
+  { "Goto next diagnostic", "]d", function() vim.diagnostic.jump({ count = 1, float = true }) end },
+  { "Goto last diagnostic", "]D", function() helix.goto_edge_diagnostic("last") end },
+  { "Goto next change", "]g", function() helix.goto_change("next") end },
+  { "Goto last change", "]G", function() helix.goto_change("last") end },
+  { "Goto next function", "]f", function() helix.goto_textobject("function", "forward") end },
+  { "Goto next type definition", "]t", function() helix.goto_textobject("class", "forward") end },
+  { "Goto next parameter", "]a", function() helix.goto_textobject("parameter", "forward") end },
+  { "Goto next comment", "]c", function() helix.goto_textobject("comment", "forward") end },
+  { "Goto next test", "]T", function() helix.goto_textobject("test", "forward") end },
+  { "Goto next pairing", "]e", function() helix.goto_textobject("entry", "forward") end },
+  { "Goto next paragraph", "]p", function() helix.goto_paragraph("forward") end },
+  { "Goto next (X)HTML element", "]x", function() helix.goto_textobject("xml-element", "forward") end },
+  { "Add newline below", "]<Space>", function() helix.add_newline_relative(1) end },
 
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = "rust",
-  callback = function()
-    -- For Rust files, override <leader>a for RustLsp codeAction
-    vim.keymap.set('n', '<leader>a', function() vim.cmd('RustLsp codeAction') end,
-      { buffer = true, desc = "Rust LSP Code Action" })
+  { "Left bracket", "[" },
+  { "Goto previous diagnostic", "[d", function() vim.diagnostic.jump({ count = -1, float = true }) end },
+  { "Goto first diagnostic", "[D", function() helix.goto_edge_diagnostic("first") end },
+  { "Goto previous change", "[g", function() helix.goto_change("prev") end },
+  { "Goto first change", "[G", function() helix.goto_change("first") end },
+  { "Goto previous function", "[f", function() helix.goto_textobject("function", "backward") end },
+  { "Goto previous type definition", "[t", function() helix.goto_textobject("class", "backward") end },
+  { "Goto previous parameter", "[a", function() helix.goto_textobject("parameter", "backward") end },
+  { "Goto previous comment", "[c", function() helix.goto_textobject("comment", "backward") end },
+  { "Goto previous test", "[T", function() helix.goto_textobject("test", "backward") end },
+  { "Goto previous pairing", "[e", function() helix.goto_textobject("entry", "backward") end },
+  { "Goto previous paragraph", "[p", function() helix.goto_paragraph("backward") end },
+  { "Goto previous (X)HTML element", "[x", function() helix.goto_textobject("xml-element", "backward") end },
+  { "Add newline above", "[<Space>", function() helix.add_newline_relative(-1) end },
 
-    -- For Rust files, special render diagnostic
-    vim.keymap.set('n', '<leader>D', function() vim.cmd('RustLsp renderDiagnostic') end,
-      { buffer = true, desc = "Rust LSP Render Diagnostic" })
+  { "Match", "m" },
+  { "Goto matching pair", "mm", helix.goto_match },
+  { "Surround add", "ms", helix.surround_add },
+  { "Surround replace", "mr", helix.surround_replace },
 
-    -- For Rust files, hover range
-    vim.keymap.set('v', '<leader> ', function() vim.cmd('RustLsp hover range') end,
-      { buffer = true, desc = "Rust LSP Hover Range" })
+  { "Surround delete", "md", helix.surround_delete },
+  { "Nearest matching pair", "mdm", helix.surround_delete_nearest },
 
-    -- For Rust files, Set <leader>m for RustLsp expandMacro
-    vim.keymap.set('n', '<leader>m', function() vim.cmd('RustLsp expandMacro') end,
-      { buffer = true, desc = "Expand Macro in Rust" })
-  end,
-})
+  { "Match around", "ma", helix.select_around_pair },
+  { "Word", "maw" },
+  { "WORD", "maW" },
+  { "Paragraph", "map" },
+  { "Indentation level", "mai" },
+  { "Type definition (tree-sitter)", "mat" },
+  { "Function (tree-sitter)", "maf" },
+  { "Argument/parameter (tree-sitter)", "maa" },
+  { "Comment (tree-sitter)", "mac" },
+  { "Test (tree-sitter)", "maT" },
+  { "Data structure entry (tree-sitter)", "mae" },
+  { "Closest surrounding pair (tree-sitter)", "mam" },
+  { "Change", "mag" },
+  { "(X)HTML element (tree-sitter)", "max" },
 
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = "lean",
-  callback = function()
-    vim.keymap.set('n', '<leader>lp', function() vim.cmd('LeanInfoviewPinTogglePause') end,
-      { buffer = true, desc = "Pause Infoview" })
-    vim.keymap.set('n', '<leader><tab>', function() vim.cmd('LeanGotoInfoview') end,
-      { buffer = true, desc = "Goto Infoview" })
-    vim.keymap.set('n', '<leader>dd', function() vim.cmd('LeanPlainDiagnostics') end,
-      { buffer = true, desc = "Open Diagnostic float" })
-    vim.keymap.set('n', '<leader>ll', function() vim.cmd('LeanGoal') end,
-      { buffer = true, desc = "Open Goal Float" })
-    vim.keymap.set('n', '<leader>la', function() vim.cmd('LeanInfoviewAddPin') end,
-      { buffer = true, desc = "Add Pin" })
-    vim.keymap.set('n', '<leader>lc', function() vim.cmd('LeanInfoviewClearPins') end,
-      { buffer = true, desc = "Clear Pins" })
-    vim.keymap.set('n', '<leader>ld', function() vim.cmd('LeanInfoviewToggleAutoDiffPin') end,
-      { buffer = true, desc = "Toggle Auto Diff Pin" })
-    vim.keymap.set('n', '<leader>l\\', function() vim.cmd('LeanAbbreviationsReverseLookup') end,
-      { buffer = true, desc = "Abbreviation Lookup" })
-  end,
-})
+  { "Match inside", "mi", helix.select_inside_pair },
+  { "Word", "miw" },
+  { "WORD", "miW" },
+  { "Paragraph", "mip" },
+  { "Indentation level", "mii" },
+  { "Type definition (tree-sitter)", "mit" },
+  { "Function (tree-sitter)", "mif" },
+  { "Argument/parameter (tree-sitter)", "mia" },
+  { "Comment (tree-sitter)", "mic" },
+  { "Test (tree-sitter)", "miT" },
+  { "Data structure entry (tree-sitter)", "mie" },
+  { "Closest surrounding pair (tree-sitter)", "mim" },
+  { "Change", "mig" },
+  { "(X)HTML element (tree-sitter)", "mix" },
+
+  { "Goto", "g" },
+  { "Goto line number <n> else file start", "gg", helix.goto_file_start },
+  { "Goto column", "g|", helix.goto_column },
+  { "Goto last line", "ge", helix.goto_last_line },
+  { "Goto files/URLs in selections", "gf", helix.goto_file_targets },
+  { "Goto line start", "gh", helix.goto_line_start },
+  { "Goto line end", "gl", helix.goto_line_end },
+  { "Goto first non-blank in line", "gs", helix.goto_first_nonblank },
+  { "Goto definition", "gd", '<cmd>lua require("telescope.builtin").lsp_definitions({ reuse_win = true })<CR>' },
+  { "Goto declaration", "gD", "<cmd>lua vim.lsp.buf.declaration()<CR>" },
+  { "Goto type definition", "gy", '<cmd>lua require("telescope.builtin").lsp_type_definitions({ reuse_win = true })<CR>' },
+  { "Goto references", "gr", "<cmd>Telescope lsp_references<CR>", opts = { nowait = true } },
+  { "Goto implementation", "gi", '<cmd>lua require("telescope.builtin").lsp_implementations({ reuse_win = true })<CR>' },
+  { "Goto window top", "gt", function() helix.goto_window_position("H") end },
+  { "Goto window center", "gc", function() helix.goto_window_position("M") end },
+  { "Goto window bottom", "gb", function() helix.goto_window_position("L") end },
+  { "Goto last accessed file", "ga", helix.goto_last_accessed_file },
+  { "Goto last modified file", "gm", helix.goto_last_modified_file },
+  { "Goto next buffer", "gn", buffers.cycle_next },
+  { "Goto previous buffer", "gp", buffers.cycle_prev },
+  { "Move down", "gj", helix.move_textual_line_down },
+  { "Goto last modification", "g.", helix.goto_last_modification },
+
+  { "Space", "<leader>" },
+  { "Open file picker", "<leader>f", pickers.find_files_in_git_root },
+  { "Open file picker at current working directory", "<leader>F", pickers.find_files_in_cwd },
+  { "Open file explorer in workspace root", "<leader>e", pickers.open_workspace_explorer },
+  { "Open file explorer at current buffer's directory", "<leader>E", pickers.open_buffer_directory_explorer },
+  { "Open buffer picker", "<leader>b", pickers.buffer_picker },
+  { "Open jumplist picker", "<leader>j", pickers.jumplist_picker },
+  { "Open symbol picker from LSP or syntax information", "<leader>s", pickers.document_symbols_picker },
+  { "Open workspace symbol picker from LSP or syntax information", "<leader>S", pickers.workspace_symbols_picker },
+  { "Open diagnostic picker", "<leader>d", pickers.diagnostics_picker },
+  { "Open workspace diagnostic picker", "<leader>D", pickers.workspace_diagnostics_picker },
+  { "Perform code action", "<leader>a", "<cmd>lua vim.lsp.buf.code_action()<CR>" },
+  { "Open last picker", "<leader>'", pickers.resume_last_picker },
+  { "Window", "<leader>w" },
+  { "Yank selections to clipboard", "<leader>y", function() helix.yank_selection("+") end },
+  { "Yank main selection to clipboard", "<leader>Y", function() helix.yank_primary_selection("+") end },
+  { "Paste clipboard after selections", "<leader>p", function() helix.paste_after("+") end },
+  { "Paste clipboard before selections", "<leader>P", function() helix.paste_before("+") end },
+  { "Replace selections by clipboard content", "<leader>R", function() helix.replace_selection_with_yank("+") end },
+  { "Global search in workspace folder", "<leader>/", pickers.live_grep_in_git_root },
+  { "Show docs for item under cursor in a buffer", "gk", "<cmd>lua vim.lsp.buf.hover()<CR>" },
+  { "Rename symbol", "<leader>r", "<cmd>lua vim.lsp.buf.rename()<CR>" },
+  { "Select symbol references", "<leader>h", pickers.references_picker },
+
+  { "Window left", "<leader>wh", "<C-w>h" },
+  { "Window down", "<leader>wj", "<C-w>j" },
+  { "Window up", "<leader>wk", "<C-w>k" },
+  { "Window right", "<leader>wl", "<C-w>l" },
+  { "Next window", "<leader>ww", "<C-w>w" },
+  { "Next window", "<leader>w<C-w>", "<C-w>w" },
+  { "Horizontal split", "<leader>ws", "<cmd>botright split<CR>" },
+  { "Horizontal split", "<leader>w<C-s>", "<cmd>botright split<CR>" },
+  { "Vertical split", "<leader>wv", "<cmd>botright vsplit<CR>" },
+  { "Vertical split", "<leader>w<C-v>", "<cmd>botright vsplit<CR>" },
+  { "Transpose splits", "<leader>wt", helix.transpose_splits },
+  { "Transpose splits", "<leader>w<C-t>", helix.transpose_splits },
+  { "Open file in split", "<leader>wf", "<C-w>f" },
+  { "Open file in vertical split", "<leader>wF", "<cmd>vertical wincmd f<CR>" },
+  { "Close window", "<leader>wq", "<cmd>close<CR>" },
+  { "Close window", "<leader>w<C-q>", "<cmd>close<CR>" },
+  { "Only window", "<leader>wo", "<cmd>only<CR>" },
+  { "Only window", "<leader>w<C-o>", "<cmd>only<CR>" },
+  { "Increase window height", "<leader>w+", "<cmd>resize +1<CR>" },
+  { "Decrease window height", "<leader>w-", "<cmd>resize -1<CR>" },
+  { "Increase window width", "<leader>w>", "<cmd>vertical resize +1<CR>" },
+  { "Decrease window width", "<leader>w<", "<cmd>vertical resize -1<CR>" },
+  { "Swap with left split", "<leader>wH", function() helix.swap_with_window("h") end },
+  { "Swap with split below", "<leader>wJ", function() helix.swap_with_window("j") end },
+  { "Swap with split above", "<leader>wK", function() helix.swap_with_window("k") end },
+  { "Swap with right split", "<leader>wL", function() helix.swap_with_window("l") end },
+  { "New split scratch buffer", "<leader>wn", helix.new_scratch_split },
+  { "Toggle focused window", "<leader>wz", helix.toggle_focus_window },
+  { "Window", "<C-w>" },
+  { "Window left", "<C-w>h", "<C-w>h" },
+  { "Window down", "<C-w>j", "<C-w>j" },
+  { "Window up", "<C-w>k", "<C-w>k" },
+  { "Window right", "<C-w>l", "<C-w>l" },
+  { "Next window", "<C-w>w", "<C-w>w" },
+  { "Next window", "<C-w><C-w>", "<C-w>w" },
+  { "Horizontal split", "<C-w>s", "<cmd>botright split<CR>" },
+  { "Horizontal split", "<C-w><C-s>", "<cmd>botright split<CR>" },
+  { "Vertical split", "<C-w>v", "<cmd>botright vsplit<CR>" },
+  { "Vertical split", "<C-w><C-v>", "<cmd>botright vsplit<CR>" },
+  { "Transpose splits", "<C-w>t", helix.transpose_splits },
+  { "Transpose splits", "<C-w><C-t>", helix.transpose_splits },
+  { "Open file in split", "<C-w>f", "<C-w>f" },
+  { "Open file in vertical split", "<C-w>F", "<cmd>vertical wincmd f<CR>" },
+  { "Close window", "<C-w>q", "<cmd>close<CR>" },
+  { "Close window", "<C-w><C-q>", "<cmd>close<CR>" },
+  { "Only window", "<C-w>o", "<cmd>only<CR>" },
+  { "Only window", "<C-w><C-o>", "<cmd>only<CR>" },
+  { "Increase window height", "<C-w>+", "<cmd>resize +1<CR>" },
+  { "Decrease window height", "<C-w>-", "<cmd>resize -1<CR>" },
+  { "Increase window width", "<C-w>>", "<cmd>vertical resize +1<CR>" },
+  { "Decrease window width", "<C-w><", "<cmd>vertical resize -1<CR>" },
+  { "Swap with left split", "<C-w>H", function() helix.swap_with_window("h") end },
+  { "Swap with split below", "<C-w>J", function() helix.swap_with_window("j") end },
+  { "Swap with split above", "<C-w>K", function() helix.swap_with_window("k") end },
+  { "Swap with right split", "<C-w>L", function() helix.swap_with_window("l") end },
+  { "New split scratch buffer", "<C-w>n", helix.new_scratch_split },
+  { "Toggle focused window", "<C-w>z", helix.toggle_focus_window },
+
+  { "Octo", "<leader>o" },
+
+  { "Review", "<leader>or" },
+  { "Start", "<leader>ors", "<cmd>Octo review start<CR>" },
+  { "Submit", "<leader>orS", "<cmd>Octo review submit<CR>" },
+  { "Resume", "<leader>orr", "<cmd>Octo review resume<CR>" },
+  { "Discard", "<leader>ord", "<cmd>Octo review discard<CR>" },
+  { "Browse", "<leader>orb", "<cmd>Octo review browse<CR>" },
+  { "Commit", "<leader>orc", "<cmd>Octo review commit<CR>" },
+  { "Comments", "<leader>orC", "<cmd>Octo review comments<CR>" },
+  { "Close", "<leader>orq", "<cmd>Octo review close<CR>" },
+  { "Viewed", "<leader>orv", function() require("octo.mappings").toggle_viewed() end, context = { "octo.review_diff", "octo.file_panel" } },
+
+  { "Comment", "<leader>oc" },
+  { "Add", "<leader>oca", "<cmd>OctoHelixCommentAdd<CR>" },
+  { "Suggest", "<leader>ocs", "<cmd>OctoHelixCommentSuggest<CR>" },
+  { "Delete", "<leader>ocd", "<cmd>Octo comment delete<CR>" },
+  { "URL", "<leader>ocu", "<cmd>Octo comment url<CR>" },
+  { "Reply", "<leader>ocr", "<cmd>Octo comment reply<CR>" },
+
+  { "Thread", "<leader>ot" },
+  { "Resolve", "<leader>otr", "<cmd>Octo thread resolve<CR>" },
+  { "Unresolve", "<leader>otu", "<cmd>Octo thread unresolve<CR>" },
+
+
+  { "Reaction", "<leader>oe" },
+  { "Thumbs up", "<leader>oeu", "<cmd>Octo reaction thumbs_up<CR>" },
+  { "Thumbs down", "<leader>oed", "<cmd>Octo reaction thumbs_down<CR>" },
+  { "Eyes", "<leader>oee", "<cmd>Octo reaction eyes<CR>" },
+  { "Laugh", "<leader>oel", "<cmd>Octo reaction laugh<CR>" },
+  { "Confused", "<leader>oec", "<cmd>Octo reaction confused<CR>" },
+  { "Rocket", "<leader>oer", "<cmd>Octo reaction rocket<CR>" },
+  { "Heart", "<leader>oeh", "<cmd>Octo reaction heart<CR>" },
+  { "Party", "<leader>oep", "<cmd>Octo reaction party<CR>" },
+
+  { "Pull Request", "<leader>op" },
+  { "Checkout", "<leader>opc", "<cmd>Octo pr checkout<CR>" },
+  { "Commits", "<leader>opC", "<cmd>Octo pr commits<CR>" },
+  { "Changes", "<leader>oph", "<cmd>Octo pr changes<CR>" },
+  { "Diff", "<leader>opd", "<cmd>Octo pr diff<CR>" },
+  { "Reload", "<leader>opr", "<cmd>Octo pr reload<CR>" },
+  { "Browser", "<leader>opb", "<cmd>Octo pr browser<CR>" },
+  { "URL", "<leader>opu", "<cmd>Octo pr url<CR>" },
+
+  { "GitHub", "<leader>O" },
+  { "Open GitHub actions", "<leader>Oa", "<cmd>Octo<CR>" },
+  { "List GitHub issues", "<leader>Oi", "<cmd>Octo issue list<CR>" },
+  { "List GitHub pull requests", "<leader>Op", "<cmd>Octo pr list<CR>" },
+  { "List GitHub discussions", "<leader>Od", "<cmd>Octo discussion list<CR>" },
+  { "List GitHub notifications", "<leader>On", "<cmd>Octo notification list<CR>" },
+  { "Search GitHub in current repo", "<leader>Os", octo.search_current_repo },
+  { "Open GitHub dashboard", "<leader>OD", gh_dash.toggle },
+  { "Copy git permalink", "<leader>Ol", gitlinker.copy_permalink },
+  { "Open git permalink in browser", "<leader>OL", gitlinker.open_permalink },
+  { "Copy repository URL", "<leader>Or", gitlinker.copy_repo_url },
+  { "Open repository URL in browser", "<leader>OR", gitlinker.open_repo_url },
+  { "Show docs for item under cursor", "<leader>k", "<cmd>lua vim.lsp.buf.hover()<CR>" },
+
+  { "Select register", '"', expand = function() return helix.which_key_registers() end },
+
+  { "Search for regex pattern", "/", helix.search_regex },
+  { "Search backward for regex pattern", "?", helix.search_regex_backward },
+  { "Search selection with word boundaries", "*", helix.search_selection_detect_word_boundaries },
+  { "Search selection with word boundaries", "<S-8>", helix.search_selection_detect_word_boundaries },
+  { "Search selection", "<A-S-8>", helix.search_selection },
+
+  { "Increment selections", "<C-a>", helix.increment },
+  { "Decrement selections", "<C-x>", helix.decrement },
+
+  { "Scroll half page down", "<C-d>", function() helix.scroll_half_page(1) end },
+  { "Scroll half page up", "<C-u>", function() helix.scroll_half_page(-1) end },
+
+  { "Lazygit", "<C-g>", terminal.open_lazygit },
+
+  { "Exit select mode", "<Esc>", helix.exit_select_mode },
+
+  { "Left", "h", helix.normal_motion("h") },
+  { "Down", "j", helix.normal_motion("j") },
+  { "Up", "k", helix.normal_motion("k") },
+  { "Right", "l", helix.normal_motion("l") },
+  { "Find next char", "f", helix.find_char_motion("f") },
+  { "Find previous char", "F", helix.find_char_motion("F") },
+  { "Till next char", "t", helix.find_char_motion("t") },
+  { "Till previous char", "T", helix.find_char_motion("T") },
+  { "Search next", "n", function() helix.search_next("forward") end },
+  { "Search previous", "N", function() helix.search_next("backward") end },
+  { "Next word start", "w", function() helix.apply_word_motion("next_word_start") end },
+  { "Next word end", "e", function() helix.apply_word_motion("next_word_end") end },
+  { "Previous word start", "b", function() helix.apply_word_motion("prev_word_start") end },
+  { "Next long word start", "W", function() helix.apply_word_motion("next_long_word_start") end },
+  { "Next long word end", "E", function() helix.apply_word_motion("next_long_word_end") end },
+  { "Previous long word start", "B", function() helix.apply_word_motion("prev_long_word_start") end },
+
+  { "Change selection", "c", helix.change_selection },
+  { "Change selection without yanking", "<A-c>", function() helix.change_selection("_") end },
+  { "Insert before selection", "i", helix.insert_mode },
+  { "Insert after selection", "a", helix.append_mode },
+  { "Insert at line start", "I", helix.insert_at_line_start },
+  { "Insert at line end", "A", helix.insert_at_line_end },
+  { "Open line below", "o", helix.open_line_below },
+  { "Open line above", "O", helix.open_line_above },
+  { "Replay macro", "q", helix.replay_macro, opts = { nowait = true } },
+  { "Record macro", "Q", helix.record_macro, opts = { nowait = true } },
+  { "Yank selection", "y", helix.yank_selection },
+  { "Paste after", "p", helix.paste_after },
+  { "Paste before", "P", helix.paste_before },
+  { "Replace selection with char", "r", helix.replace_selection_with_char },
+  { "Replace selection with yank", "R", helix.replace_selection_with_yank },
+  { "Toggle selection case", "~", helix.toggle_selection_case },
+  { "Select mode", "v", helix.toggle_select_mode },
+  { "Toggle comments", "<C-c>", helix.toggle_comments },
+  { "Shift right", ">", helix.shift_right },
+  { "Shift left", "<", helix.shift_left },
+  { "Align selections", "&", helix.align_selections },
+
+  { "Extend line below", "x", helix.extend_line_below },
+  { "Select whole buffer", "%", helix.select_whole_buffer, opts = { nowait = true } },
+  { "None", "$", "<Nop>" },
+  { "Copy selection below", "C", function() helix.copy_selection_on_adjacent_line(1) end },
+  { "Copy selection above", "<A-C>", function() helix.copy_selection_on_adjacent_line(-1) end },
+  { "Select regex matches", "s", helix.select_regex_matches },
+  { "Split selection by line", "<A-s>", helix.split_selection_by_line },
+  { "Delete", "d", helix.delete },
+  { "Delete selection without yanking", "<A-d>", function() helix.delete("_") end },
+  { "Trim selection", "_", helix.trim_current_preview_selection },
+  { "Format selections", "=", helix.format_selections },
+  { "Keep selections matching regex", "K", function() helix.filter_selections_by_regex(true) end },
+  { "Remove selections matching regex", "<A-K>", function() helix.filter_selections_by_regex(false) end },
+  { "Keep primary selection", ",", helix.keep_primary_selection_or_cursor },
+  { "Collapse selections", ";", helix.collapse_selections_to_cursors },
+  { "Flip selection direction", "<A-;>", helix.flip_selection_direction },
+  { "Ensure all selections face forward", "<A-S-;>", helix.ensure_forward_selection_direction },
+  { "Rotate selections backward", "(", function() helix.rotate_selections("backward") end },
+  { "Rotate selections forward", ")", function() helix.rotate_selections("forward") end },
+  { "Rotate selection contents backward", "<A-S-9>", function() helix.rotate_selection_contents("backward") end },
+  { "Rotate selection contents forward", "<A-S-0>", function() helix.rotate_selection_contents("forward") end },
+
+  { "Completion: Previous item", "<C-p>", completion.select_prev_item, mode = "i" },
+  { "Completion: Next item", "<C-n>", completion.select_next_item, mode = "i" },
+  { "Completion: Close", "<C-q>", completion.abort, mode = "i" },
+  { "Completion: Accept", "<C-Space>", completion.confirm, mode = "i" },
+  { "Snippet: Jump Forward (else Tab)", "<Tab>", completion.jump_forward, mode = { "i", "s" }, opts = { expr = false } },
+  { "Snippet: Jump Backward (else Shift-Tab)", "<S-Tab>", completion.jump_backward, mode = { "i", "s" }, opts = { expr = false } },
+
+  { "Previous buffer", "H", buffers.cycle_prev },
+  { "Next buffer", "L", buffers.cycle_next },
+  { "Close the current buffer.", "gq", buffers.close_current_buffer },
+  { "Close the current buffer forcefully, ignoring unsaved changes.", "gQ", function() buffers.close_current_buffer(true) end },
+
+  { "Undo", "u", helix.undo },
+  { "Redo", "U", helix.redo },
+  { "Goto line", "G", helix.goto_line },
+
+  { "Repeat last motion", "<A-.>", helix.repeat_last_motion },
+
+  { "File explorer", "-", pickers.open_buffer_directory_explorer },
+
+  { "Octo goto backing file", "gF", function() require("octo.navigation").go_to_file() end, context = { "octo.review_diff", "octo.pull_request" } },
+  { "Octo goto previous comment", "[c", function() require("octo.navigation").prev_comment() end, context = { "octo.review_thread", "octo.pull_request", "octo.issue", "octo.discussion" } },
+  { "Octo goto next comment", "]c", function() require("octo.navigation").next_comment() end, context = { "octo.review_thread", "octo.pull_request", "octo.issue", "octo.discussion" } },
+  { "Octo goto previous thread", "[t", function() require("octo.mappings").prev_thread() end, context = "octo.review_diff" },
+  { "Octo goto next thread", "]t", function() require("octo.mappings").next_thread() end, context = "octo.review_diff" },
+  { "Octo goto previous thread", "[t", octo.goto_previous_thread, context = "octo.pull_request" },
+  { "Octo goto next thread", "]t", octo.goto_next_thread, context = "octo.pull_request" },
+  { "Octo select previous changed file", "[q", function() require("octo.mappings").select_prev_entry() end, context = { "octo.review_thread", "octo.review_diff", "octo.file_panel" } },
+  { "Octo select next changed file", "]q", function() require("octo.mappings").select_next_entry() end, context = { "octo.review_thread", "octo.review_diff", "octo.file_panel" } },
+  { "Octo select first changed file", "[Q", function() require("octo.mappings").select_first_entry() end, context = { "octo.review_thread", "octo.review_diff", "octo.file_panel" } },
+  { "Octo select last changed file", "]Q", function() require("octo.mappings").select_last_entry() end, context = { "octo.review_thread", "octo.review_diff", "octo.file_panel" } },
+  { "Octo select previous unviewed file", "[u", function() require("octo.mappings").select_prev_unviewed_entry() end, context = { "octo.review_thread", "octo.review_diff", "octo.file_panel" } },
+  { "Octo select next unviewed file", "]u", function() require("octo.mappings").select_next_unviewed_entry() end, context = { "octo.review_thread", "octo.review_diff", "octo.file_panel" } },
+}
+
+for _, hidden in ipairs(hidden_keys) do
+  add_hidden_keys(keys, hidden.binds, hidden.mode, hidden.context)
+end
+
+local normalized = normalized_keys(keys)
+
+_G.axelcool1234_which_key_triggers = derive_which_key_triggers(normalized)
+
+apply_global_keys(normalized)
+octo.setup_buffer_mappings(normalized)
+set_register_prefix_mappings()
+add_global_which_key(normalized)
+helix.setup_autocmds()

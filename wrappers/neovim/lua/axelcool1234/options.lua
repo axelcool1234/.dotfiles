@@ -18,6 +18,14 @@ vim.opt.hlsearch = false
 vim.opt.incsearch = true
 
 vim.opt.termguicolors = true
+vim.opt.list = true
+vim.opt.virtualedit = "onemore"
+vim.opt.listchars = {
+  tab = "» ",
+  trail = "·",
+  nbsp = "␣",
+  eol = "↴",
+}
 
 vim.opt.scrolloff = 8
 -- vim.opt.signcolumn = "yes"
@@ -67,67 +75,21 @@ vim.api.nvim_create_autocmd('LspAttach', {
   end,
 })
 
--- Rustaceanvim
-vim.g.rustaceanvim = {
-  -- tools = {
-  --   test_executor = 'background',
-  -- },
-  server = {
-    default_settings = {
-      -- rust-analyzer language server configuration
-      ['rust-analyzer'] = {
-        inlayHints = {
-          -- maxLength = 25,
-          bindingModeHints = {
-            enable = true
-          },
-          closureCaptureHints = {
-            enable = true
-          },
-          closureReturnTypeHints = {
-            enable = "always"
-          },
-          closureStyle = "impl_fn",
-          -- closureStyle = "rust",
-          discriminantHints = {
-            enable = "always"
-          },
-          expressionAdjustmentHints = {
-            enable = "always"
-          },
-          genericParameterHints = {
-            lifetime = {
-              enable = true
-            },
-            type = {
-              enable = true
-            },
-          },
-          implicitDrops = {
-            enable = true
-          },
-          lifetimeElisionHints = {
-            enable = "always",
-            -- useParameterNames = true
-          },
-          rangeExclusiveHints = {
-            enable = true
-          },
-          tests = true,
-        },
-      },
-    },
-  },
-}
-
--- RustFmt
-vim.g.rustfmt_autosave = 1
-
 -- CPP
 vim.api.nvim_create_autocmd("FileType", {
     pattern = "cpp",
     callback = function()
         vim.opt_local.tabstop = 2
+        vim.opt_local.shiftwidth = 2
+        vim.opt_local.expandtab = true
+    end,
+})
+
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = "markdown",
+    callback = function()
+        vim.opt_local.tabstop = 2
+        vim.opt_local.softtabstop = 2
         vim.opt_local.shiftwidth = 2
         vim.opt_local.expandtab = true
     end,

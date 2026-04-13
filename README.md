@@ -27,8 +27,6 @@
   - wlr-which-key
 - Switch from PCManFM to just yazi + ripgdrag
 - Theme related TODOs
-  - Glide browser does not start pywalfox automatically. See if there's a fix.
-    - Also pywalfox does not look great. See if there are solutions.
   - Neovim's telescope should have rounded text boxes and titles shouldn't have filled backgrounds.
     - Basically telescope needs some management for Noctalia
   - See if Code can change theme dynamically (will have to patch Code)
@@ -51,6 +49,36 @@
   - Create a custom landing page for Firefox but for fun put it on the website.
   - Notes? Could place all these TODO stuff in there maybe.
   - Could also journal work I'm doing each day - may be a good way to stay organized?
+- NVim Helix motions:
+  - Optional: Possibly render a pair being selected when doing `mr<char>`?
+  - Optional: Make `x` work how I prefer: when cursor is at the top, `x` extends upwards. When it's at the bottom, `x` extends downwards.
+  - Optional: Try and figure out how to have `/` match live while typing
+  - Optional: `<space>?` - maybe command palette?
+  - Optional: Implement flash jump.
+  - Optional: Implement DAP stuff (overseer, neotest)
+    - Implement `miT`/`maT` and `[T`/`]T`.
+  - Optional: Look into quickfix list (vim thing)
+  - Optional: Look into location list (vim thing)
+  - Optional: Look into marks (vim thing)
+  - Optional: Look into overview (vim thing)
+  - Not sure if possible: Implement `|`, `<A-|>`, `!`, `<A-!>`, `$`
+  - Refer to Helix's static-cmd.md for better naming of functions for our helix motion library.
+  - Figure out whichkey situation
+    - `<Space>`
+      - `<Space>w`
+    - `z`
+    - `<C-W>`
+    - `"`
+  - Multicursor backspace in insert mode only works on the primary cursor for some reason
+  - `<C-Space>` should work when typing a command.
+  - Note for ACTUAL Helix: `"a/` and then some text lets you search via `n` and `N` and assigns register `a` such contents.
+    Then, when you select some text and do `s` then some text, the `/` register is assigned said contents. However, the active
+    search register is seemingly unchanged, so `n` and `N` moves the primary cursor to the contents from register `a`. Not sure
+    if this is intended, but it is not how I have it implemented in Neovim. 
+  - Decide whether to stick to Helix's case insensitive regex or Neovim's case sensitive regex
+  - We should work on unbinding as much of default nvim stuff as possible.
+  - Reorganize `<space>w` and `ctrl+w` to match Helix more closely
+  - `mdm` kills multiple cursors
 
 ## Fresh Install
 We'll use the `legion` host as an example.

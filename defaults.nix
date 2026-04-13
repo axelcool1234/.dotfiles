@@ -69,8 +69,8 @@ in
     };
 
     editor = lib.mkOption {
-      type = lib.types.enum [ "helix" ];
-      default = "helix";
+      type = lib.types.enum [ "helix" "neovim" ];
+      default = "neovim";
       description = "Default editor package alias.";
     };
 

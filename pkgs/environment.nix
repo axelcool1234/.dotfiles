@@ -24,7 +24,7 @@ let
     selfPkgs.jujutsu # Version control
     selfPkgs.jjui    # Jujutsu TUI
     selfPkgs.harness # Default LLM harness
-    selfPkgs.neovim  # Secondary editor
+    selfPkgs.helix   # Secondary editor
     selfPkgs.yazi    # Terminal file manager
 
     # Info
@@ -61,6 +61,7 @@ inputs.wrapper-modules.lib.wrapPackage {
     homeDirectories = lib.unique (
       [
         ".local/share/zoxide"
+        ".elan" # Used for Lean toolchains
       ]
       ++ collectRuntimePersist "homeDirectories"
     );

@@ -2,11 +2,13 @@
   config,
   hostVars,
   lib,
+  pkgs,
   selfPkgs,
   ...
 }:
 let
   useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
+  enableKittyScrollback = hostVars.hostName != null && hostVars.editor == "neovim";
   terminalFont = hostVars.fonts.terminal;
   symbolFont = hostVars.fonts.symbols;
   postscriptSuffix = lib.optionalString (terminalFont.postscriptName != null) " postscript_name=${terminalFont.postscriptName}";
@@ -40,15 +42,31 @@ in
       # Allow other programs to control Kitty remotely.
       allow_remote_control = "yes";
 
+      listen_on = lib.mkIf enableKittyScrollback ''unix:${"$"}{XDG_RUNTIME_DIR}/kitty-scrollback'';
+
       # Enable shell integration features for interactive shells.
       shell_integration = "enabled";
+
+      action_alias = lib.mkIf enableKittyScrollback "kitty_scrollback_nvim kitten ${pkgs.vimPlugins.kitty-scrollback-nvim}/python/kitty_scrollback_nvim.py";
 
       # Keymap.
       map = [
         "ctrl+t new_tab_with_cwd"
+        "ctrl+shift+n no_op"
         "ctrl+h previous_tab"
         "ctrl+l next_tab"
-        "ctrl+shift+e launch --title=scrollback --type=overlay --stdin-source=@screen_scrollback ${lib.getExe selfPkgs.${hostVars.editor}}"
+      ]
+      ++ lib.optionals enableKittyScrollback [
+        "ctrl+e kitty_scrollback_nvim"
+        "alt+e kitty_scrollback_nvim --config ksb_builtin_last_cmd_output"
+        "ctrl+shift+e send_key alt+v"
+      ]
+      ++ lib.optionals (!enableKittyScrollback) [
+        "ctrl+e launch --title=scrollback --type=overlay --stdin-source=@screen_scrollback ${lib.getExe selfPkgs.${hostVars.editor}}"
+      ];
+
+      mouse_map = lib.optionals enableKittyScrollback [
+        "ctrl+shift+right press ungrabbed combine : mouse_select_command_output : kitty_scrollback_nvim --config ksb_builtin_last_visited_cmd_output"
       ];
     } // lib.optionalAttrs (terminalFont.size != null) {
       font_size = terminalFont.size;

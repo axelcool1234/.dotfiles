@@ -20,7 +20,6 @@ let
     "kitty"
     "zathura"
     "yazi"
-    "helix"
     "btop"
     "niri"
   ];
