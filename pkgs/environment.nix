@@ -61,6 +61,7 @@ inputs.wrapper-modules.lib.wrapPackage {
     homeDirectories = lib.unique (
       [
         ".local/share/zoxide"
+        ".elan" # Used for Lean toolchains
       ]
       ++ collectRuntimePersist "homeDirectories"
     );

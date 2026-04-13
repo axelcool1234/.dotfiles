@@ -18,10 +18,17 @@ local lualine_config = {
     }
   },
   sections = {
-    lualine_a = {'mode'},
+    lualine_a = {
+      function()
+        if vim.g.helix_mode_label and vim.g.helix_mode_label ~= "NORMAL" then
+          return vim.g.helix_mode_label
+        end
+        return require("lualine.utils.mode").get_mode()
+      end,
+    },
     lualine_b = {'branch', 'diff', 'diagnostics'},
     lualine_c = {'filename', 'lsp_progress'},
-    lualine_x = {'overseer', 'encoding', 'fileformat', 'filetype'},
+    lualine_x = {'encoding', 'fileformat', 'filetype'},
     lualine_y = {'progress'},
     lualine_z = {'location'}
   },
