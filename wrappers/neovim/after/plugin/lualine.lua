@@ -18,10 +18,38 @@ local lualine_config = {
     }
   },
   sections = {
-    lualine_a = {'mode'},
-    lualine_b = {'branch', 'diff', 'diagnostics'},
+    lualine_a = {
+      function()
+        if vim.g.helix_mode_label and vim.g.helix_mode_label ~= "NORMAL" then
+          return vim.g.helix_mode_label
+        end
+        return require("lualine.utils.mode").get_mode()
+      end,
+    },
+    lualine_b = { 'branch', 'diff', 'diagnostics' },
     lualine_c = {'filename', 'lsp_progress'},
-    lualine_x = {'overseer', 'encoding', 'fileformat', 'filetype'},
+    lualine_x = {
+      {
+        function()
+          return "[" .. vim.g.helix_macro_recording_register .. "]"
+        end,
+        cond = function()
+          return vim.g.helix_macro_recording_register ~= nil and vim.g.helix_macro_recording_register ~= ""
+        end,
+      },
+      {
+        function()
+          return "reg=" .. vim.g.helix_selected_register
+        end,
+        cond = function()
+          return vim.g.helix_selected_register ~= nil and vim.g.helix_selected_register ~= ""
+        end,
+      },
+      require("axelcool1234.gh_dash").status(),
+      'encoding',
+      'fileformat',
+      'filetype',
+    },
     lualine_y = {'progress'},
     lualine_z = {'location'}
   },

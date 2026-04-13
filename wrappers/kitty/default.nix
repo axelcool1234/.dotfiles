@@ -46,6 +46,7 @@ in
       # Keymap.
       map = [
         "ctrl+t new_tab_with_cwd"
+        "ctrl+shift+n no_op"
         "ctrl+h previous_tab"
         "ctrl+l next_tab"
         "ctrl+shift+e launch --title=scrollback --type=overlay --stdin-source=@screen_scrollback ${lib.getExe selfPkgs.${hostVars.editor}}"

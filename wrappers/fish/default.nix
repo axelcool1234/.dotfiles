@@ -47,5 +47,13 @@ in
         ${commandNotFoundWrapper} $argv
       end
     '';
+
+    passthru.persist = {
+      homeFiles = [
+        ".local/share/fish/fish_history"
+      ];
+    };
+
   };
+
 }

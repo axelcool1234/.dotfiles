@@ -1,12 +1,4 @@
-{ pkgs, ... }:
-let
-  tree-sitter-lean = pkgs.fetchFromGitHub {
-    owner = "Julian";
-    repo = "tree-sitter-lean";
-    rev = "master";
-    sha256 = "sha256-MF+LRzhDw3V/l/h11ZTyWCUCm3b+g0oyOdaCZMVlJc4=";
-  };
-in
+{ pkgs, selfPkgs, ... }:
 pkgs.stdenv.mkDerivation {
   pname = "lean-highlighter";
   version = "0.1.0";
@@ -24,7 +16,7 @@ pkgs.stdenv.mkDerivation {
   installPhase = ''
     mkdir -p $out/share/tree-sitter
     mkdir -p $out/share/tree-sitter/tree-sitter-lean
-    cp -r ${tree-sitter-lean}/* $out/share/tree-sitter/tree-sitter-lean/
+    cp -r ${selfPkgs.treesitter-grammar-lean.src}/* $out/share/tree-sitter/tree-sitter-lean/
 
     mkdir -p $out/share/tree-sitter/tree-sitter-lean/queries
     cp highlights.scm $out/share/tree-sitter/tree-sitter-lean/queries/highlights.scm
