@@ -91,21 +91,6 @@ enable('hls', {
   },
 })
 
--- Rust (using rustaceanvim instead!)
--- enable('rust_analyzer', {
---   settings = {
---     hint = true,
---     ['rust-analyzer'] = {
---       cargo = {
---         allFeatures = true,
---       },
---       checkOnSave = {
---         command = 'clippy',
---       },
---     },
---   },
--- })
-
 -- C/C++
 enable('clangd', {
   settings = {

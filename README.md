@@ -51,6 +51,36 @@
   - Create a custom landing page for Firefox but for fun put it on the website.
   - Notes? Could place all these TODO stuff in there maybe.
   - Could also journal work I'm doing each day - may be a good way to stay organized?
+- NVim Helix motions:
+  - Optional: Possibly render a pair being selected when doing `mr<char>`?
+  - Optional: Make `x` work how I prefer: when cursor is at the top, `x` extends upwards. When it's at the bottom, `x` extends downwards.
+  - Optional: Try and figure out how to have `/` match live while typing
+  - Optional: `<space>?` - maybe command palette?
+  - Optional: Implement flash jump.
+  - Optional: Implement DAP stuff (overseer, neotest)
+    - Implement `miT`/`maT` and `[T`/`]T`.
+  - Optional: Look into quickfix list (vim thing)
+  - Optional: Look into location list (vim thing)
+  - Optional: Look into marks (vim thing)
+  - Optional: Look into overview (vim thing)
+  - Not sure if possible: Implement `|`, `<A-|>`, `!`, `<A-!>`, `$`
+  - Not sure if possible: macros (`q` / `Q`) with multicursor awareness.
+  - Refer to Helix's static-cmd.md for better naming of functions for our helix motion library.
+  - Figure out whichkey situation
+    - `<Space>`
+      - `<Space>w`
+    - `z`
+    - `<C-W>`
+    - `"`
+  - Implement `<A-.>` (repeat last motion)
+  - Implement `*` / `<A-*>` (should support multiple cursors by having each selection be ORed into one regex).
+  - We should work on unbinding as much of default nvim stuff as possible.
+  - Implement `z` mode
+  - Implement `&`. 
+  - Implement `=`.
+  - Implement `)` / `(` / `<A-(>` / `<A-)>`
+  - Implement treesitter motions.
+  - Implement `<C-a>` / `<C-z>`
 
 ## Fresh Install
 We'll use the `legion` host as an example.

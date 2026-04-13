@@ -3,6 +3,7 @@
   wlib,
   lib,
   pkgs,
+  selfPkgs,
   ...
 }:
 let
@@ -23,6 +24,7 @@ in
     # Essentials
     plenary-nvim
     nvim-treesitter
+    nvim-treesitter-textobjects
     nvim-treesitter-parsers.nix
     nvim-treesitter-parsers.vim
     nvim-treesitter-parsers.vimdoc
@@ -34,7 +36,6 @@ in
     nvim-treesitter-parsers.tablegen
     telescope-nvim
     telescope-fzf-native-nvim
-    undotree
 
     # LSP
     nvim-lspconfig
@@ -48,12 +49,6 @@ in
     ultisnips
     friendly-snippets
 
-    # Debugging
-    nvim-dap
-    nvim-dap-ui
-    nvim-dap-virtual-text
-    neotest
-
     # Editor UX
     which-key-nvim
     mini-icons # (gives icons for which-key)
@@ -66,19 +61,11 @@ in
     indent-blankline-nvim
     vim-illuminate
     dressing-nvim
-    precognition-nvim
+    vim-sandwich
 
     # Language support
     vimtex
     lean-nvim
-    rustaceanvim
-
-    # Navigation / task helpers
-    flash-nvim
-    oil-nvim
-    harpoon2
-    overseer-nvim
-    mini-move
 
     # Fun
     presence-nvim
@@ -90,5 +77,6 @@ in
   extraPackages = [
     pkgs.fd
     pkgs.ripgrep
+    selfPkgs.lazygit
   ];
 }
