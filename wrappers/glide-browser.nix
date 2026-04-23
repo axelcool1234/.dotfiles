@@ -85,7 +85,7 @@ in
 
     runShell = [
       ''mkdir -p "$GLIDE_PROFILE_DIR/glide"''
-      ''if [ ! -e "$GLIDE_PROFILE_DIR/glide/glide.ts" ]; then cp ${config.constructFiles.glideTs.path} "$GLIDE_PROFILE_DIR/glide/glide.ts"; fi''
+      ''if [ ! -e "$GLIDE_PROFILE_DIR/glide/glide.ts" ] || ! cmp -s ${config.constructFiles.glideTs.path} "$GLIDE_PROFILE_DIR/glide/glide.ts"; then cp ${config.constructFiles.glideTs.path} "$GLIDE_PROFILE_DIR/glide/glide.ts"; fi''
     ] ++ lib.optionals usePywalfox [
       ''mkdir -p "${"$"}{HOME}/.glide-browser/native-messaging-hosts"''
       ''cp ${pywalfoxManifest} "${"$"}{HOME}/.glide-browser/native-messaging-hosts/pywalfox.json"''
@@ -110,52 +110,114 @@ in
         //
         //   https://github.com/glide-browser/glide/blob/main/src/glide/browser/base/content/plugins/keymaps.mts
         //
-        // Try typing `glide.` and see what you can do!
+        // - `t` focuses the native Firefox urlbar and opens the result in a new tab.
+        // - `T` focuses the native Firefox urlbar and reuses the current tab.
+        // - `@nix<Space>` in the urlbar searches NixOS packages via a custom search engine.
+        // - `C-n`, and `C-p` can be used to cycle through suggestions in the url bar. Additionally, `Esc` closes the url bar rather than sending you to normal mode.
+        // - `/` uses Firefox's findbar, but closes upon entering `Enter` or `Esc` (rather than sending you to normal mode).
+        // - `n` and `N` can be used to cycle through `/` search matches.
+        // - `<space>f` to open a picker for opened tabs.
 
         glide.prefs.set("layout.css.prefers-color-scheme.content-override", 0);
         glide.prefs.set("extensions.activeThemeID", "firefox-compact-dark@mozilla.org");
         glide.prefs.set("browser.download.useDownloadDir", true);
         glide.prefs.set("browser.download.folderList", 1);
+        glide.prefs.set("browser.startup.homepage", "https://axelcool1234.github.io/");
         glide.prefs.set("widget.use-xdg-desktop-portal.file-picker", 1);
+        glide.o.newtab_url = "https://axelcool1234.github.io/";
 
-        glide.excmds.create({
-          name: "nix",
-          description: "Search NixOS packages on search.nixos.org",
-        }, async ({ args_arr }) => {
-          const query = args_arr.join(" ").trim();
+        // Firefox still likes to focus the url bar on a fresh homepage/new-tab load.
+        glide.autocmds.create(
+          "UrlEnter",
+          /^https:\/\/axelcool1234\.github\.io\/(?:[?#]|$)/,
+          async () => {
+            await glide.excmds.execute("blur");
+            await glide.excmds.execute("mode_change normal");
+          },
+        );
 
-          const url = new URL("https://search.nixos.org/packages");
-          url.searchParams.set("channel", "unstable");
-          url.searchParams.set("query", query);
+        // search.nixos.org autofocuses its search box; blur it shortly after navigation.
+        glide.autocmds.create(
+          "UrlEnter",
+          /^https:\/\/search\.nixos\.org\/packages(?:[/?#]|$)/,
+          async ({ tab_id }) => {
+            await glide.content.execute(async () => {
+              await new Promise((resolve) => window.setTimeout(resolve, 50));
 
-          await browser.tabs.create({ url: url.toString() });
-          await glide.excmds.execute("keys <C-,>");
+              const defocus = () => {
+                const active = document.activeElement;
+
+                if (active instanceof HTMLElement) {
+                  active.blur();
+                }
+              };
+
+              defocus();
+              requestAnimationFrame(defocus);
+            }, { tab_id });
+
+            await glide.excmds.execute("mode_change normal");
+          },
+        );
+
+        // Expose NixOS package search directly in the native urlbar.
+        glide.search_engines.add({
+          name: "NixOS Packages",
+          keyword: "@nix",
+          search_url: "https://search.nixos.org/packages?channel=unstable&query={searchTerms}",
+          favicon_url: "https://search.nixos.org/favicon.ico",
         });
 
-        glide.keymaps.set("normal", "t", async () => {
-          await glide.commandline.show({
-            title: "Google Search",
-            options: [
-              {
-                label: "Search Google",
-                description: "Press Enter to search for the text you typed",
-                matches() {
-                  return true;
-                },
-                async execute({ input }) {
-                  const query = input.trim();
-                  if (!query) {
-                    return;
-                  }
+        // Track how the next urlbar Enter press should behave after `t` / `T`.
+        let urlbarEnterDisposition = null;
+        const isContentEditing = async () => {
+          const tab = await glide.tabs.active();
+          return await glide.content.execute(() => {
+            const getActiveElement = (root) => {
+              let active = root.activeElement;
+              while (active instanceof HTMLElement && active.shadowRoot?.activeElement instanceof HTMLElement) {
+                active = active.shadowRoot.activeElement;
+              }
+              return active;
+            };
 
-                  await browser.tabs.create({
-                    url: `https://www.google.com/search?q=''${encodeURIComponent(query)}`,
-                  });
-                },
-              },
-            ],
-          });
-        }, { description: "Search Google" });
+            const active = getActiveElement(document);
+            return active instanceof HTMLTextAreaElement
+              || active instanceof HTMLInputElement
+              || active instanceof HTMLElement && active.isContentEditable;
+          }, { tab_id: tab.id });
+        };
+        const getEditingTarget = async () => {
+          if (glide.findbar.is_focused()) {
+            return "findbar";
+          }
+
+          if (glide.commandline.is_active()) {
+            return "commandline";
+          }
+
+          if (!await glide.ctx.is_editing()) {
+            return null;
+          }
+
+          return await isContentEditing() ? "content" : "chrome";
+        };
+        const focusUrlbar = async (disposition) => {
+          if (await getEditingTarget() === "content") {
+            await glide.excmds.execute("blur");
+          }
+
+          urlbarEnterDisposition = disposition;
+          await glide.excmds.execute("mode_change insert");
+          await glide.keys.send("<C-l>", { skip_mappings: true });
+        };
+
+        glide.keymaps.set("normal", "t", async () => {
+          await focusUrlbar("new-tab");
+        }, { description: "Open URL bar in new tab" });
+        glide.keymaps.set("normal", "T", async () => {
+          await focusUrlbar("current-tab");
+        }, { description: "Open URL bar in current tab" });
 
         glide.keymaps.set("normal", "H", "tab_prev");
         glide.keymaps.set("normal", "L", "tab_next");
@@ -170,9 +232,84 @@ in
 
         glide.keymaps.set("normal", "<C-f>", "hint --location=browser-ui");
         glide.keymaps.set("normal", "<leader>f", "commandline_show tab ");
-        glide.keymaps.set("normal", "/", () => {
-          glide.findbar.open();
+        glide.keymaps.set("normal", "/", async () => {
+          await glide.findbar.open();
+          await glide.keys.send("<C-a><Backspace>", { skip_mappings: true });
         }, { description: "search"});
+        glide.keymaps.set("normal", "n", async () => {
+          await glide.keys.send("<C-g>", { skip_mappings: true });
+        }, { description: "next search match" });
+        glide.keymaps.set("normal", "N", async () => {
+          await glide.keys.send("<C-S-g>", { skip_mappings: true });
+        }, { description: "previous search match" });
+
+        // Enter closes the findbar, and in the native urlbar it replays the pending
+        // `t` / `T` disposition as either Alt-Enter (new tab) or plain Enter.
+        glide.keymaps.set("insert", "<Enter>", async () => {
+          const editingTarget = await getEditingTarget();
+
+          if (editingTarget === "findbar") {
+            await glide.findbar.close();
+            await glide.excmds.execute("mode_change normal");
+            return;
+          }
+
+          if (urlbarEnterDisposition && editingTarget === "chrome") {
+            const key = urlbarEnterDisposition === "new-tab" ? "<A-Enter>" : "<Enter>";
+            urlbarEnterDisposition = null;
+            await glide.keys.send(key, { skip_mappings: true });
+            return;
+          }
+
+          if (editingTarget !== "chrome") {
+            urlbarEnterDisposition = null;
+          }
+
+          await glide.keys.send("<Enter>", { skip_mappings: true });
+        }, { description: "confirm input" });
+
+        // Esc closes the findbar, blurs the native urlbar, and otherwise just returns
+        // to normal mode without forcing page textboxes to lose focus.
+        glide.keymaps.set("insert", "<Esc>", async () => {
+          const editingTarget = await getEditingTarget();
+
+          if (editingTarget === "findbar") {
+            await glide.findbar.close();
+            await glide.excmds.execute("mode_change normal");
+            return;
+          }
+
+          if (editingTarget === "chrome") {
+            urlbarEnterDisposition = null;
+            await glide.excmds.execute("blur");
+            return;
+          }
+
+          if (editingTarget === "content") {
+            urlbarEnterDisposition = null;
+          }
+
+          await glide.excmds.execute("mode_change normal");
+        }, { description: "exit insert mode" });
+
+        // Mirror familiar shell/editor completion navigation inside the native urlbar.
+        glide.keymaps.set("insert", "<C-n>", async () => {
+          if (await getEditingTarget() === "chrome") {
+            await glide.keys.send("<Down>", { skip_mappings: true });
+            return;
+          }
+
+          await glide.keys.send("<C-n>", { skip_mappings: true });
+        }, { description: "next suggestion" });
+
+        glide.keymaps.set("insert", "<C-p>", async () => {
+          if (await getEditingTarget() === "chrome") {
+            await glide.keys.send("<Up>", { skip_mappings: true });
+            return;
+          }
+
+          await glide.keys.send("<C-p>", { skip_mappings: true });
+        }, { description: "previous suggestion" });
 
         glide.keymaps.set("normal", "gl", "keys $");
         glide.keymaps.set("normal", "gh", "keys ^");
