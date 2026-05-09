@@ -46,6 +46,12 @@ in
       description = "Optional swap partition size for the Disko scaffold.";
     };
 
+    resumeFromSwap = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Whether the generated swap partition should also be used as the resume device during initrd.";
+    };
+
     mountOptions = mkOption {
       type = with types; listOf str;
       default = [ "compress=zstd:1" "noatime" ];

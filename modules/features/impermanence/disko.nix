@@ -25,16 +25,6 @@ in
               mountOptions = [ "umask=0077" ];
             };
           };
-
-          swap = {
-            name = "swap";
-            size = cfg.swapSize;
-            content = {
-              type = "swap";
-              resumeDevice = true;
-            };
-          };
-
           root = {
             name = "nixos";
             size = "100%";
@@ -63,6 +53,16 @@ in
                   mountOptions = cfg.mountOptions;
                 };
               };
+            };
+          };
+        }
+        // lib.optionalAttrs (cfg.swapSize != null) {
+          swap = {
+            name = "swap";
+            size = cfg.swapSize;
+            content = {
+              type = "swap";
+              resumeDevice = cfg.resumeFromSwap;
             };
           };
         };
