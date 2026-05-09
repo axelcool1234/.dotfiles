@@ -159,7 +159,7 @@ We'll use the `legion` host as an example.
    ```
 Notes:
 - The installer ISO target lives at `nixosConfigurations.iso` and is meant to be
-  used as the bootstrap environment for fresh installs.
+  used as the install environment for fresh installs.
 - `legion` is a UEFI install and should keep `boot.loader.grub.device = "nodev"`.
   GRUB should install into the EFI System Partition at `/boot`, not to the whole
   NVMe disk as a BIOS/MBR bootloader.
@@ -169,3 +169,17 @@ Notes:
   failure.
 - `~/.dotfiles` is persisted by default in the impermanence module so the flake
   checkout survives reboots.
+
+## Portable Host
+
+`nixosConfigurations.portable` is the external-SSD host profile. It avoids a
+host-local `hardware-configuration.nix` so the install stays more movable.
+
+Notes:
+- The current `portable` host targets `/dev/disk/by-id/usb-WD_Elements_2620_575848324532304443364350-0:0`.
+- It currently uses the `foundation` bundle plus GRUB and a small manual tool set, including Neovim.
+- It installs GRUB as a removable EFI target and does not try to write firmware boot entries.
+- Build it with `nix build .#nixosConfigurations.portable.config.system.build.toplevel`.
+- Build the Disko script with `nix build .#nixosConfigurations.portable.config.system.build.diskoScript`.
+- The ISO helper supports `disko-install portable`.
+- The installer helper is also exposed as the flake package `.#disko-install`, so from any NixOS environment you can run `nix run .#disko-install -- portable`.

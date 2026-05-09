@@ -94,7 +94,21 @@ in
     ];
   };
 
-  # Installer ISO target for bootstrapping fresh installs from this flake.
+  # Portable external-drive workstation target.
+  #
+  # This host is meant for an external SSD and stays hardware-generic so it can
+  # be moved between machines more easily than the built-in-disk hosts.
+  portable = mkHostConfiguration {
+    hostName = "portable";
+    system = "x86_64-linux";
+    modules = [
+      self.bundles.foundation
+      self.bundles.workstation
+      self.hosts.portable
+    ];
+  };
+
+  # Installer ISO target for fresh installs from this flake.
   #
   # Build with:
   # `nix build .#nixosConfigurations.iso.config.system.build.isoImage`
