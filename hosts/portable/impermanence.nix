@@ -10,7 +10,5 @@
     # the 3.6 TiB disk to btrfs.
     swapSize = "32G";
     resumeFromSwap = false;
-
-    btrfsDevice = "/dev/disk/by-partlabel/disk-main-nixos";
   };
 }

@@ -12,8 +12,5 @@
 
     # Match the host's installed RAM capacity for hibernation-friendly swap.
     swapSize = "128G";
-
-    # Expected btrfs root partition path after the Disko layout is applied.
-    btrfsDevice = "/dev/disk/by-partlabel/disk-main-nixos";
   };
 }
