@@ -24,9 +24,9 @@ From `lsblk` on the installer environment against the installed disk:
 
 - Disk: `nvme0n1` (`INTEL SSDPEKNW020T8`)
 - Partition labels:
-  - `disk-main-boot` (`vfat`, `1G`)
-  - `disk-main-swap` (`swap`, `128G`)
-  - `disk-main-nixos` (`btrfs`, remaining space)
+- `disk-fermi-boot` (`vfat`, `1G`)
+- `disk-fermi-swap` (`swap`, `128G`)
+- `disk-fermi-nixos` (`btrfs`, remaining space)
 
 This matches the intended Disko scaffold and confirms the host is no longer
 using the old ext4 root layout.
@@ -67,7 +67,7 @@ The Fermi host still intentionally uses impermanence:
 
 - `preferences.impermanence.enable = true`
 - `preferences.impermanence.diskDevice = /dev/disk/by-id/nvme-INTEL_SSDPEKNW020T8_PHNH117201DB2P0C`
-- `preferences.impermanence.btrfsDevice = /dev/disk/by-partlabel/disk-main-nixos`
+- `preferences.impermanence.btrfsDevice = /dev/disk/by-partlabel/disk-fermi-nixos`
 - `preferences.impermanence.swapSize = "128G"`
 
 No storage misconfiguration was identified that would explain the greetd freeze.
@@ -96,7 +96,7 @@ Primary commands used during this update:
 
 ```bash
 lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,PARTLABEL,MOUNTPOINTS
-sudo mount -o subvol=persist /dev/disk/by-partlabel/disk-main-nixos /tmp/fermi-persist
+sudo mount -o subvol=persist /dev/disk/by-partlabel/disk-fermi-nixos /tmp/fermi-persist
 sudo journalctl --directory=/tmp/fermi-persist/var/log/journal --list-boots
 sudo journalctl --directory=/tmp/fermi-persist/var/log/journal -b 0 -p 0..4 --no-pager
 sudo journalctl --directory=/tmp/fermi-persist/var/log/journal -b 0 --no-pager | rg -i 'greetd|page fault|csi_J|do_con_write'

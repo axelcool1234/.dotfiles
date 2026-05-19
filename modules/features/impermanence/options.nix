@@ -1,5 +1,6 @@
 {
   baseVars,
+  hostVars,
   inputs,
   lib,
   ...
@@ -26,10 +27,20 @@ in
       description = "Disko target disk for this host.";
     };
 
+    diskName = mkOption {
+      type = types.str;
+      default = hostVars.hostName;
+      example = "portable";
+      description = ''
+        Disko disk identifier used to derive GPT partition labels like
+        `/dev/disk/by-partlabel/disk-<diskName>-nixos`.
+      '';
+    };
+
     btrfsDevice = mkOption {
       type = with types; nullOr str;
       default = null;
-      example = "/dev/disk/by-partlabel/nixos";
+      example = "/dev/disk/by-partlabel/disk-fermi-nixos";
       description = "Btrfs block device mounted in initrd for root rotation operations.";
     };
 
