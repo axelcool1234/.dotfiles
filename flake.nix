@@ -22,6 +22,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # NixOS in Windows Subsystem for Linux.
+    nixos-wsl = {
+      url = "github:nix-community/NixOS-WSL/main";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Package wrapping library.
     wrapper-modules.url = "github:BirdeeHub/nix-wrapper-modules";
 
