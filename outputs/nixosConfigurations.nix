@@ -108,6 +108,17 @@ in
     ];
   };
 
+  # WSL target for running this flake inside NixOS-WSL.
+  wsl = mkHostConfiguration {
+    hostName = "wsl";
+    system = "x86_64-linux";
+    modules = [
+      self.bundles.foundation
+      self.features.environment
+      self.hosts.wsl
+    ];
+  };
+
   # Installer ISO target for fresh installs from this flake.
   #
   # Build with:
