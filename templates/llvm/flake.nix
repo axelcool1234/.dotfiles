@@ -268,6 +268,8 @@
         in
         {
           default = pkgs.mkShell {
+            hardeningDisable = [ "libcxxhardeningfast" ];
+
             packages = [
               self.packages.${system}.build-alive
               self.packages.${system}.build-all
