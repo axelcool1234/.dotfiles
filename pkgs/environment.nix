@@ -9,6 +9,8 @@
   ...
 }:
 let
+  shellPackage = selfPkgs.${hostVars.shell};
+
   extraPackages = [
     # GUI
     selfPkgs.zathura # PDFs
@@ -41,12 +43,14 @@ let
     pkgs.nix-prefetch                                              # get hashes
   ];
 
-  collectRuntimePersist = key: myLib.collectPersistFromPackages key extraPackages;
+  runtimePackages = [ shellPackage ] ++ extraPackages;
+
+  collectRuntimePersist = key: myLib.collectPersistFromPackages key runtimePackages;
 in
 inputs.wrapper-modules.lib.wrapPackage {
   inherit pkgs extraPackages;
 
-  package = selfPkgs.${hostVars.shell};
+  package = shellPackage;
 
   env = {
     VISUAL = "${lib.getExe selfPkgs.${hostVars.editor}}"; # Default editor
