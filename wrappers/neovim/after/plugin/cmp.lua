@@ -76,7 +76,11 @@ cmp.setup.cmdline({ '/', '?' }, {
 -- Ex commands should prefer real commands and paths, while still letting you
 -- recall past command-line entries when useful.
 cmp.setup.cmdline(':', {
-  mapping = cmp.mapping.preset.cmdline(),
+  mapping = cmp.mapping.preset.cmdline({
+    ['<C-Space>'] = {
+      c = cmp.mapping.confirm({ select = true }),
+    },
+  }),
   sources = cmp.config.sources({
     { name = 'path' },
   }, {
