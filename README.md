@@ -69,7 +69,6 @@
     - `z`
     - `<C-W>`
     - `"`
-  - Multicursor backspace in insert mode only works on the primary cursor for some reason
   - `<C-Space>` should work when typing a command.
   - Note for ACTUAL Helix: `"a/` and then some text lets you search via `n` and `N` and assigns register `a` such contents.
     Then, when you select some text and do `s` then some text, the `/` register is assigned said contents. However, the active

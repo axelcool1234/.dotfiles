@@ -292,6 +292,56 @@ function M.new(opts)
     })
   end
 
+  local function backspace_ranges(session)
+    local buffer = session.buffer
+    local points = session_cursor_points(session)
+    local ranges = {}
+
+    for index, point in ipairs(points) do
+      local prev = position.prev_pos(buffer, point)
+      if prev[1] ~= point[1] or prev[2] ~= point[2] then
+        local start_row, start_col = position.before_boundary(buffer, prev)
+        local end_row, end_col = position.before_boundary(buffer, point)
+        ranges[#ranges + 1] = {
+          index = index,
+          start_row = start_row,
+          start_col = start_col,
+          end_row = end_row,
+          end_col = end_col,
+          fallback = prev,
+        }
+      end
+    end
+
+    return ranges
+  end
+
+  local function apply_session_backspace(session)
+    if insert.session ~= session or not session.active or vim.api.nvim_get_current_buf() ~= session.buffer then
+      return
+    end
+
+    local ranges = backspace_ranges(session)
+    if #ranges == 0 then
+      return
+    end
+
+    session.applying = true
+    local points = apply_ranges(ranges, {})
+    if points[1] then
+      state_module.move_cursor_to_pos(points[1])
+    end
+    session.synced_lines = vim.deepcopy(session_text_lines(session))
+    refresh_session_preview(session)
+    session.applying = false
+  end
+
+  local function handle_session_backspace(session)
+    vim.schedule(function()
+      apply_session_backspace(session)
+    end)
+  end
+
   local function sync_session_text(session)
     if not session.active or vim.api.nvim_get_current_buf() ~= session.buffer then
       return
@@ -338,6 +388,12 @@ function M.new(opts)
 
     if session.autocmd_group then
       pcall(vim.api.nvim_del_augroup_by_id, session.autocmd_group)
+    end
+
+    if session.buffer and vim.api.nvim_buf_is_valid(session.buffer) then
+      for _, lhs in ipairs(session.insert_keymaps or {}) do
+        pcall(vim.keymap.del, "i", lhs, { buffer = session.buffer })
+      end
     end
 
     clear_mark_state(session.anchor_state)
@@ -411,6 +467,7 @@ function M.new(opts)
       end_state = create_point_marks(cursor_points(active_entries), "axelcool1234-helix-insert-cursor-end", true),
     }
     insert.session = session
+    session.insert_keymaps = { "<BS>", "<C-h>" }
 
     state.set_preview_entries(
       session.buffer,
@@ -419,6 +476,16 @@ function M.new(opts)
     )
     if active_entries[1] then
       state_module.move_cursor_to_pos(active_entries[1].cursor_pos)
+    end
+
+    for _, lhs in ipairs(session.insert_keymaps) do
+      vim.keymap.set("i", lhs, function()
+        handle_session_backspace(session)
+      end, {
+        buffer = session.buffer,
+        noremap = true,
+        silent = true,
+      })
     end
 
     session.autocmd_group = vim.api.nvim_create_augroup("axelcool1234-helix-insert-session", { clear = false })

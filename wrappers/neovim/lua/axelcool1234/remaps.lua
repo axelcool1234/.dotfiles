@@ -444,6 +444,7 @@ local keys = {
   { "Show docs for item under cursor", "<leader>k", "<cmd>lua vim.lsp.buf.hover()<CR>" },
 
   { "Select register", '"', expand = function() return helix.which_key_registers() end },
+  { "Disable backspace", "<BS>", "<Nop>" },
 
   { "Search for regex pattern", "/", helix.search_regex },
   { "Search backward for regex pattern", "?", helix.search_regex_backward },

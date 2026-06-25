@@ -220,6 +220,31 @@ local cases = {
     end,
   },
   {
+    name = "backspace in multi-insert deletes at every cursor",
+    run = function()
+      reset_case({ "abc", "abc" }, 1, 3)
+      helix.copy_selection_on_adjacent_line(1)
+      helix.insert_mode()
+
+      local backspace_map = vim.fn.maparg("<BS>", "i", false, true)
+      assert(type(backspace_map.callback) == "function", "multi-insert should install a buffer-local insert backspace handler")
+      backspace_map.callback()
+      vim.wait(100)
+      vim.cmd("stopinsert")
+      vim.wait(100)
+
+      assert_equal(current_lines(), { "ab", "ab" }, "backspace in multi-insert should delete before every active cursor")
+      assert_equal(all_cursor_positions(), { { 1, 3 }, { 2, 3 } }, "escaping multi-insert backspace should keep both cursors aligned")
+    end,
+  },
+  {
+    name = "normal mode backspace is unmapped to a no-op",
+    run = function()
+      local backspace_map = vim.fn.maparg("<BS>", "n", false, true)
+      assert_equal(backspace_map.rhs, "<Nop>", "normal mode backspace should be explicitly disabled")
+    end,
+  },
+  {
     name = "open_line_below keeps cursor at insertion endpoint on escape",
     run = function()
       reset_case({ "abc" }, 1, 3)
