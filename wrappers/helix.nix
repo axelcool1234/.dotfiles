@@ -92,15 +92,13 @@ in
           g.w = "goto_word_flash"; # Better jump motion
           g.k = "goto_hover"; # Jump into hover
 
-          # Lazygit integration
+          # jjui integration
           "C-g" = [
-            ":sh rm -f /tmp/lazygit-path"
             ":write-all"
             ":new"
-            ":insert-output env LAZYGIT_OPEN_PATH_FILE=/tmp/lazygit-path ${lib.getExe selfPkgs.lazygit}"
+            ":insert-output ${lib.getExe selfPkgs.jjui}"
             ":sh printf \"\\x1b[?1049h\" > /dev/tty"
             ":buffer-close!"
-            ":open %sh{cat /tmp/lazygit-path}"
             ":redraw"
             ":reload-all"
             ":set mouse false"

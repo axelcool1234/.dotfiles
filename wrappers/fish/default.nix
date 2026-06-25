@@ -21,19 +21,10 @@ in
   config = {
     extraPackages = [
       pkgs.direnv
-      selfPkgs.lazygit
+      selfPkgs.jjui
       pkgs.lorri
       pkgs.zoxide
     ];
-
-    # The "standalone" wrapper allows helix to take over if
-    # a file was selected to be edited from lazygit
-    # The >/dev/null suppresses stdout noise when running
-    # edit command to open helix from lazgit
-    shellAliases = {
-      lazygit = "lazygit-standalone >/dev/null";
-      lgit = "lazygit-standalone >/dev/null";
-    };
 
     shellInit = ''
       ${lib.getExe pkgs.zoxide} init fish | source
@@ -50,7 +41,7 @@ in
       function fish_user_key_bindings
         for mode in default insert visual
           bind -M $mode \cz 'fg >/dev/null 2>&1; commandline -f repaint'
-          bind -M $mode \cg 'commandline -r lazygit; commandline -f execute'
+          bind -M $mode \cg 'commandline -r jjui; commandline -f execute'
           ${lib.optionalString enableKittyScrollbackCommandEdit ''bind -M $mode \ev kitty_scrollback_edit_command_buffer''}
         end
       end

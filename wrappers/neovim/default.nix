@@ -264,6 +264,6 @@ in
     pkgs.gh-dash
     pkgs.ripgrep
     pkgs.wl-clipboard
-    selfPkgs.lazygit
+    selfPkgs.jjui
   ];
 }
