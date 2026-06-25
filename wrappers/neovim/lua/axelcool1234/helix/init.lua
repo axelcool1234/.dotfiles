@@ -81,6 +81,10 @@ local replaying_last_motion = false
 local macro_recording_target = nil
 local macro_recording_saved = nil
 local macro_replaying = {}
+local incremental_search = {
+  active = nil,
+  ignore_cursor_moved = 0,
+}
 
 history.attach()
 
@@ -501,6 +505,16 @@ local function compile_selection_regex(pattern)
   return compiled
 end
 
+local function suspend_incremental_search_cursor_clear(count)
+  incremental_search.ignore_cursor_moved = math.max(incremental_search.ignore_cursor_moved, count or 1)
+end
+
+local function validate_selection_regex(pattern)
+  local compiled = compile_selection_regex(pattern)
+  match_lines({ "" }, compiled)
+  return compiled
+end
+
 local function prompt_selection_regex(prompt, register_name)
   local pattern = vim.fn.input(prompt .. ": ")
   if pattern == "" then
@@ -508,7 +522,7 @@ local function prompt_selection_regex(prompt, register_name)
   end
 
   local ok, err = pcall(function()
-    match_lines({ "" }, compile_selection_regex(pattern))
+    validate_selection_regex(pattern)
   end)
   if not ok then
     vim.notify(err, vim.log.levels.ERROR)
@@ -590,60 +604,228 @@ local function search_match_entry(entry, pattern, direction)
   return state_module.selection_entry({ start_match[1], start_charcol }, { start_match[1], end_charcol })
 end
 
-local function apply_search_match(pattern, direction)
-  local source_entries = state.preview_active() and current_preview_entries() or state.current_entries()
+local function apply_search_match(pattern, direction, config)
+  config = config or {}
+
+  local source_entries = config.source_entries or (state.preview_active() and current_preview_entries() or state.current_entries())
+  local had_preview = config.had_preview
+  if had_preview == nil then
+    had_preview = state.preview_active()
+  end
+  local extend_mode = config.extend_mode
+  if extend_mode == nil then
+    extend_mode = state.extend_mode_active()
+  end
   local match_entry = search_match_entry(source_entries[1], pattern, direction)
   if not match_entry then
-    vim.api.nvim_echo({ { "no more matches", "WarningMsg" } }, false, {})
-    return
+    if config.no_message ~= true then
+      vim.api.nvim_echo({ { "no more matches", "WarningMsg" } }, false, {})
+    end
+    return false
   end
 
   local entries = { match_entry }
 
-  if state.extend_mode_active() then
+  if extend_mode then
     for _, entry in ipairs(source_entries) do
       table.insert(entries, entry)
     end
-    state.set_preview_entries(current_buffer(), entries)
-    return
+    state.set_preview_entries(current_buffer(), entries, {
+      sync_history = config.sync_history,
+    })
+    return true
   end
 
-  if state.preview_active() and #source_entries > 1 then
+  if had_preview and #source_entries > 1 then
     for index = 2, #source_entries do
       table.insert(entries, source_entries[index])
     end
   end
 
-  state.set_preview_entries(current_buffer(), entries)
+  state.set_preview_entries(current_buffer(), entries, {
+    sync_history = config.sync_history,
+  })
   state.exit_extend_mode()
+  return true
+end
+
+local function restore_search_snapshot(session)
+  if not session then
+    return
+  end
+
+  suspend_incremental_search_cursor_clear(2)
+  state.clear_preview({ keep_extend_mode = true, keep_insert_mode = true })
+  if session.extend_mode then
+    state.enter_extend_mode()
+  else
+    state.exit_extend_mode()
+  end
+
+  if session.had_preview then
+    state.set_preview_entries(session.buffer, vim.deepcopy(session.entries), {
+      sync_history = false,
+    })
+  else
+    state_module.move_cursor_to_pos(session.cursor_pos)
+  end
+
+  vim.fn.winrestview(session.view)
+  vim.cmd.nohlsearch()
+end
+
+local function apply_incremental_search(session, pattern, notify_errors, sync_history)
+  if not session then
+    return false
+  end
+
+  restore_search_snapshot(session)
+  if pattern == "" then
+    return true
+  end
+
+  local ok, compiled_or_err = pcall(validate_selection_regex, pattern)
+  if not ok then
+    if notify_errors then
+      vim.notify(compiled_or_err, vim.log.levels.ERROR)
+    end
+    restore_search_snapshot(session)
+    return false
+  end
+
+  local ok_apply, matched = pcall(apply_search_match, compiled_or_err, session.direction, {
+    extend_mode = session.extend_mode,
+    had_preview = session.had_preview,
+    no_message = true,
+    source_entries = vim.deepcopy(session.entries),
+    sync_history = sync_history,
+  })
+
+  if not ok_apply then
+    if notify_errors then
+      vim.notify(matched, vim.log.levels.ERROR)
+    end
+    restore_search_snapshot(session)
+    return false
+  end
+
+  if not matched then
+    restore_search_snapshot(session)
+    return false
+  end
+
+  return true
+end
+
+local function finish_incremental_search(session, confirmed)
+  incremental_search.active = nil
+  vim.o.incsearch = session.saved_incsearch
+  restore_vim_register("/", session.saved_search_register)
+
+  if not confirmed or session.pattern == "" then
+    restore_search_snapshot(session)
+    return
+  end
+
+  if not set_search_register(session.register_name, session.pattern) then
+    restore_search_snapshot(session)
+    return
+  end
+
+  vim.fn.setreg("/", session.pattern, "v")
+  vim.fn.histadd("search", session.pattern)
+  vim.cmd.nohlsearch()
+
+  if not apply_incremental_search(session, session.pattern, true, nil) then
+    return
+  end
+
+  suspend_incremental_search_cursor_clear(2)
+  vim.schedule(function()
+    if state.preview_active() then
+      state.refresh_preview()
+    end
+    vim.cmd.nohlsearch()
+  end)
+end
+
+local incremental_search_group = vim.api.nvim_create_augroup("axelcool1234-helix-incremental-search", { clear = true })
+
+vim.api.nvim_create_autocmd("CmdlineChanged", {
+  group = incremental_search_group,
+  callback = function()
+    local session = incremental_search.active
+    if not session or vim.fn.getcmdtype() ~= session.cmdtype then
+      return
+    end
+
+    session.pattern = vim.fn.getcmdline()
+    apply_incremental_search(session, session.pattern, false, false)
+  end,
+})
+
+vim.api.nvim_create_autocmd("CmdlineLeavePre", {
+  group = incremental_search_group,
+  callback = function()
+    local session = incremental_search.active
+    if not session or vim.fn.getcmdtype() ~= session.cmdtype then
+      return
+    end
+
+    session.pattern = vim.fn.getcmdline()
+  end,
+})
+
+vim.api.nvim_create_autocmd("CmdlineLeave", {
+  group = incremental_search_group,
+  callback = function()
+    local session = incremental_search.active
+    if not session or vim.v.event.cmdtype ~= session.cmdtype then
+      return
+    end
+
+    local confirmed = not vim.v.event.abort
+
+    if confirmed then
+      vim.v.event.abort = true
+    end
+
+    vim.schedule(function()
+      finish_incremental_search(session, confirmed)
+    end)
+  end,
+})
+
+local function start_incremental_search(direction)
+  local cmdtype = direction == "backward" and "?" or "/"
+  local register_name = resolve_search_register('/')
+  local source_entries = state.preview_active() and current_preview_entries() or state.current_entries()
+
+  incremental_search.active = {
+    buffer = current_buffer(),
+    cmdtype = cmdtype,
+    cursor_pos = state_module.current_pos_1indexed(),
+    direction = direction,
+    entries = vim.deepcopy(source_entries),
+    extend_mode = state.extend_mode_active(),
+    had_preview = state.preview_active(),
+    pattern = "",
+    register_name = register_name,
+    saved_incsearch = vim.o.incsearch,
+    saved_search_register = save_vim_register("/"),
+    view = vim.fn.winsaveview(),
+  }
+
+  vim.o.incsearch = false
+  feedkeys(cmdtype, "n")
 end
 
 function M.search_regex()
-  local register_name = resolve_search_register('/')
-  local pattern = prompt_selection_regex("search", register_name)
-  if not pattern then
-    return
-  end
-
-  if not set_search_register(register_name, pattern) then
-    return
-  end
-
-  apply_search_match(compile_selection_regex(pattern), "forward")
+  start_incremental_search("forward")
 end
 
 function M.search_regex_backward()
-  local register_name = resolve_search_register('/')
-  local pattern = prompt_selection_regex("search backward", register_name)
-  if not pattern then
-    return
-  end
-
-  if not set_search_register(register_name, pattern) then
-    return
-  end
-
-  apply_search_match(compile_selection_regex(pattern), "backward")
+  start_incremental_search("backward")
 end
 
 function M.search_next(direction)
@@ -3637,6 +3819,11 @@ function M.setup_autocmds()
   vim.api.nvim_create_autocmd("CursorMoved", {
     group = group,
     callback = function()
+      if incremental_search.ignore_cursor_moved > 0 then
+        incremental_search.ignore_cursor_moved = incremental_search.ignore_cursor_moved - 1
+        return
+      end
+
       if state.consume_pending_escape() then
         return
       end

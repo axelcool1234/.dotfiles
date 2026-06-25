@@ -294,22 +294,43 @@ local cases = {
     end,
   },
   {
+    name = "incremental search previews first match and restores on cancel",
+    run = function()
+      reset_case({ "alpha beta alpha gamma alpha" }, 1, 17)
+      local original_cursor = vim.api.nvim_win_get_cursor(0)
+      local preview_range = nil
+      local group = vim.api.nvim_create_augroup("axelcool1234-test-search-preview", { clear = true })
+
+      vim.api.nvim_create_autocmd("CmdlineChanged", {
+        group = group,
+        callback = function()
+          if vim.fn.getcmdtype() == "/" and vim.fn.getcmdline() == "alpha" then
+            preview_range = primary_selection_range()
+          end
+        end,
+      })
+
+      helix.search_regex()
+      feed_deferred("alpha<Esc>", 20, 300)
+      vim.api.nvim_del_augroup_by_id(group)
+
+      assert_equal(
+        preview_range,
+        { start_row = 1, start_col = 24, end_row = 1, end_col = 28 },
+        "typing /alpha should preview the next forward match before confirming"
+      )
+
+      assert_equal(vim.api.nvim_win_get_cursor(0), original_cursor, "cancelling an incremental search should restore the original cursor")
+      assert_equal(primary_selection_range(), nil, "cancelling an incremental search should clear the temporary preview")
+    end,
+  },
+  {
     name = "backward search starts backward but n and N keep fixed directions",
     run = function()
       reset_case({ "alpha beta alpha gamma alpha" }, 1, 17)
 
-      local original_input = vim.fn.input
-      vim.fn.input = function()
-        return "alpha"
-      end
-
-      local ok, err = pcall(function()
-        helix.search_regex_backward()
-      end)
-      vim.fn.input = original_input
-      if not ok then
-        error(err)
-      end
+      helix.search_regex_backward()
+      feed_deferred("alpha<CR>", 20, 300)
 
       assert_equal(
         primary_selection_range(),
