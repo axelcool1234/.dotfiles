@@ -59,6 +59,73 @@ function M.new(opts)
     }
   end
 
+  local function entry_mark_pos(buffer, namespace, mark_id)
+    local pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, mark_id, {})
+    if #pos == 0 then
+      return nil
+    end
+
+    local row = pos[1] + 1
+    local line = line_text(row)
+    return { row, position.char_col_from_byte_col0(line, pos[2]) }
+  end
+
+  local function create_entry_mark_state(entries, namespace_name)
+    local buffer = current_buffer()
+    local namespace = vim.api.nvim_create_namespace(namespace_name)
+    local marks = {}
+
+    for index, entry in ipairs(entries) do
+      local anchor_line = line_text(entry.anchor_pos[1])
+      local cursor_line = line_text(entry.cursor_pos[1])
+      marks[index] = {
+        anchor_id = vim.api.nvim_buf_set_extmark(
+          buffer,
+          namespace,
+          entry.anchor_pos[1] - 1,
+          position.byte_col0_from_char_col(anchor_line, entry.anchor_pos[2]),
+          { right_gravity = false }
+        ),
+        cursor_id = vim.api.nvim_buf_set_extmark(
+          buffer,
+          namespace,
+          entry.cursor_pos[1] - 1,
+          position.byte_col0_from_char_col(cursor_line, entry.cursor_pos[2]),
+          { right_gravity = false }
+        ),
+      }
+    end
+
+    return {
+      buffer = buffer,
+      namespace = namespace,
+      marks = marks,
+    }
+  end
+
+  local function updated_entries_from_marks(mark_state)
+    local entries = {}
+
+    for index, marks in ipairs(mark_state.marks) do
+      local anchor_pos = entry_mark_pos(mark_state.buffer, mark_state.namespace, marks.anchor_id)
+      local cursor_pos = entry_mark_pos(mark_state.buffer, mark_state.namespace, marks.cursor_id)
+      if anchor_pos and cursor_pos then
+        entries[index] = state_module.selection_entry(anchor_pos, cursor_pos)
+      end
+    end
+
+    vim.api.nvim_buf_clear_namespace(mark_state.buffer, mark_state.namespace, 0, -1)
+    return entries
+  end
+
+  local function apply_preview_surround_edit(entries, edit)
+    local entry_marks = create_entry_mark_state(entries, "axelcool1234-surround-edit")
+    edit()
+    local updated_entries = updated_entries_from_marks(entry_marks)
+    state.set_preview_entries(vim.api.nvim_get_current_buf(), updated_entries, { sync_history = false })
+    return updated_entries
+  end
+
   -- Pair helpers
 
   local function surround_pair(char)
@@ -188,6 +255,66 @@ function M.new(opts)
     return vim.treesitter.language.get_lang(ft) or ft
   end
 
+  local function entry_cursor_range(source_entry)
+    local cursor_pos = source_entry.cursor_pos
+    local line = line_text(cursor_pos[1])
+    local start_col = position.byte_col0_from_char_col(line, cursor_pos[2])
+    local end_col = math.min(start_col + 1, #line)
+    return { cursor_pos[1] - 1, start_col, cursor_pos[1] - 1, end_col }
+  end
+
+  local function language_tree_for_entry(source_entry)
+    local parser = vim.treesitter.get_parser(current_buffer(), nil, { error = false })
+    if not parser then
+      return nil
+    end
+
+    local range = entry_cursor_range(source_entry)
+    parser:parse(range)
+
+    local ok, language_tree = pcall(parser.language_for_range, parser, range)
+    if not ok or not language_tree then
+      return nil
+    end
+
+    return {
+      parser = parser,
+      language_tree = language_tree,
+    }
+  end
+
+  local function language_context_for_entry(source_entry)
+    local tree_context = language_tree_for_entry(source_entry)
+    if not tree_context then
+      return nil
+    end
+
+    local parser = tree_context.parser
+    local language_tree = tree_context.language_tree
+
+    local lang = language_tree:lang()
+    if not lang or lang == "" then
+      return nil
+    end
+
+    local tree = nil
+    parser:for_each_tree(function(candidate_tree, candidate_language_tree)
+      if tree == nil and candidate_language_tree == language_tree then
+        tree = candidate_tree
+      end
+    end)
+    if not tree then
+      return nil
+    end
+
+    return {
+      lang = lang,
+      parser = parser,
+      language_tree = language_tree,
+      tree = tree,
+    }
+  end
+
   local function char_pos_from_byte_col0(row1, byte_col0)
     local line = line_text(row1)
     return { row1, position.char_col_from_byte_col0(line, byte_col0) }
@@ -252,23 +379,18 @@ function M.new(opts)
   end
 
   local function capture_region_for_entry(object_name, source_entry, around)
-    local lang = current_lang()
-    if not lang or lang == "" then
+    local context = language_context_for_entry(source_entry)
+    if not context then
       return nil
     end
 
-    local parser_ok = pcall(vim.treesitter.get_parser, current_buffer(), lang)
-    if not parser_ok then
-      return nil
-    end
-
-    local loaded = load_textobject_query(lang)
+    local loaded = load_textobject_query(context.lang)
     local query = loaded and loaded.query or nil
     if not query then
       return nil
     end
 
-    local root = vim.treesitter.get_parser(current_buffer(), lang):parse()[1]:root()
+    local root = context.tree:root()
     local target_captures = {}
     for _, name in ipairs(capture_names_for_object(object_name, around)) do
       target_captures[name] = true
@@ -295,23 +417,18 @@ function M.new(opts)
   end
 
   local function goto_capture_region_for_entry(object_name, source_entry, direction, count)
-    local lang = current_lang()
-    if not lang or lang == "" then
+    local context = language_context_for_entry(source_entry)
+    if not context then
       return source_entry
     end
 
-    local ok, parser = pcall(vim.treesitter.get_parser, current_buffer(), lang)
-    if not ok or not parser then
-      return source_entry
-    end
-
-    local loaded = load_textobject_query(lang)
+    local loaded = load_textobject_query(context.lang)
     local query = loaded and loaded.query or nil
     if not query then
       return source_entry
     end
 
-    local root = parser:parse()[1]:root()
+    local root = context.tree:root()
     local target_captures = {}
     for _, name in ipairs(capture_names_for_goto(object_name)) do
       target_captures[name] = true
@@ -1244,7 +1361,14 @@ function M.new(opts)
 
   -- Tree-sitter-backed pair discovery
 
-  local function find_treesitter_seed_node(target_entry, tree)
+  local function find_treesitter_seed_node(target_entry, tree, language_tree)
+    if language_tree then
+      local node = language_tree:named_node_for_range(entry_cursor_range(target_entry), { ignore_injections = false })
+      if node then
+        return node
+      end
+    end
+
     if entry_is_point(target_entry) then
       local point_pos = target_entry.cursor_pos
       local line = line_text(point_pos[1])
@@ -1267,17 +1391,17 @@ function M.new(opts)
   end
 
   local function find_surround_with_treesitter_for_target(target_entry, char, count, allow_exact_current_region)
-    local buffer = vim.api.nvim_get_current_buf()
-    local parser = vim.treesitter.get_parser(buffer)
-    local tree = parser:parse()[1]
-    if not tree then
+    local context = language_context_for_entry(target_entry)
+    if not context then
       return nil
     end
 
-    local node = find_treesitter_seed_node(target_entry, tree)
+    local node = find_treesitter_seed_node(target_entry, context.tree, context.language_tree)
     if not node then
       return nil
     end
+
+    local remaining = count
     local seen = {}
 
     while node do
@@ -1286,8 +1410,8 @@ function M.new(opts)
         local key = region_key(region)
         if not seen[key] then
           seen[key] = true
-          count = count - 1
-          if count == 0 then
+          remaining = remaining - 1
+          if remaining == 0 then
             return region
           end
         end
@@ -1645,8 +1769,9 @@ function M.new(opts)
       end
 
       local transaction = history.transaction(entries, current_preview_history_config())
-      state.clear_preview()
-      delete_surround_regions(regions)
+      apply_preview_surround_edit(entries, function()
+        delete_surround_regions(regions)
+      end)
       transaction.commit_now()
       return
     end
@@ -1692,10 +1817,11 @@ function M.new(opts)
       end
 
       local transaction = history.transaction(entries, current_preview_history_config())
-      state.clear_preview()
-      for _, region in ipairs(regions) do
-        replace_surround_region(region, addition)
-      end
+      apply_preview_surround_edit(entries, function()
+        for _, region in ipairs(regions) do
+          replace_surround_region(region, addition)
+        end
+      end)
       transaction.commit_now()
       return
     end
@@ -1736,8 +1862,9 @@ function M.new(opts)
       end
 
       local transaction = history.transaction(entries, current_preview_history_config())
-      state.clear_preview()
-      delete_surround_regions(regions)
+      apply_preview_surround_edit(entries, function()
+        delete_surround_regions(regions)
+      end)
       transaction.commit_now()
       return
     end

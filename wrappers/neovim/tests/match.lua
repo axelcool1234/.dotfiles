@@ -295,6 +295,60 @@ local cases = {
     end,
   },
   {
+    name = "mdm keeps multicursor state after deleting nearest pairs",
+    run = function()
+      reset_case({ "(a)", "(b)" }, "text", 1, 1)
+      helix.copy_selection_on_adjacent_line(1)
+      run_keys("mdm")
+      assert_equal(current_lines(), { "a", "b" }, "mdm should delete the nearest surround pair at every cursor")
+      assert_equal(secondary_cursor_count(), 1, "mdm should preserve the multicursor preview after deleting pairs")
+    end,
+  },
+  {
+    name = "mdm in markdown code span prefers backticks over inner angle brackets",
+    run = function()
+      reset_case({ "- `<C-Space>` should work when typing a command." }, "markdown", 1, 7)
+      run_keys("mdm")
+      assert_equal(
+        current_lines(),
+        { "- <C-Space> should work when typing a command." },
+        "mdm inside markdown inline code should delete the surrounding backticks, not the inner angle brackets"
+      )
+    end,
+  },
+  {
+    name = "mdm in markdown code span finds backticks around miT",
+    run = function()
+      reset_case({ "- Implement `miT`/`maT` and `[T`/`]T`." }, "markdown", 1, 14)
+      run_keys("mdm")
+      assert_equal(
+        current_lines(),
+        { "- Implement miT/`maT` and `[T`/`]T`." },
+        "mdm inside `miT` should delete the surrounding markdown backticks"
+      )
+    end,
+  },
+  {
+    name = "mdm in markdown code span works from interior cursor positions",
+    run = function()
+      reset_case({ "- Implement `miT`/`maT` and `[T`/`]T`." }, "markdown", 1, 14)
+      run_keys("mdm")
+      assert_equal(
+        current_lines(),
+        { "- Implement miT/`maT` and `[T`/`]T`." },
+        "mdm with the cursor on the interior `i` should still resolve the surrounding backticks"
+      )
+
+      reset_case({ "- Implement `miT`/`maT` and `[T`/`]T`." }, "markdown", 1, 30)
+      run_keys("mdm")
+      assert_equal(
+        current_lines(),
+        { "- Implement `miT`/`maT` and [T/`]T`." },
+        "mdm with the cursor on the interior `[T` code span should still resolve the surrounding backticks"
+      )
+    end,
+  },
+  {
     name = "2mdm ignores plain same-char pairs when counting",
     run = function()
       reset_case({ "- Figure out [`direnv`] + `lorri` and add the needed support" }, "text", 1, 18)
