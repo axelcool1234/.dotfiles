@@ -210,6 +210,7 @@ local hidden_keys = {
   { binds = { "[A", "[b", "[B", "[l", "[L", "[q", "[Q", "[T", "[%", "[(", "[<", "[M", "[m", "[s", "[{", "[[", "[<C-L>", "[<C-Q>", "[<C-T>" } },
   { binds = { "g`", "g'", "gu", "gU", "g~", "gw", "gO", "gcc", "gR", "gx", "g%" } },
   { binds = { "<C-t>", "V" } },
+  { binds = { "<BS>", "$" } },
 }
 local keys = {
   { "Right bracket", "]" },
@@ -437,8 +438,6 @@ local keys = {
   { "Show docs for item under cursor", "<leader>k", "<cmd>lua vim.lsp.buf.hover()<CR>" },
 
   { "Select register", '"', expand = function() return helix.which_key_registers() end },
-  { "Disable backspace", "<BS>", "<Nop>" },
-
   { "Search for regex pattern", "/", helix.search_regex },
   { "Search backward for regex pattern", "?", helix.search_regex_backward },
   { "Search selection with word boundaries", "*", helix.search_selection_detect_word_boundaries },
@@ -496,7 +495,6 @@ local keys = {
 
   { "Extend line below", "x", helix.extend_line_below },
   { "Select whole buffer", "%", helix.select_whole_buffer, opts = { nowait = true } },
-  { "None", "$", "<Nop>" },
   { "Copy selection below", "C", function() helix.copy_selection_on_adjacent_line(1) end },
   { "Copy selection above", "<A-C>", function() helix.copy_selection_on_adjacent_line(-1) end },
   { "Select regex matches", "s", helix.select_regex_matches },
