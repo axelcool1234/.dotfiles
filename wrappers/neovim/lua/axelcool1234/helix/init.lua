@@ -2224,8 +2224,8 @@ function M.swap_with_window(direction)
   window.swap_with(direction)
 end
 
-function M.new_scratch_split()
-  window.new_scratch_split()
+function M.new_scratch_split(direction)
+  window.new_scratch_split(direction)
 end
 
 function M.toggle_focus_window()

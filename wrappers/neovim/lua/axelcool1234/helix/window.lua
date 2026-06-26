@@ -86,14 +86,15 @@ function M.new()
     vim.api.nvim_set_current_win(target)
   end
 
-  function window.new_scratch_split()
-    vim.cmd("botright split")
+  function window.new_scratch_split(direction)
+    local split_command = direction == "vertical" and "botright vsplit" or "botright split"
+    vim.cmd(split_command)
     vim.cmd.enew()
 
     local current_buffer = vim.api.nvim_get_current_buf()
-    vim.bo[current_buffer].buftype = "nofile"
+    vim.b[current_buffer].helix_scratch_split = true
     vim.bo[current_buffer].bufhidden = "wipe"
-    vim.bo[current_buffer].buflisted = false
+    vim.bo[current_buffer].buflisted = true
     vim.bo[current_buffer].swapfile = false
     vim.bo[current_buffer].modifiable = true
   end

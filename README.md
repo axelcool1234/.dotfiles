@@ -63,9 +63,10 @@
   - Optional: Look into overview (vim thing)
   - Not sure if possible: Implement `|`, `<A-|>`, `!`, `<A-!>`, `$`
   - Refer to Helix's static-cmd.md for better naming of functions for our helix motion library.
-  - Figure out whichkey situation
+  - Figure out whichkey situation (missing entries, missing features)
     - `<Space>`
       - `<Space>w`
+      - `<Space>G`
     - `z`
     - `<C-W>`
     - `"`

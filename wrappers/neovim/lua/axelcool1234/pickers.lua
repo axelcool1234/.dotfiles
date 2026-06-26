@@ -210,6 +210,13 @@ function M.find_files_in_cwd()
   find_files_in_directory(vim.uv.cwd())
 end
 
+function M.changed_file_picker()
+  require("telescope.builtin").git_status({
+    cwd = git_root_or_cwd(),
+    prompt_title = "Changed Files",
+  })
+end
+
 function M.find_files_in_directory(directory, opts)
   find_files_in_directory(directory, opts)
 end
