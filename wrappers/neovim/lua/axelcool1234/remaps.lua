@@ -212,7 +212,7 @@ local hidden_keys = {
   { binds = { "[A", "[b", "[B", "[l", "[L", "[q", "[Q", "[T", "[%", "[(", "[<", "[M", "[m", "[s", "[{", "[[", "[<C-L>", "[<C-Q>", "[<C-T>" } },
   { binds = { "g`", "g'", "gu", "gU", "g~", "gw", "gO", "gcc", "gR", "gx", "g%" } },
   { binds = { "<C-t>", "V" } },
-  { binds = { "<BS>", "$" } },
+  { binds = { "<BS>", "$", "0", "!", "^", "{", "}", "M", "<C-L>", "<A-n>", "<A-p>", "Y" } },
   { binds = { "<C-w>d", "<C-w><C-d>" } },
 }
 local keys = {
@@ -304,6 +304,7 @@ local keys = {
   { "Goto last modified file", "gm", helix.goto_last_modified_file },
   { "Goto next buffer", "gn", buffers.cycle_next },
   { "Goto previous buffer", "gp", buffers.cycle_prev },
+  { "Show docs for item under cursor in a buffer", "gk", "<cmd>lua vim.lsp.buf.hover()<CR>" },
   { "Move down", "gj", helix.move_textual_line_down },
   { "Goto last modification", "g.", helix.goto_last_modification },
 
@@ -328,9 +329,12 @@ local keys = {
   { "Paste clipboard before selections", "<leader>P", function() helix.paste_before("+") end },
   { "Replace selections by clipboard content", "<leader>R", function() helix.replace_selection_with_yank("+") end },
   { "Global search in workspace folder", "<leader>/", pickers.live_grep_in_git_root },
-  { "Show docs for item under cursor in a buffer", "gk", "<cmd>lua vim.lsp.buf.hover()<CR>" },
+  { "Show docs for item under cursor", "<leader>k", "<cmd>lua vim.lsp.buf.hover()<CR>" },
   { "Rename symbol", "<leader>r", "<cmd>lua vim.lsp.buf.rename()<CR>" },
   { "Select symbol references", "<leader>h", pickers.references_picker },
+  { "Comment/uncomment selections", "<leader>c", helix.toggle_comments },
+  { "Block comment/uncomment selections", "<leader>C", helix.toggle_block_comments },
+  { "Line comment/uncomment selections", "<leader><A-c>", helix.toggle_line_comments },
 
   { "Goto next window", "<leader>ww", "<C-w>w" },
   { "Horizontal bottom split", "<leader>ws", "<cmd>botright split<CR>" },
@@ -438,7 +442,6 @@ local keys = {
   { "Open git permalink in browser", "<leader>OL", gitlinker.open_permalink },
   { "Copy repository URL", "<leader>Or", gitlinker.copy_repo_url },
   { "Open repository URL in browser", "<leader>OR", gitlinker.open_repo_url },
-  { "Show docs for item under cursor", "<leader>k", "<cmd>lua vim.lsp.buf.hover()<CR>" },
 
   { "Select register", '"', plugin = "helix_registers" },
   { "Search for regex pattern", "/", helix.search_regex },
@@ -450,8 +453,8 @@ local keys = {
   { "Increment selections", "<C-a>", helix.increment },
   { "Decrement selections", "<C-x>", helix.decrement },
 
-  { "Scroll half page down", "<C-d>", function() helix.scroll_half_page(1) end },
-  { "Scroll half page up", "<C-u>", function() helix.scroll_half_page(-1) end },
+  -- { "Scroll half page down", "<C-d>", function() helix.scroll_half_page(1) end },
+  -- { "Scroll half page up", "<C-u>", function() helix.scroll_half_page(-1) end },
 
   { "jjui", "<C-g>", terminal.open_jjui },
 

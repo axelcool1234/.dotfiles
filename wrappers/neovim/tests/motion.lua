@@ -1012,6 +1012,47 @@ local cases = {
     end,
   },
   {
+    name = "toggle line comments comments and uncomments selections while leaving select mode",
+    run = function()
+      reset_case({ "alpha", "beta" }, 1, 0)
+      vim.bo.commentstring = "-- %s"
+      helix.select_whole_buffer()
+      helix.select_regex_matches("alpha|beta")
+      helix.toggle_select_mode()
+
+      helix.toggle_line_comments()
+      assert_equal(current_lines(), { "-- alpha", "-- beta" }, "toggle line comments should comment the selected lines")
+      assert_equal(selection_texts(), { "alpha", "beta" }, "toggle line comments should keep selections on the original text")
+      assert_equal(vim.g.helix_mode_label, "NORMAL", "toggle line comments should leave select mode")
+
+      helix.toggle_line_comments()
+      assert_equal(current_lines(), { "alpha", "beta" }, "toggle line comments should uncomment already commented lines")
+      assert_equal(selection_texts(), { "alpha", "beta" }, "uncommenting line comments should still preserve the selections")
+      assert_equal(vim.g.helix_mode_label, "NORMAL", "uncommenting line comments should stay in normal mode")
+    end,
+  },
+  {
+    name = "toggle block comments wraps and unwraps selections while leaving select mode",
+    run = function()
+      reset_case({ "alpha" }, 1, 0)
+      vim.bo.commentstring = "// %s"
+      vim.bo.comments = "s1:/*,mb:*,ex:*/,://"
+      helix.select_whole_buffer()
+      helix.select_regex_matches("alpha")
+      helix.toggle_select_mode()
+
+      helix.toggle_block_comments()
+      assert_equal(current_lines(), { "/*alpha*/" }, "toggle block comments should wrap the selected text")
+      assert_equal(selection_texts(), { "alpha" }, "toggle block comments should keep the selection on the original text")
+      assert_equal(vim.g.helix_mode_label, "NORMAL", "toggle block comments should leave select mode")
+
+      helix.toggle_block_comments()
+      assert_equal(current_lines(), { "alpha" }, "toggle block comments should unwrap an already block-commented selection")
+      assert_equal(selection_texts(), { "alpha" }, "unwrapping block comments should still preserve the selection")
+      assert_equal(vim.g.helix_mode_label, "NORMAL", "unwrapping block comments should stay in normal mode")
+    end,
+  },
+  {
     name = "increment and decrement preserve integer formatting and leave select mode",
     run = function()
       reset_case({ "099", "0xff", "0b0011", "1_999" }, 1, 0)

@@ -52,33 +52,30 @@
 - NVim Helix motions:
   - Optional: Possibly render a pair being selected when doing `mr<char>`?
   - Optional: Make `x` work how I prefer: when cursor is at the top, `x` extends upwards. When it's at the bottom, `x` extends downwards.
-  - Optional: Try and figure out how to have `/` match live while typing
   - Optional: `<space>?` - maybe command palette?
+  - Optional: Helix commands
   - Optional: Implement flash jump.
+    - Flash jump works when you only have on selection perhaps? 
+    - `A-f` / `A-t` to use default `f` and `t` with single selections
+    - `f` and `t` work normally with multiple selections
   - Optional: Implement DAP stuff (overseer, neotest)
     - Implement `miT`/`maT` and `[T`/`]T`.
   - Optional: Look into quickfix list (vim thing)
   - Optional: Look into location list (vim thing)
   - Optional: Look into marks (vim thing)
   - Optional: Look into overview (vim thing)
+  - Optional: `-` should open up oil
   - Not sure if possible: Implement `|`, `<A-|>`, `!`, `<A-!>`, `$`
   - Refer to Helix's static-cmd.md for better naming of functions for our helix motion library.
   - Figure out whichkey situation (missing entries, missing features)
-    - `<Space>`
-      - `<Space>w`
-      - `<Space>G`
-    - `z`
-    - `<C-W>`
-    - `"`
-  - `<C-Space>` should work when typing a command.
+    - `<Space>G` (debug)
+    - `z` (vim folds)
+    - ``` / `'` (vim marks) 
   - Note for ACTUAL Helix: `"a/` and then some text lets you search via `n` and `N` and assigns register `a` such contents.
     Then, when you select some text and do `s` then some text, the `/` register is assigned said contents. However, the active
     search register is seemingly unchanged, so `n` and `N` moves the primary cursor to the contents from register `a`. Not sure
     if this is intended, but it is not how I have it implemented in Neovim. 
   - Decide whether to stick to Helix's case insensitive regex or Neovim's case sensitive regex
-  - We should work on unbinding as much of default nvim stuff as possible.
-  - Reorganize `<space>w` and `ctrl+w` to match Helix more closely
-  - `mdm` kills multiple cursors
 
 ## Fresh Install
 We'll use the `legion` host as an example.

@@ -1677,6 +1677,48 @@ local function parse_commentstring(commentstring)
   return commentstring:sub(1, marker - 1), commentstring:sub(marker + 2)
 end
 
+local function parse_block_comment_tokens(comments)
+  if type(comments) ~= "string" or comments == "" then
+    return nil
+  end
+
+  local start_token = nil
+  for _, part in ipairs(vim.split(comments, ",", { plain = true, trimempty = true })) do
+    local flags, text = part:match("^([^:]+):(.*)$")
+    if flags and text then
+      if flags:sub(1, 1) == "s" then
+        start_token = text
+      elseif start_token and flags:sub(1, 2) == "ex" then
+        return start_token, text
+      end
+    end
+  end
+
+  return nil
+end
+
+local function entry_pos_equal(left, right)
+  return left[1] == right[1] and left[2] == right[2]
+end
+
+local function create_directional_entry_marks(buffer, entries, namespace)
+  local marks = {}
+  for index, entry in ipairs(entries) do
+    local anchor_row, anchor_col = position.before_boundary(buffer, entry.anchor_pos)
+    local cursor_row, cursor_col = position.before_boundary(buffer, entry.cursor_pos)
+    marks[index] = {
+      anchor_id = vim.api.nvim_buf_set_extmark(buffer, namespace, anchor_row, anchor_col, {
+        right_gravity = entry_pos_equal(entry.anchor_pos, entry.start_pos),
+      }),
+      cursor_id = vim.api.nvim_buf_set_extmark(buffer, namespace, cursor_row, cursor_col, {
+        right_gravity = entry_pos_equal(entry.cursor_pos, entry.start_pos),
+      }),
+    }
+  end
+
+  return marks
+end
+
 local function line_is_commented(line, prefix, suffix)
   local _, content = line_indent_and_content(line)
   if content == "" then
@@ -1799,6 +1841,116 @@ local function toggle_comments_for_entries(entries)
   vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
 
   return restored, has_nonblank
+end
+
+local function entry_is_block_commented(buffer, entry, prefix, suffix)
+  local start_row, start_col, end_row, end_col = state_module.entry_text_ranges(entry)
+  if start_col < #prefix then
+    return false
+  end
+
+  local start_text = table.concat(
+    vim.api.nvim_buf_get_text(buffer, start_row, start_col - #prefix, start_row, start_col, {}),
+    "\n"
+  )
+  if start_text ~= prefix then
+    return false
+  end
+
+  local end_line = vim.api.nvim_buf_get_lines(buffer, end_row, end_row + 1, false)[1] or ""
+  if end_col + #suffix > #end_line then
+    return false
+  end
+
+  local end_text = table.concat(
+    vim.api.nvim_buf_get_text(buffer, end_row, end_col, end_row, end_col + #suffix, {}),
+    "\n"
+  )
+  return end_text == suffix
+end
+
+local function toggle_block_comments_for_entries(entries)
+  if #entries == 0 then
+    return false
+  end
+
+  local block_prefix, block_suffix = parse_block_comment_tokens(vim.bo.comments)
+  if not block_prefix then
+    local line_prefix = parse_commentstring(vim.bo.commentstring)
+    if line_prefix then
+      return toggle_comments_for_entries(entries)
+    end
+
+    vim.notify("block comment tokens are not available in current buffer", vim.log.levels.WARN)
+    return false
+  end
+
+  local buffer = current_buffer()
+  local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-toggle-block-comments")
+  local marks = create_directional_entry_marks(buffer, entries, namespace)
+  local all_commented = true
+  local edits = {}
+
+  for _, entry in ipairs(entries) do
+    if not entry_is_block_commented(buffer, entry, block_prefix, block_suffix) then
+      all_commented = false
+      break
+    end
+  end
+
+  for _, entry in ipairs(entries) do
+    local start_row, start_col, end_row, end_col = state_module.entry_text_ranges(entry)
+    if all_commented then
+      edits[#edits + 1] = {
+        row = end_row,
+        start_col = end_col,
+        end_col = end_col + #block_suffix,
+        replacement = {},
+      }
+      edits[#edits + 1] = {
+        row = start_row,
+        start_col = start_col - #block_prefix,
+        end_col = start_col,
+        replacement = {},
+      }
+    else
+      edits[#edits + 1] = {
+        row = end_row,
+        start_col = end_col,
+        end_col = end_col,
+        replacement = { block_suffix },
+      }
+      edits[#edits + 1] = {
+        row = start_row,
+        start_col = start_col,
+        end_col = start_col,
+        replacement = { block_prefix },
+      }
+    end
+  end
+
+  table.sort(edits, function(left, right)
+    if left.row == right.row then
+      return left.start_col > right.start_col
+    end
+    return left.row > right.row
+  end)
+
+  for _, edit in ipairs(edits) do
+    vim.api.nvim_buf_set_text(
+      buffer,
+      edit.row,
+      edit.start_col,
+      edit.row,
+      edit.end_col,
+      edit.replacement
+    )
+  end
+
+  local restored = restore_entries_from_marks(buffer, entries, namespace, marks)
+  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
+
+  return restored, true
 end
 
 local function linewise_entry_from_entry(entry, end_row)
@@ -3435,6 +3587,48 @@ function M.toggle_comments()
   local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
   local transaction = history.transaction(entries, current_preview_history_config())
   local updated, changed = toggle_comments_for_entries(entries)
+  if not updated then
+    return
+  end
+
+  if had_preview then
+    set_preview_entries(updated, { sync_history = false })
+  else
+    sync_cursors_to_entries(updated, { sync_history = false })
+  end
+
+  state.exit_extend_mode()
+  if changed then
+    transaction.commit_now()
+  end
+end
+
+function M.toggle_line_comments()
+  local had_preview = state.preview_active()
+  local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
+  local transaction = history.transaction(entries, current_preview_history_config())
+  local updated, changed = toggle_comments_for_entries(entries)
+  if not updated then
+    return
+  end
+
+  if had_preview then
+    set_preview_entries(updated, { sync_history = false })
+  else
+    sync_cursors_to_entries(updated, { sync_history = false })
+  end
+
+  state.exit_extend_mode()
+  if changed then
+    transaction.commit_now()
+  end
+end
+
+function M.toggle_block_comments()
+  local had_preview = state.preview_active()
+  local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
+  local transaction = history.transaction(entries, current_preview_history_config())
+  local updated, changed = toggle_block_comments_for_entries(entries)
   if not updated then
     return
   end
