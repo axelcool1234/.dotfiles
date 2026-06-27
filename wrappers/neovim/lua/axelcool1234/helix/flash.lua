@@ -5,7 +5,7 @@ local label_alphabet = "asdfjklghqwertyuiopzxcvbnmASDFJKLGHQWERTYUIOPZXCVBNM"
 local function setup_highlights()
   vim.api.nvim_set_hl(0, "HelixFlashLabel", { link = "Substitute", default = true })
   vim.api.nvim_set_hl(0, "HelixFlashTarget", { link = "Search", default = true })
-  vim.api.nvim_set_hl(0, "HelixFlashCurrent", { link = "IncSearch", default = true })
+  vim.api.nvim_set_hl(0, "HelixFlashCurrent", { link = "Visual", default = true })
   vim.api.nvim_set_hl(0, "HelixFlashCursor", { link = "Cursor", default = true })
   vim.api.nvim_set_hl(0, "HelixFlashBackdrop", { link = "Comment", default = true })
 end

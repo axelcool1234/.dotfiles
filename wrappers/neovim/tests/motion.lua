@@ -938,6 +938,40 @@ local cases = {
     end,
   },
   {
+    name = "flash treesitter renders a current range highlight",
+    run = function()
+      reset_case({ "return foo(bar)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+
+      local original_set_extmark = vim.api.nvim_buf_set_extmark
+      local highlighted_range_count = 0
+
+      vim.api.nvim_buf_set_extmark = function(buffer, ns, row, col, opts)
+        if opts and opts.hl_group == "HelixFlashCurrent" then
+          highlighted_range_count = highlighted_range_count + 1
+        end
+        return original_set_extmark(buffer, ns, row, col, opts)
+      end
+
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "a"
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_treesitter()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      vim.api.nvim_buf_set_extmark = original_set_extmark
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(highlighted_range_count > 0, true, "Z should render a lightweight highlight for the current treesitter target while the picker is open")
+    end,
+  },
+  {
     name = "flash treesitter renders a cursor-style extmark on the current target end",
     run = function()
       reset_case({ "return foo(bar)" }, 1, 11)
