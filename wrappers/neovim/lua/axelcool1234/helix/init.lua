@@ -2534,7 +2534,125 @@ function M.goto_last_modification()
   motion.normal("g;")()
 end
 
+local function diagnostic_pos_from_byte(row1, byte_col0)
+  local line = line_text(row1)
+  return { row1, position.char_col_from_byte_col0(line, byte_col0) }
+end
+
+local function sorted_buffer_diagnostics()
+  local diagnostics = vim.diagnostic.get(0)
+  table.sort(diagnostics, function(left, right)
+    if left.lnum == right.lnum then
+      return left.col < right.col
+    end
+    return left.lnum < right.lnum
+  end)
+  return diagnostics
+end
+
+local function diagnostic_entry(diag, direction)
+  local buffer = current_buffer()
+  local start_pos = diagnostic_pos_from_byte(diag.lnum + 1, diag.col)
+  local end_pos = start_pos
+
+  if diag.end_lnum ~= nil and diag.end_col ~= nil then
+    local end_boundary = diagnostic_pos_from_byte(diag.end_lnum + 1, diag.end_col)
+    end_pos = (start_pos[1] == end_boundary[1] and start_pos[2] == end_boundary[2])
+      and start_pos or position.prev_pos(buffer, end_boundary)
+  end
+
+  if direction == "backward" then
+    return state_module.selection_entry(end_pos, start_pos)
+  end
+  return state_module.selection_entry(start_pos, end_pos)
+end
+
+local function pos_before(left, right)
+  return left[1] < right[1] or (left[1] == right[1] and left[2] < right[2])
+end
+
+local function find_relative_diagnostic(diagnostics, cursor_pos, direction, count)
+  local current_pos = cursor_pos
+  local current = nil
+
+  for _ = 1, count do
+    local best = nil
+    local best_pos = nil
+    for _, diag in ipairs(diagnostics) do
+      local diag_pos = diagnostic_pos_from_byte(diag.lnum + 1, diag.col)
+      if direction == "forward" then
+        if pos_before(current_pos, diag_pos)
+          and (not best_pos or pos_before(diag_pos, best_pos)) then
+          best = diag
+          best_pos = diag_pos
+        end
+      else
+        if pos_before(diag_pos, current_pos)
+          and (not best_pos or pos_before(best_pos, diag_pos)) then
+          best = diag
+          best_pos = diag_pos
+        end
+      end
+    end
+
+    if not best then
+      break
+    end
+
+    current = best
+    current_pos = diagnostic_entry(best, direction).cursor_pos
+  end
+
+  return current
+end
+
+function M.goto_diagnostic(direction)
+  local count = vim.v.count1
+  remember_repeatable_motion(function()
+    M.goto_diagnostic(direction)
+  end)
+
+  local diagnostics = sorted_buffer_diagnostics()
+  if #diagnostics == 0 then
+    return
+  end
+
+  local entries = {}
+  local moved_any = false
+  local source_entries = preview_or_cursor_entries()
+  local in_extend_mode = state.extend_mode_active()
+
+  for index, entry in ipairs(source_entries) do
+    local diag = find_relative_diagnostic(diagnostics, entry.cursor_pos, direction, count)
+    if not diag then
+      entries[#entries + 1] = entry
+    else
+      moved_any = true
+      local target_entry = diagnostic_entry(diag, direction)
+      if in_extend_mode then
+        local anchor = (state.preview_active() and state.preview.entries[index] and state.preview.entries[index].anchor_pos) or entry.anchor_pos
+        entries[#entries + 1] = state_module.selection_entry(anchor, target_entry.cursor_pos)
+      else
+        entries[#entries + 1] = target_entry
+      end
+    end
+  end
+
+  if not moved_any then
+    return
+  end
+
+  set_preview_entries(entries)
+  if not in_extend_mode then
+    state.exit_extend_mode()
+  end
+  vim.diagnostic.open_float(0, { scope = "cursor", focusable = false })
+end
+
 function M.goto_edge_diagnostic(edge)
+  remember_repeatable_motion(function()
+    M.goto_edge_diagnostic(edge)
+  end)
   local diagnostics = vim.diagnostic.get(0)
   if #diagnostics == 0 then
     vim.notify("No diagnostics in current buffer", vim.log.levels.INFO)
@@ -2550,7 +2668,7 @@ function M.goto_edge_diagnostic(edge)
 
   local diagnostic = edge == "last" and diagnostics[#diagnostics] or diagnostics[1]
   vim.api.nvim_win_set_cursor(0, { diagnostic.lnum + 1, diagnostic.col })
-  vim.diagnostic.open_float()
+  vim.diagnostic.open_float(0, { scope = "cursor", focusable = false })
 end
 
 local function change_entry_from_hunk(hunk, direction)
@@ -2619,6 +2737,29 @@ function M.goto_textobject(object_name, direction)
     match.goto_textobject(object_name, direction, count)
   end)
   match.goto_textobject(object_name, direction, count)
+end
+
+function M.goto_treesitter_sibling(direction)
+  local count = vim.v.count1
+  remember_repeatable_motion(function()
+    match.goto_treesitter_sibling(direction, count)
+  end)
+  match.goto_treesitter_sibling(direction, count)
+end
+
+function M.goto_treesitter_sibling_edge(edge)
+  remember_repeatable_motion(function()
+    match.goto_treesitter_sibling_edge(edge)
+  end)
+  match.goto_treesitter_sibling_edge(edge)
+end
+
+function M.goto_treesitter_child(edge)
+  local count = vim.v.count1
+  remember_repeatable_motion(function()
+    match.goto_treesitter_child(edge, count)
+  end)
+  match.goto_treesitter_child(edge, count)
 end
 
 local function line_is_blank_text(row)
@@ -3616,11 +3757,27 @@ function M.surround_delete_nearest()
 end
 
 function M.select_around_pair()
-  match.select_around_pair()
+  local char = getcharstr()
+  if not char then
+    return
+  end
+
+  remember_repeatable_motion(function()
+    match.select_textobject_char(char, true)
+  end)
+  match.select_textobject_char(char, true)
 end
 
 function M.select_inside_pair()
-  match.select_inside_pair()
+  local char = getcharstr()
+  if not char then
+    return
+  end
+
+  remember_repeatable_motion(function()
+    match.select_textobject_char(char, false)
+  end)
+  match.select_textobject_char(char, false)
 end
 
 function M.goto_match()

@@ -217,7 +217,7 @@ local hidden_keys = {
 }
 local keys = {
   { "Right bracket", "]" },
-  { "Goto next diagnostic", "]d", function() vim.diagnostic.jump({ count = 1, float = true }) end },
+  { "Goto next diagnostic", "]d", function() helix.goto_diagnostic("forward") end },
   { "Goto last diagnostic", "]D", function() helix.goto_edge_diagnostic("last") end },
   { "Goto next change", "]g", function() helix.goto_change("next") end },
   { "Goto last change", "]G", function() helix.goto_change("last") end },
@@ -226,13 +226,15 @@ local keys = {
   { "Goto next parameter", "]a", function() helix.goto_textobject("parameter", "forward") end },
   { "Goto next comment", "]c", function() helix.goto_textobject("comment", "forward") end },
   { "Goto next test", "]T", function() helix.goto_textobject("test", "forward") end },
+  { "Goto last tree-sitter sibling", "]Z", function() helix.goto_treesitter_sibling_edge("last") end },
   { "Goto next pairing", "]e", function() helix.goto_textobject("entry", "forward") end },
   { "Goto next paragraph", "]p", function() helix.goto_paragraph("forward") end },
+  { "Goto next tree-sitter sibling", "]z", function() helix.goto_treesitter_sibling("forward") end },
   { "Goto next (X)HTML element", "]x", function() helix.goto_textobject("xml-element", "forward") end },
   { "Add newline below", "]<Space>", function() helix.add_newline_relative(1) end },
 
   { "Left bracket", "[" },
-  { "Goto previous diagnostic", "[d", function() vim.diagnostic.jump({ count = -1, float = true }) end },
+  { "Goto previous diagnostic", "[d", function() helix.goto_diagnostic("backward") end },
   { "Goto first diagnostic", "[D", function() helix.goto_edge_diagnostic("first") end },
   { "Goto previous change", "[g", function() helix.goto_change("prev") end },
   { "Goto first change", "[G", function() helix.goto_change("first") end },
@@ -241,8 +243,10 @@ local keys = {
   { "Goto previous parameter", "[a", function() helix.goto_textobject("parameter", "backward") end },
   { "Goto previous comment", "[c", function() helix.goto_textobject("comment", "backward") end },
   { "Goto previous test", "[T", function() helix.goto_textobject("test", "backward") end },
+  { "Goto first tree-sitter sibling", "[Z", function() helix.goto_treesitter_sibling_edge("first") end },
   { "Goto previous pairing", "[e", function() helix.goto_textobject("entry", "backward") end },
   { "Goto previous paragraph", "[p", function() helix.goto_paragraph("backward") end },
+  { "Goto previous tree-sitter sibling", "[z", function() helix.goto_treesitter_sibling("backward") end },
   { "Goto previous (X)HTML element", "[x", function() helix.goto_textobject("xml-element", "backward") end },
   { "Add newline above", "[<Space>", function() helix.add_newline_relative(-1) end },
 
@@ -267,6 +271,8 @@ local keys = {
   { "Data structure entry (tree-sitter)", "mae" },
   { "Closest surrounding pair (tree-sitter)", "mam" },
   { "Change", "mag" },
+  { "Tree-sitter node", "maz" },
+  { "Tree-sitter coarse node", "maZ" },
   { "(X)HTML element (tree-sitter)", "max" },
 
   { "Match inside", "mi", helix.select_inside_pair },
@@ -282,6 +288,8 @@ local keys = {
   { "Data structure entry (tree-sitter)", "mie" },
   { "Closest surrounding pair (tree-sitter)", "mim" },
   { "Change", "mig" },
+  { "Tree-sitter node", "miz" },
+  { "Tree-sitter coarse node", "miZ" },
   { "(X)HTML element (tree-sitter)", "mix" },
 
   { "Goto", "g" },
@@ -294,6 +302,8 @@ local keys = {
   { "Goto first non-blank in line", "gs", helix.goto_first_nonblank },
   { "Goto definition", "gd", pickers.definitions_picker },
   { "Goto declaration", "gD", "<cmd>lua vim.lsp.buf.declaration()<CR>" },
+  { "Goto first tree-sitter child", "gz", function() helix.goto_treesitter_child("first") end },
+  { "Goto last tree-sitter child", "gZ", function() helix.goto_treesitter_child("last") end },
   { "Goto type definition", "gy", pickers.type_definitions_picker },
   { "Goto references", "gr", pickers.references_picker, opts = { nowait = true } },
   { "Goto implementation", "gi", pickers.implementations_picker },

@@ -532,6 +532,52 @@ local cases = {
     end,
   },
   {
+    name = "repeat last motion preserves select mode for find-char motion",
+    run = function()
+      reset_case({ "abcaefca" }, 1, 0)
+      helix.toggle_select_mode()
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "c"
+      end
+
+      local ok, err = pcall(function()
+        helix.find_char_motion("f")()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "abc" }, "f in select mode should extend the selection to the first matching character")
+      helix.repeat_last_motion()
+      assert_equal(selection_texts(), { "abcaefc" }, "alt-dot should repeat find-char while preserving select mode extension semantics")
+      assert_equal(vim.g.helix_mode_label, "SELECT", "alt-dot should keep select mode active when repeating a select-mode find-char motion")
+    end,
+  },
+  {
+    name = "repeat last motion replays textobject selection with the captured object key",
+    run = function()
+      reset_case({ "alpha beta gamma" }, 1, 0)
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "w"
+      end
+
+      local ok, err = pcall(function()
+        helix.select_around_pair()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "alpha " }, "maw should select the first word around the cursor")
+      helix.repeat_last_motion()
+      assert_equal(selection_texts(), { "beta " }, "alt-dot should repeat maw with the remembered textobject key")
+    end,
+  },
+  {
     name = "flash jump moves the primary cursor to the chosen visible word start",
     run = function()
       reset_case({ "alpha beta gamma" }, 1, 0)
@@ -744,6 +790,242 @@ local cases = {
     end,
   },
   {
+    name = "goto function stays on the selected function when moving backward and advances to the next function when moving forward",
+    run = function()
+      reset_case({ "", "ChangeResult Executable::setToLive() {", "  if (live)", "    return ChangeResult::NoChange;", "  live = true;", "  return ChangeResult::Change;", "}", "", "ChangeResult Executable::other() {", "  return ChangeResult::Change;", "}" }, 1, 0)
+      vim.bo.filetype = "cpp"
+      pcall(vim.treesitter.start, 0, "cpp")
+
+      helix.goto_textobject("function", "forward")
+      assert_equal(selection_texts(), { "ChangeResult Executable::setToLive() {\n  if (live)\n    return ChangeResult::NoChange;\n  live = true;\n  return ChangeResult::Change;\n}" }, "]f should select the whole function definition")
+
+      helix.goto_textobject("function", "backward")
+      assert_equal(selection_texts(), { "ChangeResult Executable::setToLive() {\n  if (live)\n    return ChangeResult::NoChange;\n  live = true;\n  return ChangeResult::Change;\n}" }, "[f from an exact function selection should not descend into function.inner captures")
+
+      helix.goto_textobject("function", "forward")
+      assert_equal(selection_texts(), { "ChangeResult Executable::other() {\n  return ChangeResult::Change;\n}" }, "]f from an exact function selection should advance to the next function definition")
+    end,
+  },
+  {
+    name = "goto function from inside a function body skips function.inner captures and moves to the next function",
+    run = function()
+      reset_case({ "ChangeResult Executable::setToLive() {", "  if (live)", "    return ChangeResult::NoChange;", "  live = true;", "  return ChangeResult::Change;", "}", "", "void Executable::print(raw_ostream &os) const {", "  os << (live ? \"live\" : \"dead\");", "}" }, 3, 4)
+      vim.bo.filetype = "cpp"
+      pcall(vim.treesitter.start, 0, "cpp")
+
+      helix.goto_textobject("function", "forward")
+      assert_equal(selection_texts(), { "void Executable::print(raw_ostream &os) const {\n  os << (live ? \"live\" : \"dead\");\n}" }, "]f from inside a function body should jump to the next function, not another statement in the current body")
+    end,
+  },
+  {
+    name = "goto function in cpp progresses from a function body to a lambda and then to the next function",
+    run = function()
+      reset_case({ "ChangeResult Executable::setToLive() {", "  if (live)", "    return ChangeResult::NoChange;", "  live = true;", "  return ChangeResult::Change;", "}", "", "auto f = []() { return 1; };", "", "void Executable::print(raw_ostream &os) const {", "  os << (live ? \"live\" : \"dead\");", "}" }, 3, 4)
+      vim.bo.filetype = "cpp"
+      pcall(vim.treesitter.start, 0, "cpp")
+
+      helix.goto_textobject("function", "forward")
+      assert_equal(selection_texts(), { "[]() { return 1; }" }, "]f should still see the lambda as the next function-like object")
+
+      helix.goto_textobject("function", "forward")
+      assert_equal(selection_texts(), { "void Executable::print(raw_ostream &os) const {\n  os << (live ? \"live\" : \"dead\");\n}" }, "repeating ]f after the lambda should continue to the next function definition")
+    end,
+  },
+  {
+    name = "maz and miz apply treesitter node selection to multiple cursors",
+    run = function()
+      reset_case({ "return foo(bar)", "return baz(qux)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+      helix.copy_selection_on_adjacent_line(1)
+
+      local original_getcharstr = vim.fn.getcharstr
+      local inputs = { "z", "z", "z" }
+      vim.fn.getcharstr = function()
+        local next_input = inputs[1]
+        table.remove(inputs, 1)
+        return next_input
+      end
+
+      local ok, err = pcall(function()
+        helix.select_around_pair()
+        helix.select_around_pair()
+        helix.select_inside_pair()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "bar", "qux" }, "maz and miz should apply the treesitter node transform to every active cursor")
+      assert_equal(all_cursor_positions(), { { 1, 14 }, { 2, 14 } }, "miz should preserve one selection per active cursor")
+    end,
+  },
+  {
+    name = "cpp parameter motions use helix-style around captures with commas",
+    run = function()
+      reset_case({ "void DeadCodeAnalysis::markEdgeLive(Block *from, Block *to) {", "  LDBG() << \"Marking edge live from block \" << from << \" to block \" << to;", "}" }, 1, 0)
+      vim.bo.filetype = "cpp"
+      pcall(vim.treesitter.start, 0, "cpp")
+
+      helix.goto_textobject("parameter", "forward")
+      assert_equal(selection_texts(), { "Block *from," }, "]a should select the first parameter including its trailing comma")
+
+      helix.goto_textobject("parameter", "forward")
+      assert_equal(selection_texts(), { "Block *to" }, "repeating ]a should move to the next parameter instead of stopping on the comma")
+
+      helix.goto_textobject("parameter", "backward")
+      assert_equal(selection_texts(), { "Block *from," }, "[a should move back to the previous parameter around capture")
+    end,
+  },
+  {
+    name = "maa in cpp includes the trailing comma in around parameter selection",
+    run = function()
+      reset_case({ "void DeadCodeAnalysis::markEdgeLive(Block *from, Block *to) {", "}" }, 1, 42)
+      vim.bo.filetype = "cpp"
+      pcall(vim.treesitter.start, 0, "cpp")
+
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "a"
+      end
+
+      local ok, err = pcall(function()
+        helix.select_around_pair()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "Block *from," }, "maa on a cpp parameter should include the trailing comma like Helix")
+    end,
+  },
+  {
+    name = "treesitter sibling goto moves multiple cursors together",
+    run = function()
+      reset_case({ "return foo, bar, baz", "return one, two, three" }, 1, 8)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+      helix.copy_selection_on_adjacent_line(1)
+
+      helix.goto_treesitter_sibling("forward")
+      assert_equal(selection_texts(), { "bar", "two" }, "]z should move every active cursor to its next treesitter sibling")
+
+      helix.goto_treesitter_sibling("backward")
+      assert_equal(selection_texts(), { "foo", "one" }, "[z should move every active cursor to its previous treesitter sibling")
+    end,
+  },
+  {
+    name = "treesitter sibling edge goto moves multiple cursors together",
+    run = function()
+      reset_case({ "return foo, bar, baz", "return one, two, three" }, 1, 8)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+      helix.copy_selection_on_adjacent_line(1)
+
+      helix.goto_treesitter_sibling("forward")
+      helix.goto_treesitter_sibling_edge("last")
+      assert_equal(selection_texts(), { "baz", "three" }, "]Z should move every active cursor to the last treesitter sibling")
+
+      helix.goto_treesitter_sibling_edge("first")
+      assert_equal(selection_texts(), { "foo", "one" }, "[Z should move every active cursor to the first treesitter sibling")
+    end,
+  },
+  {
+    name = "treesitter child goto moves multiple cursors together",
+    run = function()
+      reset_case({ "return foo(bar, baz)", "return qux(one, two)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+      helix.copy_selection_on_adjacent_line(1)
+
+      local original_getcharstr = vim.fn.getcharstr
+      local inputs = { "z", "z", "z" }
+      vim.fn.getcharstr = function()
+        local next_input = inputs[1]
+        table.remove(inputs, 1)
+        return next_input
+      end
+
+      local ok, err = pcall(function()
+        helix.select_around_pair()
+        helix.select_around_pair()
+        helix.goto_treesitter_child("last")
+      end)
+      if not ok then
+        vim.fn.getcharstr = original_getcharstr
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "baz", "two" }, "gZ should move every active selection to the last named child")
+
+      ok, err = pcall(function()
+        helix.select_around_pair()
+        helix.goto_treesitter_child("first")
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "bar", "one" }, "gz should move every active selection to the first named child after gZ moved to the last child")
+      assert_equal(all_cursor_positions(), { { 1, 14 }, { 2, 14 } }, "gz and gZ should preserve one AST selection per active cursor")
+    end,
+  },
+  {
+    name = "maZ selects the largest useful ancestor instead of the whole file root",
+    run = function()
+      reset_case({ "return foo(bar)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "Z"
+      end
+
+      local ok, err = pcall(function()
+        helix.select_around_pair()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "return foo(bar)" }, "maZ should select the largest useful ancestor below the file root")
+    end,
+  },
+  {
+    name = "maZ and miZ apply coarse treesitter selection to multiple cursors",
+    run = function()
+      reset_case({ "return foo(bar)", "return baz(qux)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+      helix.copy_selection_on_adjacent_line(1)
+
+      local original_getcharstr = vim.fn.getcharstr
+      local inputs = { "Z", "Z" }
+      vim.fn.getcharstr = function()
+        local next_input = inputs[1]
+        table.remove(inputs, 1)
+        return next_input
+      end
+
+      local ok, err = pcall(function()
+        helix.select_around_pair()
+        helix.select_inside_pair()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "return foo(bar)", "return baz(qux)" }, "maZ and miZ should apply the coarse treesitter selection to every active cursor")
+      assert_equal(all_cursor_positions(), { { 1, 15 }, { 2, 15 } }, "coarse AST selection should preserve one selection per active cursor")
+    end,
+  },
+  {
     name = "trim selection removes surrounding spaces and blank lines",
     run = function()
       reset_case({ "", "  alpha  ", "" }, 1, 0)
@@ -838,6 +1120,23 @@ local cases = {
     end,
   },
   {
+    name = "repeat last motion replays diagnostic goto",
+    run = function()
+      reset_case({ "alpha", "oops", "beta", "warn" }, 1, 0)
+      local ns = vim.api.nvim_create_namespace("motion-test-diagnostic-repeat")
+      vim.diagnostic.set(ns, 0, {
+        { lnum = 1, col = 0, end_lnum = 1, end_col = 4, message = "oops", severity = vim.diagnostic.severity.ERROR },
+        { lnum = 3, col = 0, end_lnum = 3, end_col = 4, message = "warn", severity = vim.diagnostic.severity.WARN },
+      })
+
+      helix.goto_diagnostic("forward")
+      assert_equal(selection_texts(), { "oops" }, "]d should select the next diagnostic range")
+
+      helix.repeat_last_motion()
+      assert_equal(selection_texts(), { "warn" }, "alt-dot should repeat the last diagnostic motion")
+    end,
+  },
+  {
     name = "ensure forward selection direction restores forward cursor",
     run = function()
       reset_case({ "abc" }, 1, 0)
@@ -879,8 +1178,8 @@ local cases = {
     run = function()
       local cache = require("gitsigns.cache").cache
       reset_case({ "one", "two", "three", "four" }, 1, 0)
-      local bufnr = vim.api.nvim_get_current_buf()
-      cache[bufnr] = {
+      local first_bufnr = vim.api.nvim_get_current_buf()
+      cache[first_bufnr] = {
         get_hunks = function()
           return {
             {
@@ -893,10 +1192,11 @@ local cases = {
       helix.toggle_select_mode()
       helix.goto_change("next")
       assert_equal(selection_texts(), { "one\ntwo\nthree\n" }, "]g in select mode should extend from the anchor through the hunk")
+      cache[first_bufnr] = nil
 
       reset_case({ "one", "two", "three", "four" }, 4, 0)
-      bufnr = vim.api.nvim_get_current_buf()
-      cache[bufnr] = {
+      local second_bufnr = vim.api.nvim_get_current_buf()
+      cache[second_bufnr] = {
         get_hunks = function()
           return {
             {
@@ -909,7 +1209,7 @@ local cases = {
       helix.toggle_select_mode()
       helix.goto_change("prev")
       assert_equal(selection_texts(), { "two\nthree\nf" }, "[g in select mode should extend to the start of the previous hunk")
-      cache[bufnr] = nil
+      cache[second_bufnr] = nil
     end,
   },
   {

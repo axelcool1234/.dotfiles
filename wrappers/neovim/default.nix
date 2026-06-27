@@ -35,6 +35,8 @@ in
             if plugin then
               vim.opt.runtimepath:append(plugin .. "/runtime")
             end
+
+            vim.g.helix_query_runtime = ${builtins.toJSON (pkgs.helix.runtime + "/queries")}
           '';
         }
         nvim-treesitter-textobjects # TODO: wire treesitter motions into Helix-style remaps

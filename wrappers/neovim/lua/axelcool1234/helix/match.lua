@@ -14,6 +14,43 @@ function M.new(opts)
   local surround_region_entry_for_source
   local inner_surround_region
   local entry_spans_plain_explicit_pair
+  local find_treesitter_seed_node
+  local pair_region_from_ts_node
+  local module_root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h:h:h")
+
+  local function read_query_with_inherits(path, seen)
+    seen = seen or {}
+    if seen[path] then
+      return ""
+    end
+    seen[path] = true
+
+    local lines = vim.fn.readfile(path)
+    if #lines == 0 then
+      return ""
+    end
+
+    local contents = {}
+    local query_root = vim.fs.dirname(vim.fs.dirname(path))
+    for _, line in ipairs(lines) do
+      local inherits = line:match("^%s*;%s*inherits:%s*(.+)%s*$")
+      if inherits then
+        for lang in inherits:gmatch("[^,%s]+") do
+          local inherited_path = vim.fs.joinpath(query_root, lang, "textobjects.scm")
+          if vim.fn.filereadable(inherited_path) == 1 then
+            local inherited = read_query_with_inherits(inherited_path, seen)
+            if inherited ~= "" then
+              contents[#contents + 1] = inherited
+            end
+          end
+        end
+      else
+        contents[#contents + 1] = line
+      end
+    end
+
+    return table.concat(contents, "\n")
+  end
 
   local function current_buffer()
     return vim.api.nvim_get_current_buf()
@@ -196,6 +233,10 @@ function M.new(opts)
     return pos_equal(left.anchor_pos, right.anchor_pos) and pos_equal(left.cursor_pos, right.cursor_pos)
   end
 
+  local function same_entry_range(entry, start_pos, end_pos)
+    return entry and pos_equal(entry.start_pos, start_pos) and pos_equal(entry.end_pos, end_pos)
+  end
+
   local function extend_entry_with_target(source_entry, target_entry)
     local start_pos = pos_before(source_entry.start_pos, target_entry.start_pos) and source_entry.start_pos
       or target_entry.start_pos
@@ -320,6 +361,24 @@ function M.new(opts)
     return { row1, position.char_col_from_byte_col0(line, byte_col0) }
   end
 
+  local function entry_range_for_treesitter(source_entry)
+    if entry_is_point(source_entry) then
+      local cursor_pos = source_entry.cursor_pos
+      local line = line_text(cursor_pos[1])
+      local start_col = position.byte_col0_from_char_col(line, cursor_pos[2])
+      local end_col = math.min(start_col + 1, #line)
+      return cursor_pos[1] - 1, start_col, cursor_pos[1] - 1, end_col
+    end
+
+    local start_row = source_entry.start_pos[1] - 1
+    local start_line = line_text(source_entry.start_pos[1])
+    local start_col = position.byte_col0_from_char_col(start_line, source_entry.start_pos[2])
+    local end_row = source_entry.end_pos[1] - 1
+    local end_line = line_text(source_entry.end_pos[1])
+    local end_col = position.byte_col0_from_char_col(end_line, source_entry.end_pos[2])
+    return start_row, start_col, end_row, end_col
+  end
+
   local function ts_node_range_positions(node)
     local start_row, start_col, end_row, end_col = node:range()
     local start_pos = char_pos_from_byte_col0(start_row + 1, start_col)
@@ -328,18 +387,247 @@ function M.new(opts)
     return start_pos, end_pos
   end
 
+  local function host_treesitter_seed_node(source_entry)
+    local parser = vim.treesitter.get_parser(current_buffer(), nil, { error = false })
+    if not parser then
+      return nil
+    end
+
+    local start_row, start_col, end_row, end_col = entry_range_for_treesitter(source_entry)
+    local range = { start_row, start_col, end_row, end_col }
+    parser:parse(range)
+
+    local seed_node = nil
+    parser:for_each_tree(function(candidate_tree, candidate_language_tree)
+      if seed_node ~= nil or candidate_language_tree:parent() ~= nil then
+        return
+      end
+
+      local node = candidate_tree:root():descendant_for_range(start_row, start_col, end_row, end_col)
+      while node and not node:named() do
+        node = node:parent()
+      end
+      seed_node = node
+    end)
+
+    return seed_node
+  end
+
+  local function named_treesitter_seed_node(source_entry)
+    local context = language_context_for_entry(source_entry)
+    if not context then
+      return nil, nil
+    end
+
+    local node = find_treesitter_seed_node(source_entry, context.tree, context.language_tree)
+    while node and not node:named() do
+      node = node:parent()
+    end
+
+    return context, node
+  end
+
+  local function treesitter_node_entry(node, around)
+    if not node then
+      return nil
+    end
+
+    local start_pos, end_pos = ts_node_range_positions(node)
+    local region = {
+      start_pos = start_pos,
+      end_pos = end_pos,
+    }
+
+    if not around then
+      local pair_region = pair_region_from_ts_node(node, nil)
+      local inner = pair_region and inner_surround_region(pair_region) or nil
+      if inner then
+        region = inner
+      end
+    end
+
+    local entry = state_module.selection_entry(region.start_pos, region.end_pos)
+    if pos_equal(entry.start_pos, entry.end_pos) then
+      entry.force_highlight = true
+    end
+    return entry
+  end
+
+  local function treesitter_node_candidates(source_entry, around)
+    local node = host_treesitter_seed_node(source_entry)
+    if not node then
+      return {}
+    end
+
+    local candidates = {}
+    local seen = {}
+    while node do
+      if node:named() then
+        local entry = treesitter_node_entry(node, around)
+        local key = region_key({ start_pos = entry.start_pos, end_pos = entry.end_pos })
+        if not seen[key] then
+          seen[key] = true
+          candidates[#candidates + 1] = {
+            node = node,
+            entry = entry,
+          }
+        end
+      end
+      node = node:parent()
+    end
+
+    return candidates
+  end
+
+  local function selection_aware_treesitter_entry(source_entry, around)
+    local candidates = treesitter_node_candidates(source_entry, around)
+    if #candidates == 0 then
+      return source_entry
+    end
+
+    for index, candidate in ipairs(candidates) do
+      if same_entry_range(source_entry, candidate.entry.start_pos, candidate.entry.end_pos) then
+        local next_candidate = candidates[math.min(index + 1, #candidates)]
+        return next_candidate.entry
+      end
+    end
+
+    return candidates[1].entry
+  end
+
+  local function coarse_treesitter_entry(source_entry, around)
+    local candidates = treesitter_node_candidates(source_entry, around)
+    if #candidates == 0 then
+      return source_entry
+    end
+
+    local best = nil
+    for _, candidate in ipairs(candidates) do
+      if candidate.node:type() ~= "ERROR" and candidate.node:parent() ~= nil then
+        best = candidate.entry
+      end
+    end
+
+    if best then
+      return best
+    end
+
+    for _, candidate in ipairs(candidates) do
+      if candidate.node:type() ~= "ERROR" then
+        best = candidate.entry
+      end
+    end
+
+    return best or candidates[#candidates].entry
+  end
+
+  local function selected_or_seed_treesitter_node(source_entry)
+    local _, seed_node = named_treesitter_seed_node(source_entry)
+    if not seed_node then
+      return nil
+    end
+
+    for _, candidate in ipairs(treesitter_node_candidates(source_entry, true)) do
+      if same_entry_range(source_entry, candidate.entry.start_pos, candidate.entry.end_pos) then
+        return candidate.node
+      end
+    end
+
+    return seed_node
+  end
+
+  local function edge_named_sibling(node, edge)
+    local current = node
+    while true do
+      local next_node
+      if edge == "first" then
+        next_node = current:prev_named_sibling()
+      else
+        next_node = current:next_named_sibling()
+      end
+      if not next_node then
+        return current
+      end
+      current = next_node
+    end
+  end
+
+  local function edge_named_child(node, edge)
+    local child_count = node and node:child_count() or 0
+    if child_count == 0 then
+      return nil
+    end
+
+    local start_index = edge == "first" and 0 or (child_count - 1)
+    local end_index = edge == "first" and (child_count - 1) or 0
+    local step = edge == "first" and 1 or -1
+    for index = start_index, end_index, step do
+      local child = node:child(index)
+      if child and child:named() then
+        return child
+      end
+    end
+
+    return nil
+  end
+
+  local function treesitter_sibling_entry(source_entry, direction, count)
+    local current_node = selected_or_seed_treesitter_node(source_entry)
+    if not current_node then
+      return source_entry
+    end
+
+    for _ = 1, count do
+      if direction == "forward" then
+        current_node = current_node:next_named_sibling()
+      else
+        current_node = current_node:prev_named_sibling()
+      end
+      if not current_node then
+        return source_entry
+      end
+    end
+
+    return treesitter_node_entry(current_node, true) or source_entry
+  end
+
+  local function treesitter_sibling_edge_entry(source_entry, edge)
+    local current_node = selected_or_seed_treesitter_node(source_entry)
+    if not current_node then
+      return source_entry
+    end
+
+    return treesitter_node_entry(edge_named_sibling(current_node, edge), true) or source_entry
+  end
+
+  local function treesitter_child_entry(source_entry, edge, count)
+    local current_node = selected_or_seed_treesitter_node(source_entry)
+    if not current_node then
+      return source_entry
+    end
+
+    for _ = 1, count do
+      current_node = edge_named_child(current_node, edge)
+      if not current_node then
+        return source_entry
+      end
+    end
+
+    return treesitter_node_entry(current_node, true) or source_entry
+  end
+
   local function load_textobject_query(lang)
     if textobject_query_cache[lang] ~= nil then
       return textobject_query_cache[lang]
     end
 
     local query = nil
+
     for _, helix_path in ipairs({
-      vim.fn.expand("~/helix/runtime/queries/" .. lang .. "/textobjects.scm"),
-      vim.fn.expand("~/Projects/helix/runtime/queries/" .. lang .. "/textobjects.scm"),
+      vim.g.helix_query_runtime and vim.fs.joinpath(vim.g.helix_query_runtime, lang, "textobjects.scm") or nil,
     }) do
-      if vim.fn.filereadable(helix_path) == 1 then
-        local content = table.concat(vim.fn.readfile(helix_path), "\n")
+      if helix_path and vim.fn.filereadable(helix_path) == 1 then
+        local content = read_query_with_inherits(helix_path)
         local ok, parsed = pcall(vim.treesitter.query.parse, lang, content)
         if ok then
           query = parsed
@@ -359,6 +647,61 @@ function M.new(opts)
     return textobject_query_cache[lang]
   end
 
+  local function resolved_capture_name(query, names)
+    for _, name in ipairs(names) do
+      for _, capture in ipairs(query.captures or {}) do
+        if capture == name then
+          return name
+        end
+      end
+    end
+    return nil
+  end
+
+  local function grouped_capture_ranges(query, root, capture_name)
+    if not capture_name then
+      return {}
+    end
+
+    local capture_id = nil
+    for id, capture in ipairs(query.captures or {}) do
+      if capture == capture_name then
+        capture_id = id
+        break
+      end
+    end
+    if not capture_id then
+      return {}
+    end
+
+    local ranges = {}
+    for _, match, _ in query:iter_matches(root, current_buffer(), 0, -1) do
+      local nodes = match[capture_id]
+      if nodes then
+        if nodes.type then
+          nodes = { nodes }
+        end
+        if #nodes > 0 then
+          local start_row, start_col = nodes[1]:start()
+          local end_row, end_col = nodes[#nodes]:end_()
+          local start_pos = char_pos_from_byte_col0(start_row + 1, start_col)
+          local end_boundary = char_pos_from_byte_col0(end_row + 1, end_col)
+          local end_pos = pos_equal(start_pos, end_boundary) and start_pos or position.prev_pos(current_buffer(), end_boundary)
+          ranges[#ranges + 1] = {
+            start_pos = start_pos,
+            end_pos = end_pos,
+            start_byte = start_col,
+            end_byte = end_col,
+            start_row0 = start_row,
+            end_row0 = end_row,
+          }
+        end
+      end
+    end
+
+    return ranges
+  end
+
   local function capture_names_for_object(object_name, around)
     local suffixes = around and { ".around", ".outer" } or { ".inside", ".inner" }
     local names = {}
@@ -373,8 +716,6 @@ function M.new(opts)
       object_name .. ".movement",
       object_name .. ".around",
       object_name .. ".outer",
-      object_name .. ".inside",
-      object_name .. ".inner",
     }
   end
 
@@ -391,24 +732,16 @@ function M.new(opts)
     end
 
     local root = context.tree:root()
-    local target_captures = {}
-    for _, name in ipairs(capture_names_for_object(object_name, around)) do
-      target_captures[name] = true
+    local capture_name = resolved_capture_name(query, capture_names_for_object(object_name, around))
+    if not capture_name then
+      return nil
     end
 
     local best = nil
-    for id, node in query:iter_captures(root, current_buffer(), 0, -1) do
-      local capture = query.captures[id]
-      if target_captures[capture] then
-        local start_pos, end_pos = ts_node_range_positions(node)
-        if pos_leq(start_pos, source_entry.start_pos) and pos_leq(source_entry.end_pos, end_pos) then
-          local candidate = {
-            start_pos = start_pos,
-            end_pos = end_pos,
-          }
-          if not best or region_span(candidate) < region_span(best) then
-            best = candidate
-          end
+    for _, candidate in ipairs(grouped_capture_ranges(query, root, capture_name)) do
+      if pos_leq(candidate.start_pos, source_entry.start_pos) and pos_leq(source_entry.end_pos, candidate.end_pos) then
+        if not best or region_span(candidate) < region_span(best) then
+          best = candidate
         end
       end
     end
@@ -429,34 +762,41 @@ function M.new(opts)
     end
 
     local root = context.tree:root()
-    local target_captures = {}
-    for _, name in ipairs(capture_names_for_goto(object_name)) do
-      target_captures[name] = true
+    local capture_name = resolved_capture_name(query, capture_names_for_goto(object_name))
+    if not capture_name then
+      return source_entry
     end
 
-    local function region_for_cursor(cursor_pos)
-      local best = nil
-      for id, node in query:iter_captures(root, current_buffer(), 0, -1) do
-        local capture = query.captures[id]
-        if target_captures[capture] then
-          local start_pos, end_pos = ts_node_range_positions(node)
-          local candidate = { start_pos = start_pos, end_pos = end_pos }
+    local candidate_regions = grouped_capture_ranges(query, root, capture_name)
 
-          if direction == "forward" then
-            if pos_before(cursor_pos, start_pos) then
-              if not best
-                or pos_before(start_pos, best.start_pos)
-                or (pos_equal(start_pos, best.start_pos) and pos_after(end_pos, best.end_pos)) then
-                best = candidate
-              end
+    local function cursor_byte_pos(entry)
+      local line = line_text(entry.cursor_pos[1])
+      return position.byte_col0_from_char_col(line, entry.cursor_pos[2])
+    end
+
+    local function region_for_cursor(entry)
+      local cursor_pos = entry.cursor_pos
+      local byte_pos = cursor_byte_pos(entry)
+      local best = nil
+      for _, candidate in ipairs(candidate_regions) do
+        if direction == "forward" then
+          if candidate.start_row0 > cursor_pos[1] - 1
+            or (candidate.start_row0 == cursor_pos[1] - 1 and candidate.start_byte > byte_pos) then
+            if not best
+              or candidate.start_row0 < best.start_row0
+              or (candidate.start_row0 == best.start_row0 and candidate.start_byte < best.start_byte)
+              or (candidate.start_row0 == best.start_row0 and candidate.start_byte == best.start_byte and candidate.end_byte > best.end_byte) then
+              best = candidate
             end
-          else
-            if pos_before(end_pos, cursor_pos) then
-              if not best
-                or pos_after(end_pos, best.end_pos)
-                or (pos_equal(end_pos, best.end_pos) and pos_before(start_pos, best.start_pos)) then
-                best = candidate
-              end
+          end
+        else
+          if candidate.end_row0 < cursor_pos[1] - 1
+            or (candidate.end_row0 == cursor_pos[1] - 1 and candidate.end_byte < byte_pos) then
+            if not best
+              or candidate.end_row0 > best.end_row0
+              or (candidate.end_row0 == best.end_row0 and candidate.end_byte > best.end_byte)
+              or (candidate.end_row0 == best.end_row0 and candidate.end_byte == best.end_byte and candidate.start_byte < best.start_byte) then
+              best = candidate
             end
           end
         end
@@ -466,8 +806,7 @@ function M.new(opts)
 
     local current = source_entry
     for _ = 1, count do
-      local cursor_pos = current.cursor_pos
-      local region = region_for_cursor(cursor_pos)
+      local region = region_for_cursor(current)
       if not region then
         break
       end
@@ -794,6 +1133,14 @@ function M.new(opts)
       return source_entry
     end
 
+    if char == "z" then
+      return selection_aware_treesitter_entry(source_entry, around)
+    end
+
+    if char == "Z" then
+      return coarse_treesitter_entry(source_entry, around)
+    end
+
     if char == "m" then
       local region = find_surround_region_for_selection(source_entry, nil)
       region = around and region or inner_surround_region(region)
@@ -859,7 +1206,7 @@ function M.new(opts)
 
   local function textobject_entry(source_entry, char, around)
     local repeated_source_entry = source_entry
-    if char ~= "m" and char:match("[%w_]") then
+    if char ~= "m" and char ~= "z" and char ~= "Z" and char:match("[%w_]") then
       repeated_source_entry = repeated_textobject_source_entry(source_entry, char)
     end
 
@@ -876,9 +1223,8 @@ function M.new(opts)
     return base_textobject_entry(source_entry, char, around)
   end
 
-  local function select_textobject_preview(around)
-    local char = getcharstr()
-    if not char then
+  function match.select_textobject_char(char, around)
+    if not char or char == "" then
       return
     end
 
@@ -897,6 +1243,11 @@ function M.new(opts)
     state.set_preview_entries(buffer, entries)
   end
 
+  local function select_textobject_preview(around)
+    local char = getcharstr()
+    match.select_textobject_char(char, around)
+  end
+
   function match.goto_textobject(object_name, direction, count_override)
     local buffer = current_buffer()
     local source_entries = state.preview_active() and current_preview_entries() or current_entries()
@@ -905,6 +1256,53 @@ function M.new(opts)
 
     for _, source_entry in ipairs(source_entries) do
       entries[#entries + 1] = goto_capture_region_for_entry(object_name, source_entry, direction, count)
+    end
+
+    state.set_preview_entries(buffer, entries)
+    if not state.extend_mode_active() then
+      state.exit_extend_mode()
+    end
+  end
+
+  function match.goto_treesitter_sibling(direction, count_override)
+    local buffer = current_buffer()
+    local source_entries = state.preview_active() and current_preview_entries() or current_entries()
+    local count = count_override or vim.v.count1
+    local entries = {}
+
+    for _, source_entry in ipairs(source_entries) do
+      entries[#entries + 1] = treesitter_sibling_entry(source_entry, direction, count)
+    end
+
+    state.set_preview_entries(buffer, entries)
+    if not state.extend_mode_active() then
+      state.exit_extend_mode()
+    end
+  end
+
+  function match.goto_treesitter_sibling_edge(edge)
+    local buffer = current_buffer()
+    local source_entries = state.preview_active() and current_preview_entries() or current_entries()
+    local entries = {}
+
+    for _, source_entry in ipairs(source_entries) do
+      entries[#entries + 1] = treesitter_sibling_edge_entry(source_entry, edge)
+    end
+
+    state.set_preview_entries(buffer, entries)
+    if not state.extend_mode_active() then
+      state.exit_extend_mode()
+    end
+  end
+
+  function match.goto_treesitter_child(edge, count_override)
+    local buffer = current_buffer()
+    local source_entries = state.preview_active() and current_preview_entries() or current_entries()
+    local count = count_override or vim.v.count1
+    local entries = {}
+
+    for _, source_entry in ipairs(source_entries) do
+      entries[#entries + 1] = treesitter_child_entry(source_entry, edge, count)
     end
 
     state.set_preview_entries(buffer, entries)
@@ -1235,7 +1633,7 @@ function M.new(opts)
     return text
   end
 
-  local function pair_region_from_ts_node(node, char)
+  pair_region_from_ts_node = function(node, char)
     if not node or node:child_count() < 2 then
       return nil
     end
@@ -1361,7 +1759,7 @@ function M.new(opts)
 
   -- Tree-sitter-backed pair discovery
 
-  local function find_treesitter_seed_node(target_entry, tree, language_tree)
+  find_treesitter_seed_node = function(target_entry, tree, language_tree)
     if language_tree then
       local node = language_tree:named_node_for_range(entry_cursor_range(target_entry), { ignore_injections = false })
       if node then
