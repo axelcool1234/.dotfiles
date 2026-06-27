@@ -127,6 +127,16 @@ local function which_key_entry(name)
   return nil
 end
 
+local function which_key_item(name)
+  for _, item in ipairs(helix.which_key_register_items()) do
+    if item.key == name then
+      return item
+    end
+  end
+
+  return nil
+end
+
 local function leave_single_preview_active()
   helix.toggle_select_mode()
   helix.toggle_select_mode()
@@ -802,6 +812,89 @@ local cases = {
       helix.clear_selected_register()
       assert_equal(vim.g.helix_selected_register, nil, "clearing the selected register should clear the shared lualine state")
       assert_equal(register_component.cond(), false, "lualine register indicator should disappear after clearing")
+    end,
+  },
+  {
+    name = "default quote register popup item keeps the quote key",
+    run = function()
+      reset_case({ "abc" }, 1, 0)
+      helix.yank_selection('"')
+
+      local quote_entry = which_key_entry('"')
+      assert(quote_entry ~= nil, "default quote register should be listed after a yank")
+
+      local quote_item = which_key_item('"')
+      assert(quote_item ~= nil, "default quote register should be exposed as a plugin popup item")
+      assert_equal(quote_item.key, '"', "default quote register popup item should keep the quote key")
+      assert_equal(quote_item.value, "a", "default quote register popup item should keep the plain preview contents")
+      assert(type(quote_item.action) == "function", "default quote register popup item should keep a callable selection action")
+    end,
+  },
+  {
+    name = "special registers keep label-only picker descriptions",
+    run = function()
+      reset_case({ "abc" }, 1, 0)
+
+      local index_entry = which_key_entry("#")
+      assert(index_entry ~= nil, "selection-index register should always be listed")
+      assert_equal(index_entry.desc, "<selection indices>", "special register descriptions should omit live contents")
+    end,
+  },
+  {
+    name = "symbol registers appear in the picker after writes",
+    run = function()
+      reset_case({ "abc" }, 1, 0)
+      helix.yank_selection("$")
+
+      local symbol_entry = which_key_entry("$")
+      assert(symbol_entry ~= nil, "printable symbol registers should appear in the picker after storing text")
+      assert_equal(symbol_entry.desc, "a", "symbol register picker entries should show the stored preview text")
+
+      local symbol_item = which_key_item("$")
+      assert(symbol_item ~= nil, "printable symbol registers should also appear in the popup item list")
+      assert_equal(symbol_item.key, "$", "symbol register popup items should keep the original symbol key")
+      assert_equal(symbol_item.value, "a", "symbol register popup items should keep the stored preview text")
+    end,
+  },
+  {
+    name = "colon register exposes the last executed command",
+    run = function()
+      reset_case({ "abc" }, 1, 0)
+      local keys = vim.api.nvim_replace_termcodes(":set number<CR>", true, false, true)
+      vim.api.nvim_feedkeys(keys, "xt", false)
+      vim.wait(100)
+
+      assert_equal(helix.read_register(":"), { "set number" }, "colon register should read the last interactive Ex command")
+
+      local colon_entry = which_key_entry(":")
+      assert(colon_entry ~= nil, "colon register should be listed in which-key registers")
+      assert(colon_entry.desc:find("set number", 1, true), "colon register preview should show the last executed command")
+    end,
+  },
+  {
+    name = "colon register remains writable like a normal register",
+    run = function()
+      reset_case({ "abc" }, 1, 0)
+      helix.yank_selection(":")
+
+      assert_equal(helix.read_register(":"), { "a" }, "colon register should accept ordinary register writes")
+
+      local colon_entry = which_key_entry(":")
+      assert(colon_entry ~= nil, "colon register should still be listed after an explicit write")
+      assert(colon_entry.desc:find("a", 1, true), "colon register preview should show explicitly written contents")
+    end,
+  },
+  {
+    name = "selected percent register escapes for lualine",
+    run = function()
+      reset_case({ "abc" }, 1, 0)
+      local register_component = require("lualine").get_config().sections.lualine_x[2]
+
+      local ok, err = pcall(helix.select_register, "%")
+      assert_equal(ok, true, "selecting the percent register should not break lualine refresh: " .. tostring(err))
+      assert_equal(vim.g.helix_selected_register, "%", "percent register selection should still preserve the raw register name")
+      assert_equal(register_component.cond(), true, "percent register should still activate the lualine indicator")
+      assert_equal(register_component[1](), "reg=%%", "lualine register indicator should escape percent for statusline rendering")
     end,
   },
   {

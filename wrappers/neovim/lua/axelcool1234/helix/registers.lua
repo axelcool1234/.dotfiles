@@ -11,9 +11,9 @@ function M.new(opts)
   local stored = {}
   local selected = nil
   local last_search_register = '/'
-  local visible_static_registers = { '/', '_', '#', '.', '%', '+', '*' }
+  local last_native_command = vim.fn.getreg(':')
+  local visible_static_registers = { '_', '#', '.', '%', '+', '*' }
   local static_descriptions = {
-    ['/'] = "<last search>",
     ['+'] = "<system clipboard>",
     ['*'] = "<primary clipboard>",
     ['_'] = "<empty>",
@@ -91,31 +91,21 @@ function M.new(opts)
     return static_descriptions[name] ~= nil
   end
 
-  local function is_user_register(name)
-    return not is_static_register(name) and name:match("^[%w]$") ~= nil
+  local function is_default_register(name)
+    return name == '/' or name == ':' or name == '"' or name == '@'
   end
 
-  local function preview_values(values)
-    if not values or #values == 0 then
-      return nil
+  local function is_printable_register(name)
+    if type(name) ~= "string" or #name ~= 1 then
+      return false
     end
 
-    local preview = {}
-    local last_index = math.min(#values, 2)
-    for index = 1, last_index do
-      preview[index] = values[index]:gsub("%s+", " ")
-    end
+    local byte = string.byte(name)
+    return byte ~= nil and byte >= 33 and byte <= 126
+  end
 
-    local text = table.concat(preview, " | ")
-    if #values > last_index then
-      text = text .. string.format(" | +%d more", #values - last_index)
-    end
-
-    if #text > 48 then
-      text = text:sub(1, 45) .. "..."
-    end
-
-    return text
+  local function is_user_register(name)
+    return is_printable_register(name) and not is_static_register(name) and not is_default_register(name)
   end
 
   local function first_value_preview(values)
@@ -135,12 +125,31 @@ function M.new(opts)
     return text
   end
 
+  local function register_desc(values)
+    local preview = first_value_preview(values)
+    if not preview then
+      return nil
+    end
+
+    return preview
+  end
+
   local function preview_read(name)
     if name == '+' or name == '*' then
       return vim.deepcopy(stored[name] or {})
     end
 
     return registers.read(name)
+  end
+
+  local function sync_command_register()
+    local command = vim.fn.getreg(':')
+    if command ~= "" and command ~= last_native_command then
+      stored[':'] = { command }
+      last_native_command = command
+    elseif command == "" then
+      last_native_command = nil
+    end
   end
 
   function registers.select(name)
@@ -183,22 +192,16 @@ function M.new(opts)
     local entries = {}
 
     for _, name in ipairs(visible_static_registers) do
-      local preview = first_value_preview(preview_read(name))
-      local desc = static_descriptions[name]
-      if preview then
-        desc = string.format("%s: %s", desc, preview)
-      end
-
       entries[#entries + 1] = {
         name,
         function()
           select_fn(name)
         end,
-        desc = desc,
+        desc = static_descriptions[name],
       }
     end
 
-    for _, name in ipairs({ '"', '@' }) do
+    for _, name in ipairs({ '/', ':', '"', '@' }) do
       local default_values = preview_read(name)
       if #default_values > 0 then
         entries[#entries + 1] = {
@@ -206,7 +209,7 @@ function M.new(opts)
           function()
             select_fn(name)
           end,
-          desc = string.format("register %s: %s", name, first_value_preview(default_values)),
+          desc = register_desc(default_values),
         }
       end
     end
@@ -225,7 +228,7 @@ function M.new(opts)
         function()
           select_fn(name)
         end,
-        desc = string.format("register %s: %s", name, first_value_preview(registers.read(name))),
+        desc = register_desc(registers.read(name)),
       }
     end
 
@@ -245,6 +248,11 @@ function M.new(opts)
 
     if name == '.' then
       return current_selection_texts()
+    end
+
+    if name == ':' then
+      sync_command_register()
+      return vim.deepcopy(stored[name] or {})
     end
 
     if name == '%' then
@@ -275,6 +283,10 @@ function M.new(opts)
 
     if is_read_only(name) then
       return nil, string.format("Register [%s] is not writable", name)
+    end
+
+    if name == ':' then
+      last_native_command = vim.fn.getreg(':')
     end
 
     stored[name] = values

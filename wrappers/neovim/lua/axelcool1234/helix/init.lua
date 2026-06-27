@@ -3275,6 +3275,20 @@ function M.which_key_registers()
   end)
 end
 
+function M.which_key_register_items()
+  local items = {}
+  for index, entry in ipairs(M.which_key_registers()) do
+    items[#items + 1] = {
+      key = entry[1],
+      value = entry.desc or "",
+      desc = "",
+      order = index,
+      action = entry[2],
+    }
+  end
+  return items
+end
+
 function M.read_register(register_name)
   return registers.read(register_name)
 end

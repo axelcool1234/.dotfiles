@@ -1,3 +1,7 @@
+local function escape_statusline_text(text)
+  return tostring(text):gsub("%%", "%%%%")
+end
+
 local lualine_config = {
   options = {
     icons_enabled = true,
@@ -31,7 +35,7 @@ local lualine_config = {
     lualine_x = {
       {
         function()
-          return "[" .. vim.g.helix_macro_recording_register .. "]"
+          return "[" .. escape_statusline_text(vim.g.helix_macro_recording_register) .. "]"
         end,
         cond = function()
           return vim.g.helix_macro_recording_register ~= nil and vim.g.helix_macro_recording_register ~= ""
@@ -39,7 +43,7 @@ local lualine_config = {
       },
       {
         function()
-          return "reg=" .. vim.g.helix_selected_register
+          return "reg=" .. escape_statusline_text(vim.g.helix_selected_register)
         end,
         cond = function()
           return vim.g.helix_selected_register ~= nil and vim.g.helix_selected_register ~= ""

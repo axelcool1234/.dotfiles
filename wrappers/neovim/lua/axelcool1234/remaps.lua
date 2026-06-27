@@ -32,6 +32,7 @@ local function normalize_key(entry)
     hidden = hidden,
     context = entry.context,
     expand = entry.expand,
+    plugin = entry.plugin,
   }
 end
 
@@ -92,7 +93,7 @@ local function normalized_keys(keys)
   for _, key in ipairs(normalized) do
     key.group = not key.hidden
       and key.action == nil
-      and (key.expand ~= nil or has_child_key(normalized, key))
+      and (key.expand ~= nil or key.plugin ~= nil or has_child_key(normalized, key))
   end
 
   return normalized
@@ -105,6 +106,7 @@ local function add_wk_entry(entries, key, extra)
     wk_entry[field] = value
   end
   wk_entry.mode = key.mode
+  wk_entry.plugin = key.plugin
   entries[#entries + 1] = wk_entry
 end
 
@@ -438,7 +440,7 @@ local keys = {
   { "Open repository URL in browser", "<leader>OR", gitlinker.open_repo_url },
   { "Show docs for item under cursor", "<leader>k", "<cmd>lua vim.lsp.buf.hover()<CR>" },
 
-  { "Select register", '"', expand = function() return helix.which_key_registers() end },
+  { "Select register", '"', plugin = "helix_registers" },
   { "Search for regex pattern", "/", helix.search_regex },
   { "Search backward for regex pattern", "?", helix.search_regex_backward },
   { "Search selection with word boundaries", "*", helix.search_selection_detect_word_boundaries },
