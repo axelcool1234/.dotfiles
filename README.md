@@ -75,7 +75,6 @@
     Then, when you select some text and do `s` then some text, the `/` register is assigned said contents. However, the active
     search register is seemingly unchanged, so `n` and `N` moves the primary cursor to the contents from register `a`. Not sure
     if this is intended, but it is not how I have it implemented in Neovim. 
-  - Decide whether to stick to Helix's case insensitive regex or Neovim's case sensitive regex
 
 ## Fresh Install
 We'll use the `legion` host as an example.
