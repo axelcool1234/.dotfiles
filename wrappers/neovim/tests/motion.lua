@@ -1036,7 +1036,7 @@ local cases = {
     end,
   },
   {
-    name = "flash treesitter wraps semicolon and comma navigation",
+    name = "flash treesitter wraps n and p navigation",
     run = function()
       reset_case({ "return foo(bar)" }, 1, 11)
       vim.bo.filetype = "lua"
@@ -1044,7 +1044,7 @@ local cases = {
 
       local cr = vim.api.nvim_replace_termcodes("<CR>", true, false, true)
       local original_getcharstr = vim.fn.getcharstr
-      local inputs = { ",", cr }
+      local inputs = { "p", cr }
       vim.fn.getcharstr = function()
         local next_input = inputs[1]
         table.remove(inputs, 1)
@@ -1059,13 +1059,13 @@ local cases = {
         error(err)
       end
 
-      assert_equal(selection_texts(), { "return foo(bar)" }, "comma from the first Z candidate should wrap to the outermost node")
+      assert_equal(selection_texts(), { "return foo(bar)" }, "p from the first Z candidate should wrap to the outermost node")
 
       reset_case({ "return foo(bar)" }, 1, 11)
       vim.bo.filetype = "lua"
       pcall(vim.treesitter.start, 0, "lua")
 
-      local inputs2 = { ",", ";", cr }
+      local inputs2 = { "p", "n", cr }
       vim.fn.getcharstr = function()
         local next_input = inputs2[1]
         table.remove(inputs2, 1)
@@ -1080,7 +1080,7 @@ local cases = {
         error(err)
       end
 
-      assert_equal(selection_texts(), { "bar" }, "semicolon should wrap back to the innermost Z candidate after comma wrapped to the outermost one")
+      assert_equal(selection_texts(), { "bar" }, "n should wrap back to the innermost Z candidate after p wrapped to the outermost one")
     end,
   },
   {

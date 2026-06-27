@@ -1,6 +1,7 @@
 local M = {}
 
 local label_alphabet = "asdfjklghqwertyuiopzxcvbnmASDFJKLGHQWERTYUIOPZXCVBNM"
+local treesitter_label_alphabet = label_alphabet:gsub("n", ""):gsub("p", "")
 
 local function setup_highlights()
   vim.api.nvim_set_hl(0, "HelixFlashLabel", { link = "Substitute", default = true })
@@ -514,7 +515,7 @@ function M.new(opts)
 
   local function assign_treesitter_labels(matches, current_index)
     local labeled = {}
-    local labels = vim.split(label_alphabet, "")
+    local labels = vim.split(treesitter_label_alphabet, "")
     for index, candidate in ipairs(matches) do
       if not labels[index] then
         break
@@ -620,9 +621,9 @@ function M.new(opts)
         end
 
         local key = key_code(char)
-        if key == ";" then
+        if key == "n" then
           current_index = (current_index % #matches) + 1
-        elseif key == "," then
+        elseif key == "p" then
           current_index = ((current_index - 2 + #matches) % #matches) + 1
         elseif key == "<CR>" or key == "<Enter>" then
           local current = matches[current_index]
