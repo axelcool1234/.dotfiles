@@ -211,6 +211,7 @@ local hidden_keys = {
   { binds = { "g`", "g'", "gu", "gU", "g~", "gw", "gO", "gcc", "gR", "gx", "g%" } },
   { binds = { "<C-t>", "V" } },
   { binds = { "<BS>", "$" } },
+  { binds = { "<C-w>d", "<C-w><C-d>" } },
 }
 local keys = {
   { "Right bracket", "]" },
