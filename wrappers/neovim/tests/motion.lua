@@ -820,6 +820,160 @@ local cases = {
     end,
   },
   {
+    name = "flash treesitter renders overlay labels on the adjacent boundary characters",
+    run = function()
+      reset_case({ "return foo(bar)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+
+      local line = current_lines()[1]
+      local start_col0 = assert(line:find("bar", 1, true), "expected test fixture to contain bar") - 1
+      local before_col0 = start_col0 - 1
+      local after_col0 = start_col0 + #"bar"
+      local original_set_extmark = vim.api.nvim_buf_set_extmark
+      local seen = {}
+
+      vim.api.nvim_buf_set_extmark = function(buffer, ns, row, col, opts)
+        if opts and opts.virt_text and opts.virt_text[1] and opts.virt_text[1][1] == "a" and opts.virt_text[1][2] == "HelixFlashLabel" then
+          seen[string.format("%d:%d:%s", row, col, opts.virt_text_pos or "overlay")] = true
+        end
+        return original_set_extmark(buffer, ns, row, col, opts)
+      end
+
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "a"
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_treesitter()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      vim.api.nvim_buf_set_extmark = original_set_extmark
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(seen[string.format("0:%d:overlay", before_col0)], true, "Z should render the first treesitter label over the character before the range")
+      assert_equal(seen[string.format("0:%d:overlay", after_col0)], true, "Z should also render the first treesitter label over the character after the range")
+    end,
+  },
+  {
+    name = "flash treesitter coalesces shared end-boundary labels into one extmark",
+    run = function()
+      reset_case({ "return foo(bar)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+
+      local line = current_lines()[1]
+      local after_col0 = assert(line:find("bar", 1, true), "expected test fixture to contain bar") + #"bar"
+      local original_set_extmark = vim.api.nvim_buf_set_extmark
+      local max_label_chunk_count = 0
+
+      vim.api.nvim_buf_set_extmark = function(buffer, ns, row, col, opts)
+        if row == 0 and col == after_col0 and opts and opts.virt_text and (opts.virt_text_pos or "overlay") == "overlay" then
+          local all_labels = true
+          for _, chunk in ipairs(opts.virt_text) do
+            if chunk[2] ~= "HelixFlashLabel" then
+              all_labels = false
+              break
+            end
+          end
+          if all_labels then
+            max_label_chunk_count = math.max(max_label_chunk_count, #opts.virt_text)
+          end
+        end
+        return original_set_extmark(buffer, ns, row, col, opts)
+      end
+
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "a"
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_treesitter()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      vim.api.nvim_buf_set_extmark = original_set_extmark
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(max_label_chunk_count > 1, true, "Z should coalesce labels that share the same treesitter end boundary into one extmark")
+    end,
+  },
+  {
+    name = "flash treesitter does not render the dim backdrop",
+    run = function()
+      reset_case({ "return foo(bar)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+
+      local original_set_extmark = vim.api.nvim_buf_set_extmark
+      local backdrop_count = 0
+
+      vim.api.nvim_buf_set_extmark = function(buffer, ns, row, col, opts)
+        if opts and opts.hl_group == "HelixFlashBackdrop" then
+          backdrop_count = backdrop_count + 1
+        end
+        return original_set_extmark(buffer, ns, row, col, opts)
+      end
+
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "a"
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_treesitter()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      vim.api.nvim_buf_set_extmark = original_set_extmark
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(backdrop_count, 0, "Z should not dim the whole window like the word-flash picker")
+    end,
+  },
+  {
+    name = "flash treesitter renders a cursor-style extmark on the current target end",
+    run = function()
+      reset_case({ "return foo(bar)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+
+      local line = current_lines()[1]
+      local end_col0 = assert(line:find("bar", 1, true), "expected test fixture to contain bar") + #"bar" - 2
+      local original_set_extmark = vim.api.nvim_buf_set_extmark
+      local seen = {}
+
+      vim.api.nvim_buf_set_extmark = function(buffer, ns, row, col, opts)
+        if opts and opts.hl_group == "HelixFlashCursor" then
+          seen[string.format("%d:%d", row, col)] = true
+        end
+        return original_set_extmark(buffer, ns, row, col, opts)
+      end
+
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "a"
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_treesitter()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      vim.api.nvim_buf_set_extmark = original_set_extmark
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(seen[string.format("0:%d", end_col0)], true, "Z should render a cursor-style highlight on the current target end boundary")
+    end,
+  },
+  {
     name = "flash treesitter advances to the next enclosing node when the current selection already matches one",
     run = function()
       reset_case({ "return foo(bar)" }, 1, 11)
@@ -845,6 +999,54 @@ local cases = {
       end
 
       assert_equal(selection_texts(), { "(bar)" }, "pressing Z then Enter twice should advance from the current node to the next enclosing syntax node")
+    end,
+  },
+  {
+    name = "flash treesitter wraps semicolon and comma navigation",
+    run = function()
+      reset_case({ "return foo(bar)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+
+      local cr = vim.api.nvim_replace_termcodes("<CR>", true, false, true)
+      local original_getcharstr = vim.fn.getcharstr
+      local inputs = { ",", cr }
+      vim.fn.getcharstr = function()
+        local next_input = inputs[1]
+        table.remove(inputs, 1)
+        return next_input
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_treesitter()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "return foo(bar)" }, "comma from the first Z candidate should wrap to the outermost node")
+
+      reset_case({ "return foo(bar)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+
+      local inputs2 = { ",", ";", cr }
+      vim.fn.getcharstr = function()
+        local next_input = inputs2[1]
+        table.remove(inputs2, 1)
+        return next_input
+      end
+
+      ok, err = pcall(function()
+        helix.flash_treesitter()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "bar" }, "semicolon should wrap back to the innermost Z candidate after comma wrapped to the outermost one")
     end,
   },
   {

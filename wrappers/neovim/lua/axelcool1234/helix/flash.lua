@@ -6,6 +6,7 @@ local function setup_highlights()
   vim.api.nvim_set_hl(0, "HelixFlashLabel", { link = "Substitute", default = true })
   vim.api.nvim_set_hl(0, "HelixFlashTarget", { link = "Search", default = true })
   vim.api.nvim_set_hl(0, "HelixFlashCurrent", { link = "IncSearch", default = true })
+  vim.api.nvim_set_hl(0, "HelixFlashCursor", { link = "Cursor", default = true })
   vim.api.nvim_set_hl(0, "HelixFlashBackdrop", { link = "Comment", default = true })
 end
 
@@ -256,6 +257,77 @@ function M.new(opts)
   end
 
   local function render_matches(matches)
+    local queued_label_extmarks = {}
+    local queued_label_order = {}
+
+    local function queue_label(buffer, row0, col0, label, style)
+      style = style or "overlay"
+      local id = string.format("%d:%d:%d:%s", buffer, row0, col0, style)
+      local queued = queued_label_extmarks[id]
+      if not queued then
+        queued = {
+          buffer = buffer,
+          row0 = row0,
+          col0 = col0,
+          style = style,
+          virt_text = {},
+        }
+        queued_label_extmarks[id] = queued
+        queued_label_order[#queued_label_order + 1] = queued
+      end
+      queued.virt_text[#queued.virt_text + 1] = { label, "HelixFlashLabel" }
+    end
+
+    local function flush_labels()
+      for _, queued in ipairs(queued_label_order) do
+        vim.api.nvim_buf_set_extmark(queued.buffer, namespace, queued.row0, queued.col0, {
+          virt_text = queued.virt_text,
+          virt_text_pos = queued.style,
+          hl_mode = "combine",
+          strict = false,
+          priority = 6200,
+        })
+      end
+    end
+
+    local function label_overlay_pos(buffer, pos, side)
+      if side == "before" then
+        local prev = position.prev_pos(buffer, pos)
+        if same_pos(prev, pos) then
+          return pos
+        end
+        return prev
+      end
+
+      local next_pos = position.next_pos(buffer, pos)
+      if same_pos(next_pos, pos) then
+        return pos
+      end
+      return next_pos
+    end
+
+    local function label_render_point(buffer, pos, style, side)
+      if style == "overlay" and side then
+        return position.before_boundary(buffer, label_overlay_pos(buffer, pos, side))
+      end
+      if side == "after" then
+        return position.after_boundary(buffer, pos)
+      end
+      return position.before_boundary(buffer, pos)
+    end
+
+    local function render_point_highlight(buffer, pos, hl_group, priority)
+      local point_row0, point_col = position.before_boundary(buffer, pos)
+      local point_end_row0, point_end_col = position.after_boundary(buffer, pos)
+      vim.api.nvim_buf_set_extmark(buffer, namespace, point_row0, point_col, {
+        end_row = point_end_row0,
+        end_col = point_end_col,
+        hl_group = hl_group,
+        strict = false,
+        priority = priority,
+      })
+    end
+
     for index, match in ipairs(matches) do
       local buffer = match.buffer
       local end_pos = match.end_pos or match.pos
@@ -278,15 +350,45 @@ function M.new(opts)
       end
 
       if match.label then
-        vim.api.nvim_buf_set_extmark(buffer, namespace, start_row0, start_col, {
-          virt_text = { { match.label, "HelixFlashLabel" } },
-          virt_text_pos = "overlay",
-          hl_mode = "combine",
-          strict = false,
-          priority = 6200,
-        })
+        local label_style = match.label_style or "overlay"
+        local rendered_label_points = {}
+
+        local function queue_label_once(row0, col0)
+          local id = string.format("%d:%d:%d:%s", buffer, row0, col0, label_style)
+          if rendered_label_points[id] then
+            return
+          end
+          rendered_label_points[id] = true
+          queue_label(buffer, row0, col0, match.label, label_style)
+        end
+
+        if match.label_before then
+          local before_row0, before_col = label_render_point(buffer, match.pos, label_style, "before")
+          queue_label_once(before_row0, before_col)
+        end
+
+        if not next(rendered_label_points) then
+          queue_label_once(start_row0, start_col)
+        end
+
+        if match.label_after or match.label_at_end then
+          local end_label_row0
+          local end_label_col
+          if match.label_after then
+            end_label_row0, end_label_col = label_render_point(buffer, end_pos, label_style, "after")
+          else
+            end_label_row0, end_label_col = position.before_boundary(buffer, end_pos)
+          end
+          queue_label_once(end_label_row0, end_label_col)
+        end
+      end
+
+      if match.cursor_pos then
+        render_point_highlight(buffer, match.cursor_pos, "HelixFlashCursor", 6300)
       end
     end
+
+    flush_labels()
   end
 
   local function collect_buffers(matches, wins)
@@ -311,11 +413,14 @@ function M.new(opts)
     return buffers
   end
 
-  local function render(wins, pattern, matches)
+  local function render(wins, pattern, matches, opts)
+    opts = opts or {}
     local buffers = collect_buffers(matches, wins)
     clear(buffers)
-    for _, win in ipairs(wins) do
-      render_backdrop(vim.api.nvim_win_get_buf(win), win)
+    if opts.backdrop ~= false then
+      for _, win in ipairs(wins) do
+        render_backdrop(vim.api.nvim_win_get_buf(win), win)
+      end
     end
     render_matches(matches)
     vim.api.nvim_echo({ { "flash: " .. pattern, "ModeMsg" } }, false, {})
@@ -419,6 +524,10 @@ function M.new(opts)
       match.label = labels[index]
       match.current = index == current_index
       match.highlight = match.current
+      match.label_style = "overlay"
+      match.label_before = true
+      match.label_after = true
+      match.cursor_pos = match.current and match.end_pos or nil
       labeled[#labeled + 1] = match
     end
     return labeled
@@ -498,7 +607,7 @@ function M.new(opts)
     end
 
     local function redraw()
-      render(wins, "treesitter", assign_treesitter_labels(matches, current_index))
+      render(wins, "treesitter", assign_treesitter_labels(matches, current_index), { backdrop = false })
     end
 
     redraw()
@@ -512,9 +621,9 @@ function M.new(opts)
 
         local key = key_code(char)
         if key == ";" then
-          current_index = math.min(current_index + 1, #matches)
+          current_index = (current_index % #matches) + 1
         elseif key == "," then
-          current_index = math.max(current_index - 1, 1)
+          current_index = ((current_index - 2 + #matches) % #matches) + 1
         elseif key == "<CR>" or key == "<Enter>" then
           local current = matches[current_index]
           if current then
