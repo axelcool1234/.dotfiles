@@ -1,18 +1,20 @@
 # TODO
+- Upgrade to Noctalia Shell V5
 - Add cursors back
 - Add Grub theme back
-- Steal features from: https://noctalia.dev/plugins/screen-toolkit/
-- Replace recorder script with: https://noctalia.dev/plugins/screen-recorder/
-- Get calendar: https://noctalia.dev/plugins/weekly-calendar/
-- Get colorscheme creator: https://noctalia.dev/plugins/color-scheme-creator/
-- Get keybind cheatsheet: https://noctalia.dev/plugins/keybind-cheatsheet/
-- Get: https://noctalia.dev/plugins/privacy-indicator/
-- Get: https://noctalia.dev/plugins/fancy-audiovisualizer/
-- Get: https://noctalia.dev/plugins/unicode-picker/
-- Get: https://noctalia.dev/plugins/kaomoji-provider/
-- Get: https://noctalia.dev/plugins/file-search/
-- Get (for fun): https://noctalia.dev/plugins/activate-linux/
-- Investigate: https://noctalia.dev/plugins/assistant-panel/
+- Outdated (will be upgrading to Noctalia Shell V5):
+  - Steal features from: https://noctalia.dev/plugins/screen-toolkit/
+  - Replace recorder script with: https://noctalia.dev/plugins/screen-recorder/
+  - Get calendar: https://noctalia.dev/plugins/weekly-calendar/
+  - Get colorscheme creator: https://noctalia.dev/plugins/color-scheme-creator/
+  - Get keybind cheatsheet: https://noctalia.dev/plugins/keybind-cheatsheet/
+  - Get: https://noctalia.dev/plugins/privacy-indicator/
+  - Get: https://noctalia.dev/plugins/fancy-audiovisualizer/
+  - Get: https://noctalia.dev/plugins/unicode-picker/
+  - Get: https://noctalia.dev/plugins/kaomoji-provider/
+  - Get: https://noctalia.dev/plugins/file-search/
+  - Get (for fun): https://noctalia.dev/plugins/activate-linux/
+  - Investigate: https://noctalia.dev/plugins/assistant-panel/
 - Configure mime types for files
 - Add .face back to get a profile picture for noctalia-shell
 - Figure out `direnv` + `lorri` and add the needed support for local development
@@ -20,8 +22,6 @@
 - Improve Kitty
   - Scratchpads
   - Motion that yanks filepaths and urls
-  - Look into whether or not a Tmux vim mode where you can move around is possible, or
-    if CTRL+SHIFT+E to explore the scrollback is all we can do
 - Explore possibly throwing out the greeter and autologin into the lockscreen instead
 - Niri + Noctalia configuration and bindings
   - wlr-which-key
@@ -31,6 +31,7 @@
     - Basically telescope needs some management for Noctalia
   - See if Code can change theme dynamically (will have to patch Code)
   - Add themes for MPV and IMV
+  - Grub has some extra logic that is never used (either throw it out or reimplement it it was cycling grub themes)
 - https://www.reddit.com/r/niri/comments/1rjrd26/border_color_depending_on_the_current_neovim_mode/
 - Steal this: https://github.com/flickowoa/zephyr/issues/1
 - Switch to this: https://github.com/niri-wm/niri/pull/3483
@@ -54,11 +55,6 @@
   - Optional: Possibly render a pair being selected when doing `mr<char>`?
   - Optional: Make `x` work how I prefer: when cursor is at the top, `x` extends upwards. When it's at the bottom, `x` extends downwards.
   - Optional: `<space>?` - maybe command palette?
-  - Optional: Helix commands
-  - Optional: Implement flash jump.
-    - Flash jump works when you only have on selection perhaps? 
-    - `A-f` / `A-t` to use default `f` and `t` with single selections
-    - `f` and `t` work normally with multiple selections
   - Optional: Implement DAP stuff (overseer, neotest)
     - Implement `miT`/`maT` and `[T`/`]T`.
   - Optional: Look into quickfix list (vim thing)
