@@ -511,8 +511,8 @@ local keys = {
 
   { "Extend line below", "x", helix.extend_line_below },
   { "Select whole buffer", "%", helix.select_whole_buffer, opts = { nowait = true } },
-  { "Copy selection below", "C", function() helix.copy_selection_on_adjacent_line(1) end },
-  { "Copy selection above", "<A-C>", function() helix.copy_selection_on_adjacent_line(-1) end },
+  { "Copy selection below", "C", function() helix.copy_selection_on_adjacent_line(1, vim.v.count1) end },
+  { "Copy selection above", "<A-C>", function() helix.copy_selection_on_adjacent_line(-1, vim.v.count1) end },
   { "Select regex matches", "s", helix.select_regex_matches },
   { "Split selection by line", "<A-s>", helix.split_selection_by_line },
   { "Delete", "d", helix.delete },

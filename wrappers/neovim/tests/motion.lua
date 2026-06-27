@@ -305,6 +305,20 @@ local cases = {
     end,
   },
   {
+    name = "copy_selection_on_adjacent_line respects counts in both directions",
+    run = function()
+      reset_case({ "11111", "22222", "33333", "44444", "55555" }, 2, 4)
+      helix.copy_selection_on_adjacent_line(1, 2)
+      assert_equal(all_cursor_positions(), { { 2, 5 }, { 3, 5 }, { 4, 5 } }, "2C should create two new clones below")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 4, 4 }, "counted C should make the newest lower clone primary")
+
+      reset_case({ "11111", "22222", "33333", "44444", "55555" }, 4, 4)
+      helix.copy_selection_on_adjacent_line(-1, 2)
+      assert_equal(all_cursor_positions(), { { 2, 5 }, { 3, 5 }, { 4, 5 } }, "2 alt-C should create two new clones above")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 4 }, "counted alt-C should make the newest upper clone primary")
+    end,
+  },
+  {
     name = "adjacent regex matches stay as separate cursors",
     run = function()
       reset_case({ "aaaaa" }, 1, 0)

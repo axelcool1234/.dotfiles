@@ -4026,42 +4026,52 @@ function M.select_whole_buffer()
   end
 end
 
-function M.copy_selection_on_adjacent_line(delta)
-  local source_entries = state.preview_active() and current_preview_entries() or preview_or_cursor_entries()
-  local source_preferred_columns = state.current_preferred_columns()
-  local combined_entries = {}
-  local combined_preferred_columns = {}
+function M.copy_selection_on_adjacent_line(delta, count_override)
+  local count = count_override or vim.v.count1
+  local function clone_once()
+    local source_entries = state.preview_active() and current_preview_entries() or preview_or_cursor_entries()
+    local source_preferred_columns = state.current_preferred_columns()
+    local combined_entries = {}
+    local combined_preferred_columns = {}
 
-  local function append_entry(entry, preferred_col)
-    table.insert(combined_entries, entry)
-    table.insert(combined_preferred_columns, preferred_col or entry.cursor_pos[2])
+    local function append_entry(entry, preferred_col)
+      table.insert(combined_entries, entry)
+      table.insert(combined_preferred_columns, preferred_col or entry.cursor_pos[2])
+    end
+
+    local primary_clone = clone_entry_to_supported_line(source_entries[1], delta, source_preferred_columns[1])
+
+    if not primary_clone then
+      return false
+    end
+
+    append_entry(primary_clone, source_preferred_columns[1])
+
+    for index, entry in ipairs(source_entries) do
+      append_entry(vim.deepcopy(entry), source_preferred_columns[index])
+    end
+
+    for index = 2, #source_entries do
+      local clone = clone_entry_to_supported_line(source_entries[index], delta, source_preferred_columns[index])
+      if clone then
+        append_entry(clone, source_preferred_columns[index])
+      end
+    end
+
+    if state.preview_active() then
+      set_preview_entries(combined_entries, { preferred_columns = combined_preferred_columns })
+    else
+      sync_cursors_to_entries(combined_entries, { preferred_columns = combined_preferred_columns })
+    end
+
+    return true
   end
 
-  local primary_clone = clone_entry_to_supported_line(source_entries[1], delta, source_preferred_columns[1])
-
-  if not primary_clone then
-    return
-  end
-
-  append_entry(primary_clone, source_preferred_columns[1])
-
-  for index, entry in ipairs(source_entries) do
-    append_entry(vim.deepcopy(entry), source_preferred_columns[index])
-  end
-
-  for index = 2, #source_entries do
-    local clone = clone_entry_to_supported_line(source_entries[index], delta, source_preferred_columns[index])
-    if clone then
-      append_entry(clone, source_preferred_columns[index])
+  for _ = 1, count do
+    if not clone_once() then
+      break
     end
   end
-
-  if state.preview_active() then
-    set_preview_entries(combined_entries, { preferred_columns = combined_preferred_columns })
-    return
-  end
-
-  sync_cursors_to_entries(combined_entries, { preferred_columns = combined_preferred_columns })
 end
 
 function M.split_selection_by_line()
