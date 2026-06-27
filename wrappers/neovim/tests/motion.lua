@@ -570,6 +570,28 @@ local cases = {
     end,
   },
   {
+    name = "reverse repeat last motion replays find-char in the opposite direction",
+    run = function()
+      reset_case({ "acbcdeca" }, 1, 1)
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "c"
+      end
+
+      local ok, err = pcall(function()
+        helix.find_char_motion("f")()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 3 }, "f should jump to the next matching character")
+      helix.repeat_last_motion_reverse()
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 1 }, "alt-shift-dot should replay the inverse find-char motion")
+    end,
+  },
+  {
     name = "repeat last motion replays textobject selection with the captured object key",
     run = function()
       reset_case({ "alpha beta gamma" }, 1, 0)
@@ -589,6 +611,28 @@ local cases = {
       assert_equal(selection_texts(), { "alpha " }, "maw should select the first word around the cursor")
       helix.repeat_last_motion()
       assert_equal(selection_texts(), { "beta " }, "alt-dot should repeat maw with the remembered textobject key")
+    end,
+  },
+  {
+    name = "reverse repeat last motion falls back to forward replay for m-family motions",
+    run = function()
+      reset_case({ "alpha beta gamma" }, 1, 0)
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "w"
+      end
+
+      local ok, err = pcall(function()
+        helix.select_around_pair()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "alpha " }, "maw should select the first word around the cursor")
+      helix.repeat_last_motion_reverse()
+      assert_equal(selection_texts(), { "beta " }, "alt-shift-dot should behave like alt-dot for m-family repeats")
     end,
   },
   {
@@ -818,6 +862,21 @@ local cases = {
 
       helix.goto_textobject("function", "forward")
       assert_equal(selection_texts(), { "ChangeResult Executable::other() {\n  return ChangeResult::Change;\n}" }, "]f from an exact function selection should advance to the next function definition")
+    end,
+  },
+  {
+    name = "reverse repeat last motion replays goto-textobject backward",
+    run = function()
+      reset_case({ "", "ChangeResult Executable::setToLive() {", "  if (live)", "    return ChangeResult::NoChange;", "  live = true;", "  return ChangeResult::Change;", "}", "", "ChangeResult Executable::other() {", "  return ChangeResult::Change;", "}" }, 1, 0)
+      vim.bo.filetype = "cpp"
+      pcall(vim.treesitter.start, 0, "cpp")
+
+      helix.goto_textobject("function", "forward")
+      helix.repeat_last_motion()
+      assert_equal(selection_texts(), { "ChangeResult Executable::other() {\n  return ChangeResult::Change;\n}" }, "alt-dot after ]f should advance to the next function")
+
+      helix.repeat_last_motion_reverse()
+      assert_equal(selection_texts(), { "ChangeResult Executable::setToLive() {\n  if (live)\n    return ChangeResult::NoChange;\n  live = true;\n  return ChangeResult::Change;\n}" }, "alt-shift-dot after ]f should replay the matching [f motion")
     end,
   },
   {

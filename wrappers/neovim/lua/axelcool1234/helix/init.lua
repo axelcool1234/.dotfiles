@@ -110,12 +110,67 @@ end
 
 local replacement_lines
 
-local function remember_repeatable_motion(replay)
+local function opposite_direction(direction)
+  if direction == "forward" then
+    return "backward"
+  end
+  if direction == "backward" then
+    return "forward"
+  end
+  return direction
+end
+
+local function opposite_edge(edge)
+  if edge == "first" then
+    return "last"
+  end
+  if edge == "last" then
+    return "first"
+  end
+  return edge
+end
+
+local function opposite_find_char_kind(kind)
+  if kind == "f" then
+    return "F"
+  end
+  if kind == "F" then
+    return "f"
+  end
+  if kind == "t" then
+    return "T"
+  end
+  if kind == "T" then
+    return "t"
+  end
+  return kind
+end
+
+local function opposite_change_kind(kind)
+  if kind == "next" then
+    return "prev"
+  end
+  if kind == "prev" then
+    return "next"
+  end
+  if kind == "first" then
+    return "last"
+  end
+  if kind == "last" then
+    return "first"
+  end
+  return kind
+end
+
+local function remember_repeatable_motion(replay, reverse_replay)
   if replaying_last_motion then
     return
   end
 
-  last_repeatable_motion = replay
+  last_repeatable_motion = {
+    forward = replay,
+    reverse = reverse_replay,
+  }
 end
 
 local function save_vim_register(name)
@@ -2240,6 +2295,8 @@ function M.find_char_motion(kind)
 
     remember_repeatable_motion(function()
       motion.find_char(kind, char, count)
+    end, function()
+      motion.find_char(opposite_find_char_kind(kind), char, count)
     end)
     motion.find_char(kind, char, count)
   end
@@ -2322,21 +2379,34 @@ function M.goto_line()
   motion.goto_line()
 end
 
-function M.repeat_last_motion()
-  if not last_repeatable_motion then
+local function replay_last_motion(direction)
+  if not last_repeatable_motion or not last_repeatable_motion.forward then
     return
+  end
+
+  local replay = last_repeatable_motion.forward
+  if direction == "reverse" then
+    replay = last_repeatable_motion.reverse or last_repeatable_motion.forward
   end
 
   replaying_last_motion = true
   local ok, err = xpcall(function()
     for _ = 1, vim.v.count1 do
-      last_repeatable_motion()
+      replay()
     end
   end, debug.traceback)
   replaying_last_motion = false
   if not ok then
     error(err)
   end
+end
+
+function M.repeat_last_motion()
+  replay_last_motion("forward")
+end
+
+function M.repeat_last_motion_reverse()
+  replay_last_motion("reverse")
 end
 
 function M.record_macro()
@@ -2610,6 +2680,8 @@ function M.goto_diagnostic(direction)
   local count = vim.v.count1
   remember_repeatable_motion(function()
     M.goto_diagnostic(direction)
+  end, function()
+    M.goto_diagnostic(opposite_direction(direction))
   end)
 
   local diagnostics = sorted_buffer_diagnostics()
@@ -2652,6 +2724,8 @@ end
 function M.goto_edge_diagnostic(edge)
   remember_repeatable_motion(function()
     M.goto_edge_diagnostic(edge)
+  end, function()
+    M.goto_edge_diagnostic(opposite_edge(edge))
   end)
   local diagnostics = vim.diagnostic.get(0)
   if #diagnostics == 0 then
@@ -2686,6 +2760,8 @@ end
 function M.goto_change(kind)
   remember_repeatable_motion(function()
     M.goto_change(kind)
+  end, function()
+    M.goto_change(opposite_change_kind(kind))
   end)
   local cache = require("gitsigns.cache").cache[current_buffer()]
   if not cache then
@@ -2735,6 +2811,8 @@ function M.goto_textobject(object_name, direction)
   local count = vim.v.count1
   remember_repeatable_motion(function()
     match.goto_textobject(object_name, direction, count)
+  end, function()
+    match.goto_textobject(object_name, opposite_direction(direction), count)
   end)
   match.goto_textobject(object_name, direction, count)
 end
@@ -2743,6 +2821,8 @@ function M.goto_treesitter_sibling(direction)
   local count = vim.v.count1
   remember_repeatable_motion(function()
     match.goto_treesitter_sibling(direction, count)
+  end, function()
+    match.goto_treesitter_sibling(opposite_direction(direction), count)
   end)
   match.goto_treesitter_sibling(direction, count)
 end
@@ -2750,6 +2830,8 @@ end
 function M.goto_treesitter_sibling_edge(edge)
   remember_repeatable_motion(function()
     match.goto_treesitter_sibling_edge(edge)
+  end, function()
+    match.goto_treesitter_sibling_edge(opposite_edge(edge))
   end)
   match.goto_treesitter_sibling_edge(edge)
 end
@@ -2758,6 +2840,8 @@ function M.goto_treesitter_child(edge)
   local count = vim.v.count1
   remember_repeatable_motion(function()
     match.goto_treesitter_child(edge, count)
+  end, function()
+    match.goto_treesitter_child(opposite_edge(edge), count)
   end)
   match.goto_treesitter_child(edge, count)
 end
@@ -2769,6 +2853,8 @@ end
 function M.goto_paragraph(direction)
   remember_repeatable_motion(function()
     M.goto_paragraph(direction)
+  end, function()
+    M.goto_paragraph(opposite_direction(direction))
   end)
   local buffer = current_buffer()
   local last_row = position.line_count(buffer)
@@ -2899,6 +2985,8 @@ function M.add_newline_relative(direction, count_override)
   local count = count_override or vim.v.count1
   remember_repeatable_motion(function()
     M.add_newline_relative(direction, count)
+  end, function()
+    M.add_newline_relative(-direction, count)
   end)
   local entries = preview_or_cursor_entries()
   local buffer = current_buffer()

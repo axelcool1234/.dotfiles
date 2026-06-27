@@ -549,6 +549,7 @@ local keys = {
   { "Goto line", "G", helix.goto_line },
 
   { "Repeat last motion", "<A-.>", helix.repeat_last_motion },
+  { "Repeat last motion in reverse", "<A-S-.>", helix.repeat_last_motion_reverse },
 
   { "File explorer", "-", pickers.open_buffer_directory_explorer },
 
