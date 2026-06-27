@@ -52,7 +52,6 @@
   - Could also journal work I'm doing each day - may be a good way to stay organized?
 - NVim Helix motions:
   - https://writewithharper.com/
-  - Optional: Possibly render a pair being selected when doing `mr<char>`?
   - Optional: Make `x` work how I prefer: when cursor is at the top, `x` extends upwards. When it's at the bottom, `x` extends downwards.
   - Optional: `<space>?` - maybe command palette?
   - Optional: Implement DAP stuff (overseer, neotest)
@@ -61,9 +60,6 @@
   - Optional: Look into location list (vim thing)
   - Optional: Look into marks (vim thing)
   - Optional: Look into overview (vim thing)
-  - Optional: `-` should open up oil
-  - Optional: Replace lualine with custom status line
-  - Not sure if possible: Implement `|`, `<A-|>`, `!`, `<A-!>`, `$`
   - Refer to Helix's static-cmd.md for better naming of functions for our helix motion library.
   - Figure out whichkey situation (missing entries, missing features)
     - `<Space>G` (debug)
@@ -71,6 +67,9 @@
       - vim folds
       - helix view mode
     - ``` / `'` (vim marks) 
+  - Not sure if possible: Implement `|`, `<A-|>`, `!`, `<A-!>`, `$`
+  - `-` should open up oil
+  - Replace lualine with custom status line (or customize lualine if that'd be easier)
   - Note for ACTUAL Helix: `"a/` and then some text lets you search via `n` and `N` and assigns register `a` such contents.
     Then, when you select some text and do `s` then some text, the `/` register is assigned said contents. However, the active
     search register is seemingly unchanged, so `n` and `N` moves the primary cursor to the contents from register `a`. Not sure
