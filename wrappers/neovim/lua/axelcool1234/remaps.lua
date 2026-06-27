@@ -453,8 +453,8 @@ local keys = {
   { "Increment selections", "<C-a>", helix.increment },
   { "Decrement selections", "<C-x>", helix.decrement },
 
-  -- { "Scroll half page down", "<C-d>", function() helix.scroll_half_page(1) end },
-  -- { "Scroll half page up", "<C-u>", function() helix.scroll_half_page(-1) end },
+  { "Scroll half page down", "<C-d>", function() helix.scroll_half_page(1) end },
+  { "Scroll half page up", "<C-u>", function() helix.scroll_half_page(-1) end },
 
   { "jjui", "<C-g>", terminal.open_jjui },
 
@@ -534,6 +534,7 @@ local keys = {
 
   { "Undo", "u", helix.undo },
   { "Redo", "U", helix.redo },
+  { "Flash jump", "z", helix.flash_jump, opts = { nowait = true } },
   { "Goto line", "G", helix.goto_line },
 
   { "Repeat last motion", "<A-.>", helix.repeat_last_motion },

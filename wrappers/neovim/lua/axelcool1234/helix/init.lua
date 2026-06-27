@@ -5,6 +5,7 @@ local history_module = require("axelcool1234.helix.history")
 local insert_preview_module = require("axelcool1234.helix.insert_preview")
 local registers_module = require("axelcool1234.helix.registers")
 local match_module = require("axelcool1234.helix.match")
+local flash_module = require("axelcool1234.helix.flash")
 local window_module = require("axelcool1234.helix.window")
 local position = require("axelcool1234.helix.position")
 
@@ -71,6 +72,11 @@ local match = match_module.new({
 local registers = registers_module.new({
   state = state,
   state_module = state_module,
+})
+
+local flash = flash_module.new({
+  position = position,
+  getcharstr = getcharstr,
 })
 
 local window = window_module.new()
@@ -1431,6 +1437,56 @@ local function set_preview_entries(entries, config)
   return state.set_preview_entries(vim.api.nvim_get_current_buf(), entries, config)
 end
 
+local function capture_selection_state_snapshot()
+  return {
+    cursor_pos = state_module.current_pos_1indexed(),
+    entries = preview_or_cursor_entries(),
+    extend_mode = state.extend_mode_active(),
+    had_preview = state.preview_active(),
+    primary_entry = vim.deepcopy(state.primary_entry()),
+  }
+end
+
+local function restore_selection_state_snapshot(snapshot)
+  if not snapshot then
+    return
+  end
+
+  state.clear_preview({ keep_insert_mode = true })
+  if snapshot.extend_mode then
+    state.enter_extend_mode()
+  else
+    state.exit_extend_mode()
+  end
+
+  local needs_preview = snapshot.had_preview or snapshot.extend_mode or #snapshot.entries > 1
+  if needs_preview then
+    state.set_preview_entries(current_buffer(), vim.deepcopy(snapshot.entries), { sync_history = false })
+    if not snapshot.extend_mode then
+      state.exit_extend_mode()
+    end
+    return
+  end
+
+  state_module.move_cursor_to_pos(snapshot.cursor_pos)
+end
+
+local function collapse_to_primary_for_flash(snapshot)
+  if not snapshot or not snapshot.primary_entry then
+    return
+  end
+
+  if snapshot.extend_mode then
+    state.enter_extend_mode()
+    state.set_preview_entries(current_buffer(), { vim.deepcopy(snapshot.primary_entry) }, { sync_history = false })
+    return
+  end
+
+  state.clear_preview({ keep_insert_mode = true })
+  state.exit_extend_mode()
+  state_module.move_cursor_to_pos(snapshot.primary_entry.cursor_pos)
+end
+
 local function selected_or_explicit_register(register_name)
   return register_name or registers.take_selected()
 end
@@ -2187,6 +2243,30 @@ function M.find_char_motion(kind)
     end)
     motion.find_char(kind, char, count)
   end
+end
+
+function M.flash_jump()
+  local snapshot = capture_selection_state_snapshot()
+  if not snapshot.primary_entry then
+    return
+  end
+
+  collapse_to_primary_for_flash(snapshot)
+  local target = flash.pick_visible_word_target(snapshot.primary_entry.cursor_pos)
+  if not target then
+    restore_selection_state_snapshot(snapshot)
+    return
+  end
+
+  if snapshot.extend_mode then
+    state.enter_extend_mode()
+    set_preview_entries({ state_module.selection_entry(snapshot.primary_entry.anchor_pos, target) }, { sync_history = false })
+    return
+  end
+
+  state.clear_preview({ keep_insert_mode = true })
+  state.exit_extend_mode()
+  state_module.move_cursor_to_pos(target)
 end
 
 function M.scroll_half_page(direction)

@@ -532,6 +532,107 @@ local cases = {
     end,
   },
   {
+    name = "flash jump moves the primary cursor to the chosen visible word start",
+    run = function()
+      reset_case({ "alpha beta gamma" }, 1, 0)
+      local original_getcharstr = vim.fn.getcharstr
+      local inputs = { "b", "a" }
+      vim.fn.getcharstr = function()
+        local next_input = inputs[1]
+        table.remove(inputs, 1)
+        return next_input
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_jump()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 6 }, "z should jump to the narrowed labeled visible word start")
+      assert_equal(selection_texts(), {}, "z in normal mode should leave no preview selection behind")
+    end,
+  },
+  {
+    name = "flash jump collapses to primary and extends it in select mode",
+    run = function()
+      reset_case({ "alpha beta", "gamma" }, 1, 0)
+      helix.select_whole_buffer()
+      helix.select_regex_matches("alpha|gamma")
+      helix.toggle_select_mode()
+
+      local original_getcharstr = vim.fn.getcharstr
+      local inputs = { "b", "a" }
+      vim.fn.getcharstr = function()
+        local next_input = inputs[1]
+        table.remove(inputs, 1)
+        return next_input
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_jump()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "alpha b" }, "z in select mode should collapse to primary and extend it to the chosen target")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 6 }, "z in select mode should leave the primary cursor on the chosen target")
+      assert_equal(vim.g.helix_mode_label, "SELECT", "z in select mode should stay in select mode")
+    end,
+  },
+  {
+    name = "flash jump reserves continuation characters before using them as labels",
+    run = function()
+      reset_case({ "noctalia cheatsheet chrono" }, 1, 0)
+      local original_getcharstr = vim.fn.getcharstr
+      local inputs = { "c", "h", "a" }
+      vim.fn.getcharstr = function()
+        local next_input = inputs[1]
+        table.remove(inputs, 1)
+        return next_input
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_jump()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 9 }, "typing z then c then h should narrow to ch* matches before labels are chosen")
+    end,
+  },
+  {
+    name = "cancelled flash jump restores the original multi-selection state",
+    run = function()
+      reset_case({ "alpha beta", "gamma" }, 1, 0)
+      helix.select_whole_buffer()
+      helix.select_regex_matches("alpha|gamma")
+
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return nil
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_jump()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "alpha", "gamma" }, "cancelling z should restore the original selections")
+      assert_equal(all_cursor_positions(), { { 1, 5 }, { 2, 5 } }, "cancelling z should restore the original primary and secondary cursors")
+      assert_equal(vim.g.helix_mode_label, "NORMAL", "cancelling z from normal mode should restore normal mode")
+    end,
+  },
+  {
     name = "trim selection removes surrounding spaces and blank lines",
     run = function()
       reset_case({ "", "  alpha  ", "" }, 1, 0)
