@@ -1,5 +1,13 @@
 local M = {}
 
+local function helix_telescope_opts(opts)
+  return vim.tbl_extend("force", {
+    prompt_title = false,
+    results_title = false,
+    preview_title = false,
+  }, opts or {})
+end
+
 local function git_root_or_cwd()
   local root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
   if vim.v.shell_error == 0 and root ~= "" then
@@ -19,7 +27,7 @@ local function current_buffer_directory()
 end
 
 local function find_files_in_directory(directory, opts)
-  opts = vim.tbl_extend("force", { cwd = directory }, opts or {})
+  opts = helix_telescope_opts(vim.tbl_extend("force", { cwd = directory }, opts or {}))
   require("telescope.builtin").find_files(opts)
 end
 
@@ -138,7 +146,9 @@ local function open_directory_picker(directory, title)
   local previewers = require("telescope.previewers")
 
   pickers.new({}, {
-    prompt_title = title,
+    prompt_title = false,
+    results_title = false,
+    preview_title = false,
     sorting_strategy = "ascending",
     layout_config = {
       prompt_position = "top",
@@ -200,9 +210,9 @@ end
 function M.live_grep_in_git_root()
   local root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
   if vim.v.shell_error == 0 then
-    require("telescope.builtin").live_grep({ cwd = root })
+    require("telescope.builtin").live_grep(helix_telescope_opts({ cwd = root }))
   else
-    require("telescope.builtin").live_grep()
+    require("telescope.builtin").live_grep(helix_telescope_opts())
   end
 end
 
@@ -211,10 +221,9 @@ function M.find_files_in_cwd()
 end
 
 function M.changed_file_picker()
-  require("telescope.builtin").git_status({
+  require("telescope.builtin").git_status(helix_telescope_opts({
     cwd = git_root_or_cwd(),
-    prompt_title = "Changed Files",
-  })
+  }))
 end
 
 function M.find_files_in_directory(directory, opts)
@@ -230,42 +239,54 @@ function M.open_buffer_directory_explorer()
 end
 
 function M.buffer_picker()
-  require("telescope.builtin").buffers({
+  require("telescope.builtin").buffers(helix_telescope_opts({
     sort_mru = true,
-  })
+  }))
 end
 
 function M.jumplist_picker()
-  require("telescope.builtin").jumplist()
+  require("telescope.builtin").jumplist(helix_telescope_opts())
 end
 
 function M.document_symbols_picker()
-  require("telescope.builtin").lsp_document_symbols()
+  require("telescope.builtin").lsp_document_symbols(helix_telescope_opts())
 end
 
 function M.workspace_symbols_picker()
-  require("telescope.builtin").lsp_dynamic_workspace_symbols()
+  require("telescope.builtin").lsp_dynamic_workspace_symbols(helix_telescope_opts())
 end
 
 function M.diagnostics_picker()
-  require("telescope.builtin").diagnostics({
+  require("telescope.builtin").diagnostics(helix_telescope_opts({
     bufnr = 0,
     sort_by = "severity",
-  })
+  }))
 end
 
 function M.workspace_diagnostics_picker()
-  require("telescope.builtin").diagnostics({
+  require("telescope.builtin").diagnostics(helix_telescope_opts({
     sort_by = "severity",
-  })
+  }))
 end
 
 function M.references_picker()
-  require("telescope.builtin").lsp_references()
+  require("telescope.builtin").lsp_references(helix_telescope_opts())
+end
+
+function M.definitions_picker()
+  require("telescope.builtin").lsp_definitions(helix_telescope_opts({ reuse_win = true }))
+end
+
+function M.type_definitions_picker()
+  require("telescope.builtin").lsp_type_definitions(helix_telescope_opts({ reuse_win = true }))
+end
+
+function M.implementations_picker()
+  require("telescope.builtin").lsp_implementations(helix_telescope_opts({ reuse_win = true }))
 end
 
 function M.resume_last_picker()
-  require("telescope.builtin").resume()
+  require("telescope.builtin").resume(helix_telescope_opts())
 end
 
 return M
