@@ -667,6 +667,83 @@ local cases = {
     end,
   },
   {
+    name = "flash treesitter selects the current syntax node",
+    run = function()
+      reset_case({ "return foo(bar)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "a"
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_treesitter()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "bar" }, "Z should select the innermost treesitter node under the cursor")
+      assert_equal(vim.g.helix_mode_label, "NORMAL", "Z in normal mode should keep normal mode")
+    end,
+  },
+  {
+    name = "flash treesitter stays in select mode after picking a node",
+    run = function()
+      reset_case({ "return foo(bar)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+      helix.toggle_select_mode()
+
+      local original_getcharstr = vim.fn.getcharstr
+      vim.fn.getcharstr = function()
+        return "a"
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_treesitter()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "bar" }, "Z in select mode should replace the primary selection with the chosen syntax node")
+      assert_equal(vim.g.helix_mode_label, "SELECT", "Z in select mode should stay in select mode")
+    end,
+  },
+  {
+    name = "flash treesitter advances to the next enclosing node when the current selection already matches one",
+    run = function()
+      reset_case({ "return foo(bar)" }, 1, 11)
+      vim.bo.filetype = "lua"
+      pcall(vim.treesitter.start, 0, "lua")
+
+      local cr = vim.api.nvim_replace_termcodes("<CR>", true, false, true)
+      local original_getcharstr = vim.fn.getcharstr
+      local inputs = { cr, cr }
+      vim.fn.getcharstr = function()
+        local next_input = inputs[1]
+        table.remove(inputs, 1)
+        return next_input
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_treesitter()
+        helix.flash_treesitter()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(selection_texts(), { "(bar)" }, "pressing Z then Enter twice should advance from the current node to the next enclosing syntax node")
+    end,
+  },
+  {
     name = "trim selection removes surrounding spaces and blank lines",
     run = function()
       reset_case({ "", "  alpha  ", "" }, 1, 0)

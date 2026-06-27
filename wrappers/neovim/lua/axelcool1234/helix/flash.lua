@@ -13,8 +13,20 @@ local function same_pos(left, right)
   return left[1] == right[1] and left[2] == right[2]
 end
 
+local function same_range(entry, start_pos, end_pos)
+  return entry
+    and entry.start_pos
+    and entry.end_pos
+    and same_pos(entry.start_pos, start_pos)
+    and same_pos(entry.end_pos, end_pos)
+end
+
 local function pos_id(pos, win)
   return string.format("%d:%d:%d", win or 0, pos[1], pos[2])
+end
+
+local function range_id(start_pos, end_pos, win)
+  return string.format("%d:%d:%d:%d:%d", win or 0, start_pos[1], start_pos[2], end_pos[1], end_pos[2])
 end
 
 local function key_code(char)
@@ -246,22 +258,27 @@ function M.new(opts)
   local function render_matches(matches)
     for index, match in ipairs(matches) do
       local buffer = match.buffer
-      local row = match.pos[1]
-      local col = match.pos[2]
-      local line = position.line_text(buffer, row)
-      local start_col = position.byte_col0_from_char_col(line, col)
-      local end_col = position.byte_col0_from_char_col(line, col + 1)
-      local hl_group = index == 1 and "HelixFlashCurrent" or "HelixFlashTarget"
+      local end_pos = match.end_pos or match.pos
+      local start_row0, start_col = position.before_boundary(buffer, match.pos)
+      local end_row0, end_col = position.after_boundary(buffer, end_pos)
+      local hl_group = match.current and "HelixFlashCurrent" or (index == 1 and "HelixFlashCurrent" or "HelixFlashTarget")
+      local should_highlight = match.highlight
+      if should_highlight == nil then
+        should_highlight = true
+      end
 
-      vim.api.nvim_buf_set_extmark(buffer, namespace, row - 1, start_col, {
-        end_col = end_col,
-        hl_group = hl_group,
-        strict = false,
-        priority = 6100,
-      })
+      if should_highlight then
+        vim.api.nvim_buf_set_extmark(buffer, namespace, start_row0, start_col, {
+          end_row = end_row0,
+          end_col = end_col,
+          hl_group = hl_group,
+          strict = false,
+          priority = 6100,
+        })
+      end
 
       if match.label then
-        vim.api.nvim_buf_set_extmark(buffer, namespace, row - 1, start_col, {
+        vim.api.nvim_buf_set_extmark(buffer, namespace, start_row0, start_col, {
           virt_text = { { match.label, "HelixFlashLabel" } },
           virt_text_pos = "overlay",
           hl_mode = "combine",
@@ -321,6 +338,106 @@ function M.new(opts)
     return wins
   end
 
+  local function char_pos_from_byte_col0(buffer, row1, byte_col0)
+    local line = position.line_text(buffer, row1)
+    return { row1, position.char_col_from_byte_col0(line, byte_col0) }
+  end
+
+  local function ts_node_range_positions(buffer, node)
+    local start_row, start_col, end_row, end_col = node:range()
+    local start_pos = char_pos_from_byte_col0(buffer, start_row + 1, start_col)
+    local end_boundary = char_pos_from_byte_col0(buffer, end_row + 1, end_col)
+    local line_count = vim.api.nvim_buf_line_count(buffer)
+
+    if end_boundary[1] > line_count then
+      local last_row = line_count
+      return start_pos, { last_row, position.cursor_max_column(buffer, last_row) }
+    end
+
+    local end_pos = same_pos(start_pos, end_boundary) and start_pos or position.prev_pos(buffer, end_boundary)
+    return start_pos, end_pos
+  end
+
+  local function collect_treesitter_matches(win, origin)
+    local buffer = vim.api.nvim_win_get_buf(win)
+    local line = position.line_text(buffer, origin[1])
+    local byte_col0 = position.byte_col0_from_char_col(line, origin[2])
+    local ok, parser = pcall(vim.treesitter.get_parser, buffer)
+    if not (ok and parser) then
+      vim.notify(
+        "No treesitter parser for this buffer with filetype=" .. vim.bo[buffer].filetype,
+        vim.log.levels.WARN,
+        { title = "flash" }
+      )
+      return {}
+    end
+    parser:parse()
+
+    local nodes = {}
+    parser:for_each_tree(function(tstree, tree)
+      if not tstree then
+        return
+      end
+
+      local node = tree:named_node_for_range({ origin[1] - 1, byte_col0, origin[1] - 1, byte_col0 }, {
+        ignore_injections = true,
+      })
+      while node do
+        nodes[#nodes + 1] = node
+        node = node:parent()
+      end
+    end)
+
+    local matches = {}
+    local seen = {}
+    for _, node in ipairs(nodes) do
+      local start_pos, end_pos = ts_node_range_positions(buffer, node)
+      local id = range_id(start_pos, end_pos, win)
+      if not seen[id] then
+        seen[id] = true
+        matches[#matches + 1] = {
+          win = win,
+          buffer = buffer,
+          pos = start_pos,
+          end_pos = end_pos,
+        }
+      end
+    end
+
+    return matches
+  end
+
+  local function assign_treesitter_labels(matches, current_index)
+    local labeled = {}
+    local labels = vim.split(label_alphabet, "")
+    for index, candidate in ipairs(matches) do
+      if not labels[index] then
+        break
+      end
+
+      local match = vim.deepcopy(candidate)
+      match.label = labels[index]
+      match.current = index == current_index
+      match.highlight = match.current
+      labeled[#labeled + 1] = match
+    end
+    return labeled
+  end
+
+  local function initial_treesitter_index(matches, current_entry)
+    if not current_entry then
+      return 1
+    end
+
+    for index, match in ipairs(matches) do
+      if same_range(current_entry, match.pos, match.end_pos) then
+        return math.min(index + 1, #matches)
+      end
+    end
+
+    return 1
+  end
+
   function flash.pick_visible_word_target(origin, opts)
     opts = opts or {}
     local win = vim.api.nvim_get_current_win()
@@ -362,6 +479,70 @@ function M.new(opts)
     end)
 
     clear(collect_buffers(matches, wins))
+    vim.cmd.redraw()
+
+    if not ok then
+      error(result)
+    end
+
+    return result
+  end
+
+  function flash.pick_treesitter_target(origin, current_entry)
+    local win = vim.api.nvim_get_current_win()
+    local wins = { win }
+    local matches = collect_treesitter_matches(win, origin)
+    local current_index = initial_treesitter_index(matches, current_entry)
+    if #matches == 0 then
+      return nil
+    end
+
+    local function redraw()
+      render(wins, "treesitter", assign_treesitter_labels(matches, current_index))
+    end
+
+    redraw()
+
+    local ok, result = pcall(function()
+      while true do
+        local char = getcharstr()
+        if not char then
+          return nil
+        end
+
+        local key = key_code(char)
+        if key == ";" then
+          current_index = math.min(current_index + 1, #matches)
+        elseif key == "," then
+          current_index = math.max(current_index - 1, 1)
+        elseif key == "<CR>" or key == "<Enter>" then
+          local current = matches[current_index]
+          if current then
+            return {
+              win = current.win,
+              buffer = current.buffer,
+              start_pos = current.pos,
+              end_pos = current.end_pos,
+            }
+          end
+        elseif is_printable_char(char) then
+          for _, match in ipairs(assign_treesitter_labels(matches, current_index)) do
+            if match.label == char then
+              return {
+                win = match.win,
+                buffer = match.buffer,
+                start_pos = match.pos,
+                end_pos = match.end_pos,
+              }
+            end
+          end
+        end
+
+        redraw()
+      end
+    end)
+
+    clear(collect_buffers(assign_treesitter_labels(matches, current_index), wins))
     vim.cmd.redraw()
 
     if not ok then

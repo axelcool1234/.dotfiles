@@ -2283,6 +2283,33 @@ function M.flash_jump()
   state_module.move_cursor_to_pos(target.pos)
 end
 
+function M.flash_treesitter()
+  local snapshot = capture_selection_state_snapshot()
+  if not snapshot.primary_entry then
+    return
+  end
+
+  collapse_to_primary_for_flash(snapshot)
+  local target = flash.pick_treesitter_target(snapshot.primary_entry.cursor_pos, snapshot.primary_entry)
+  if not target then
+    restore_selection_state_snapshot(snapshot)
+    return
+  end
+
+  if target.win ~= vim.api.nvim_get_current_win() then
+    vim.api.nvim_set_current_win(target.win)
+  end
+
+  state.set_preview_entries(current_buffer(), {
+    state_module.selection_entry(target.start_pos, target.end_pos),
+  }, { sync_history = false })
+  if snapshot.extend_mode then
+    state.enter_extend_mode()
+  else
+    state.exit_extend_mode()
+  end
+end
+
 function M.scroll_half_page(direction)
   motion.scroll_half_page(direction)
 end

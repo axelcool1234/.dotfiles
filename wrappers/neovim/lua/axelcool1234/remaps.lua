@@ -535,6 +535,7 @@ local keys = {
   { "Undo", "u", helix.undo },
   { "Redo", "U", helix.redo },
   { "Flash jump", "z", helix.flash_jump, opts = { nowait = true } },
+  { "Flash treesitter", "Z", helix.flash_treesitter, opts = { nowait = true } },
   { "Goto line", "G", helix.goto_line },
 
   { "Repeat last motion", "<A-.>", helix.repeat_last_motion },
