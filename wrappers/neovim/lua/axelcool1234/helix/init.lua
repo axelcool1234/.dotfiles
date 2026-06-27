@@ -2252,21 +2252,35 @@ function M.flash_jump()
   end
 
   collapse_to_primary_for_flash(snapshot)
-  local target = flash.pick_visible_word_target(snapshot.primary_entry.cursor_pos)
+  local target = flash.pick_visible_word_target(snapshot.primary_entry.cursor_pos, {
+    multi_window = not snapshot.extend_mode,
+  })
   if not target then
     restore_selection_state_snapshot(snapshot)
     return
   end
 
   if snapshot.extend_mode then
+    if target.buffer ~= current_buffer() then
+      vim.notify("flash jump across buffers is not supported in select mode", vim.log.levels.WARN)
+      restore_selection_state_snapshot(snapshot)
+      return
+    end
+
+    if target.win ~= vim.api.nvim_get_current_win() then
+      vim.api.nvim_set_current_win(target.win)
+    end
     state.enter_extend_mode()
-    set_preview_entries({ state_module.selection_entry(snapshot.primary_entry.anchor_pos, target) }, { sync_history = false })
+    set_preview_entries({ state_module.selection_entry(snapshot.primary_entry.anchor_pos, target.pos) }, { sync_history = false })
     return
   end
 
+  if target.win ~= vim.api.nvim_get_current_win() then
+    vim.api.nvim_set_current_win(target.win)
+  end
   state.clear_preview({ keep_insert_mode = true })
   state.exit_extend_mode()
-  state_module.move_cursor_to_pos(target)
+  state_module.move_cursor_to_pos(target.pos)
 end
 
 function M.scroll_half_page(direction)

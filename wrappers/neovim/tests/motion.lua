@@ -556,6 +556,40 @@ local cases = {
     end,
   },
   {
+    name = "flash jump can switch to a visible match in another window",
+    run = function()
+      vim.cmd("only")
+      reset_case({ "alpha" }, 1, 0)
+      local left_win = vim.api.nvim_get_current_win()
+      vim.cmd("vnew")
+      local right_win = vim.api.nvim_get_current_win()
+      vim.bo.filetype = "text"
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "beta" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      vim.api.nvim_set_current_win(left_win)
+
+      local original_getcharstr = vim.fn.getcharstr
+      local inputs = { "b", "a" }
+      vim.fn.getcharstr = function()
+        local next_input = inputs[1]
+        table.remove(inputs, 1)
+        return next_input
+      end
+
+      local ok, err = pcall(function()
+        helix.flash_jump()
+      end)
+      vim.fn.getcharstr = original_getcharstr
+      if not ok then
+        error(err)
+      end
+
+      assert_equal(vim.api.nvim_get_current_win(), right_win, "z should switch to the target window when the chosen match is visible there")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "z should place the cursor on the chosen match in the other window")
+      vim.cmd("only")
+    end,
+  },
+  {
     name = "flash jump collapses to primary and extends it in select mode",
     run = function()
       reset_case({ "alpha beta", "gamma" }, 1, 0)
@@ -589,7 +623,7 @@ local cases = {
     run = function()
       reset_case({ "noctalia cheatsheet chrono" }, 1, 0)
       local original_getcharstr = vim.fn.getcharstr
-      local inputs = { "c", "h", "a" }
+      local inputs = { "c", "h", nil }
       vim.fn.getcharstr = function()
         local next_input = inputs[1]
         table.remove(inputs, 1)
@@ -604,7 +638,7 @@ local cases = {
         error(err)
       end
 
-      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 9 }, "typing z then c then h should narrow to ch* matches before labels are chosen")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "typing z then c then h should keep narrowing instead of treating h as an immediate jump label")
     end,
   },
   {
