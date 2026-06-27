@@ -12,7 +12,7 @@ vim.list_extend(triggers, manual_triggers)
 wk.setup({
   preset = "helix",
   delay = 0,
-  sort = { "manual", "local", "group", "alphanum", "mod" },
+  sort = { "manual", "order", "local", "group", "alphanum", "mod" },
   plugins = {
     registers = false,
     presets = {

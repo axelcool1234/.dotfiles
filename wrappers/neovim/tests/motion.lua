@@ -857,6 +857,24 @@ local cases = {
     end,
   },
   {
+    name = "special registers stay in a fixed tail order",
+    run = function()
+      reset_case({ "abc" }, 1, 0)
+      helix.yank_selection('"')
+      helix.yank_selection("$")
+
+      assert(vim.tbl_contains(require("which-key.config").sort, "order"), "which-key sort should include order so plugin panels preserve explicit item ordering")
+
+      local items = helix.which_key_register_items()
+      local tail = {}
+      for index = math.max(#items - 5, 1), #items do
+        tail[#tail + 1] = items[index].key
+      end
+
+      assert_equal(tail, { "_", "#", ".", "%", "+", "*" }, "special registers should remain grouped at the end of the popup item list in the configured order")
+    end,
+  },
+  {
     name = "colon register exposes the last executed command",
     run = function()
       reset_case({ "abc" }, 1, 0)

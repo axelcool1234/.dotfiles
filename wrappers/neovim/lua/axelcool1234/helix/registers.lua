@@ -191,16 +191,6 @@ function M.new(opts)
   function registers.which_key_entries(select_fn)
     local entries = {}
 
-    for _, name in ipairs(visible_static_registers) do
-      entries[#entries + 1] = {
-        name,
-        function()
-          select_fn(name)
-        end,
-        desc = static_descriptions[name],
-      }
-    end
-
     for _, name in ipairs({ '/', ':', '"', '@' }) do
       local default_values = preview_read(name)
       if #default_values > 0 then
@@ -229,6 +219,16 @@ function M.new(opts)
           select_fn(name)
         end,
         desc = register_desc(registers.read(name)),
+      }
+    end
+
+    for _, name in ipairs(visible_static_registers) do
+      entries[#entries + 1] = {
+        name,
+        function()
+          select_fn(name)
+        end,
+        desc = static_descriptions[name],
       }
     end
 
