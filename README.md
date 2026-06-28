@@ -27,8 +27,6 @@
   - wlr-which-key
 - Switch from PCManFM to just yazi + ripgdrag
 - Theme related TODOs
-  - Neovim's telescope should have rounded text boxes and titles shouldn't have filled backgrounds.
-    - Basically telescope needs some management for Noctalia
   - See if Code can change theme dynamically (will have to patch Code)
   - Add themes for MPV and IMV
   - Grub has some extra logic that is never used (either throw it out or reimplement it it was cycling grub themes)
