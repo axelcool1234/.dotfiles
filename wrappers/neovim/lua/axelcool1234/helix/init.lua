@@ -3,6 +3,7 @@ local motion_module = require("axelcool1234.helix.motion")
 local insert_module = require("axelcool1234.helix.insert")
 local history_module = require("axelcool1234.helix.history")
 local insert_preview_module = require("axelcool1234.helix.insert_preview")
+local jumplist_module = require("axelcool1234.helix.jumplist")
 local registers_module = require("axelcool1234.helix.registers")
 local match_module = require("axelcool1234.helix.match")
 local flash_module = require("axelcool1234.helix.flash")
@@ -60,6 +61,8 @@ local history = history_module.new({
   state = state,
   state_module = state_module,
 })
+
+local jumplist
 
 local match = match_module.new({
   state = state,
@@ -726,6 +729,8 @@ local function restore_search_snapshot(session)
   if session.had_preview then
     state.set_preview_entries(session.buffer, vim.deepcopy(session.entries), {
       sync_history = false,
+      cursor_positions = vim.deepcopy(session.cursor_positions or {}),
+      preferred_columns = vim.deepcopy(session.preferred_columns or {}),
     })
   else
     state_module.move_cursor_to_pos(session.cursor_pos)
@@ -801,6 +806,16 @@ local function finish_incremental_search(session, confirmed)
     return
   end
 
+  push_jump_if_moved({
+    buffer = session.buffer,
+    cursor_pos = session.cursor_pos,
+    entries = vim.deepcopy(session.entries),
+    extend_mode = session.extend_mode,
+    had_preview = session.had_preview,
+    cursor_positions = vim.deepcopy(session.cursor_positions or {}),
+    preferred_columns = vim.deepcopy(session.preferred_columns or {}),
+  }, "search")
+
   suspend_incremental_search_cursor_clear(2)
   vim.schedule(function()
     if state.preview_active() then
@@ -868,9 +883,11 @@ local function start_incremental_search(direction)
     cursor_pos = state_module.current_pos_1indexed(),
     direction = direction,
     entries = vim.deepcopy(source_entries),
+    cursor_positions = state.preview_active() and vim.deepcopy(state.preview.cursor_positions or {}) or nil,
     extend_mode = state.extend_mode_active(),
     had_preview = state.preview_active(),
     pattern = "",
+    preferred_columns = state.current_preferred_columns(),
     register_name = register_name,
     saved_incsearch = vim.o.incsearch,
     saved_search_register = save_vim_register("/"),
@@ -898,7 +915,10 @@ function M.search_next(direction)
     return
   end
 
-  apply_search_match(pattern, direction)
+  local before = capture_selection_state_snapshot()
+  if apply_search_match(pattern, direction) then
+    push_jump_if_moved(before, "search-next")
+  end
 end
 
 local function echo_search_register_set(register_name, pattern)
@@ -1493,11 +1513,15 @@ local function set_preview_entries(entries, config)
 end
 
 local function capture_selection_state_snapshot()
+  local cursor_pos = state_module.current_pos_1indexed()
   return {
-    cursor_pos = state_module.current_pos_1indexed(),
+    buffer = current_buffer(),
+    cursor_pos = cursor_pos,
     entries = preview_or_cursor_entries(),
     extend_mode = state.extend_mode_active(),
     had_preview = state.preview_active(),
+    cursor_positions = state.preview_active() and vim.deepcopy(state.preview.cursor_positions or {}) or { vim.deepcopy(cursor_pos) },
+    preferred_columns = state.current_preferred_columns(),
     primary_entry = vim.deepcopy(state.primary_entry()),
   }
 end
@@ -1516,14 +1540,90 @@ local function restore_selection_state_snapshot(snapshot)
 
   local needs_preview = snapshot.had_preview or snapshot.extend_mode or #snapshot.entries > 1
   if needs_preview then
-    state.set_preview_entries(current_buffer(), vim.deepcopy(snapshot.entries), { sync_history = false })
+    local buffer = snapshot.buffer or current_buffer()
+    if vim.api.nvim_get_current_buf() ~= buffer and vim.api.nvim_buf_is_valid(buffer) then
+      vim.api.nvim_win_set_buf(0, buffer)
+    end
+
+    state.set_preview_entries(buffer, vim.deepcopy(snapshot.entries), {
+      sync_history = false,
+      cursor_positions = vim.deepcopy(snapshot.cursor_positions or {}),
+      preferred_columns = vim.deepcopy(snapshot.preferred_columns or {}),
+    })
     if not snapshot.extend_mode then
       state.exit_extend_mode()
     end
     return
   end
 
+  if snapshot.buffer and vim.api.nvim_get_current_buf() ~= snapshot.buffer and vim.api.nvim_buf_is_valid(snapshot.buffer) then
+    vim.api.nvim_win_set_buf(0, snapshot.buffer)
+  end
   state_module.move_cursor_to_pos(snapshot.cursor_pos)
+end
+
+jumplist = jumplist_module.new({
+  capture = capture_selection_state_snapshot,
+  restore = restore_selection_state_snapshot,
+})
+
+local function selection_state_snapshots_equal(left, right)
+  if not left or not right then
+    return false
+  end
+
+  if left.buffer ~= right.buffer
+    or left.extend_mode ~= right.extend_mode
+    or left.had_preview ~= right.had_preview
+    or #left.entries ~= #right.entries
+    or #left.preferred_columns ~= #right.preferred_columns then
+    return false
+  end
+
+  for index, entry in ipairs(left.entries) do
+    local other = right.entries[index]
+    if not other
+      or entry.anchor_pos[1] ~= other.anchor_pos[1]
+      or entry.anchor_pos[2] ~= other.anchor_pos[2]
+      or entry.cursor_pos[1] ~= other.cursor_pos[1]
+      or entry.cursor_pos[2] ~= other.cursor_pos[2] then
+      return false
+    end
+  end
+
+  local left_cursor_positions = left.cursor_positions or {}
+  local right_cursor_positions = right.cursor_positions or {}
+  if #left_cursor_positions ~= #right_cursor_positions then
+    return false
+  end
+
+  for index, pos in ipairs(left_cursor_positions) do
+    local other = right_cursor_positions[index]
+    if not other or pos[1] ~= other[1] or pos[2] ~= other[2] then
+      return false
+    end
+  end
+
+  for index, preferred in ipairs(left.preferred_columns or {}) do
+    if preferred ~= right.preferred_columns[index] then
+      return false
+    end
+  end
+
+  return true
+end
+
+local function push_jump_snapshot(snapshot, reason)
+  return jumplist.push_snapshot(vim.deepcopy(snapshot), reason)
+end
+
+local function push_jump_if_moved(before, reason)
+  local after = capture_selection_state_snapshot()
+  if selection_state_snapshots_equal(before, after) then
+    return false
+  end
+
+  return push_jump_snapshot(before, reason)
 end
 
 local function collapse_to_primary_for_flash(snapshot)
@@ -2329,6 +2429,7 @@ function M.flash_jump()
     end
     state.enter_extend_mode()
     set_preview_entries({ state_module.selection_entry(snapshot.primary_entry.anchor_pos, target.pos) }, { sync_history = false })
+    push_jump_if_moved(snapshot, "flash-jump")
     return
   end
 
@@ -2338,6 +2439,7 @@ function M.flash_jump()
   state.clear_preview({ keep_insert_mode = true })
   state.exit_extend_mode()
   state_module.move_cursor_to_pos(target.pos)
+  push_jump_if_moved(snapshot, "flash-jump")
 end
 
 function M.flash_treesitter()
@@ -2365,6 +2467,7 @@ function M.flash_treesitter()
   else
     state.exit_extend_mode()
   end
+  push_jump_if_moved(snapshot, "flash-treesitter")
 end
 
 function M.scroll_half_page(direction)
@@ -2372,11 +2475,15 @@ function M.scroll_half_page(direction)
 end
 
 function M.goto_last_line()
+  local before = capture_selection_state_snapshot()
   motion.goto_last_line()
+  push_jump_if_moved(before, "goto-last-line")
 end
 
 function M.goto_line()
+  local before = capture_selection_state_snapshot()
   motion.goto_line()
+  push_jump_if_moved(before, "goto-line")
 end
 
 local function replay_last_motion(direction)
@@ -2480,6 +2587,7 @@ function M.replay_macro()
 end
 
 function M.goto_file_start()
+  local before = capture_selection_state_snapshot()
   local target_row = vim.v.count > 0 and vim.v.count or 1
   local buffer = current_buffer()
   local last_row = position.line_count(buffer)
@@ -2509,10 +2617,13 @@ function M.goto_file_start()
   end
 
   state_module.move_cursor_to_pos(entries[1].cursor_pos)
+  push_jump_if_moved(before, "goto-file-start")
 end
 
 function M.goto_column()
+  local before = capture_selection_state_snapshot()
   motion.normal("|")()
+  push_jump_if_moved(before, "goto-column")
 end
 
 function M.goto_line_start()
@@ -2576,10 +2687,12 @@ function M.toggle_focus_window()
 end
 
 function M.goto_last_accessed_file()
+  local before = capture_selection_state_snapshot()
   local alt = vim.fn.bufnr("#")
   local current = vim.api.nvim_get_current_buf()
   if alt > 0 and alt ~= current and vim.api.nvim_buf_is_valid(alt) then
     vim.cmd.buffer({ args = { tostring(alt) } })
+    push_jump_if_moved(before, "last-accessed-file")
     return
   end
 
@@ -2587,12 +2700,14 @@ function M.goto_last_accessed_file()
 end
 
 function M.goto_last_modified_file()
+  local before = capture_selection_state_snapshot()
   local current = vim.api.nvim_get_current_buf()
   for index, buf in ipairs(last_modified_buffers) do
     if not vim.api.nvim_buf_is_valid(buf) or buf == current then
       table.remove(last_modified_buffers, index)
     else
       vim.cmd.buffer({ args = { tostring(buf) } })
+      push_jump_if_moved(before, "last-modified-file")
       return
     end
   end
@@ -2601,7 +2716,9 @@ function M.goto_last_modified_file()
 end
 
 function M.goto_last_modification()
+  local before = capture_selection_state_snapshot()
   motion.normal("g;")()
+  push_jump_if_moved(before, "last-modification")
 end
 
 local function diagnostic_pos_from_byte(row1, byte_col0)
@@ -2677,6 +2794,7 @@ local function find_relative_diagnostic(diagnostics, cursor_pos, direction, coun
 end
 
 function M.goto_diagnostic(direction)
+  local before = capture_selection_state_snapshot()
   local count = vim.v.count1
   remember_repeatable_motion(function()
     M.goto_diagnostic(direction)
@@ -2719,9 +2837,11 @@ function M.goto_diagnostic(direction)
     state.exit_extend_mode()
   end
   vim.diagnostic.open_float(0, { scope = "cursor", focusable = false })
+  push_jump_if_moved(before, "diagnostic")
 end
 
 function M.goto_edge_diagnostic(edge)
+  local before = capture_selection_state_snapshot()
   remember_repeatable_motion(function()
     M.goto_edge_diagnostic(edge)
   end, function()
@@ -2743,6 +2863,7 @@ function M.goto_edge_diagnostic(edge)
   local diagnostic = edge == "last" and diagnostics[#diagnostics] or diagnostics[1]
   vim.api.nvim_win_set_cursor(0, { diagnostic.lnum + 1, diagnostic.col })
   vim.diagnostic.open_float(0, { scope = "cursor", focusable = false })
+  push_jump_if_moved(before, "diagnostic-edge")
 end
 
 local function change_entry_from_hunk(hunk, direction)
@@ -2758,6 +2879,7 @@ local function change_entry_from_hunk(hunk, direction)
 end
 
 function M.goto_change(kind)
+  local before = capture_selection_state_snapshot()
   remember_repeatable_motion(function()
     M.goto_change(kind)
   end, function()
@@ -2805,9 +2927,11 @@ function M.goto_change(kind)
   if not in_extend_mode then
     state.exit_extend_mode()
   end
+  push_jump_if_moved(before, "change")
 end
 
 function M.goto_textobject(object_name, direction)
+  local before = capture_selection_state_snapshot()
   local count = vim.v.count1
   remember_repeatable_motion(function()
     match.goto_textobject(object_name, direction, count)
@@ -2815,9 +2939,11 @@ function M.goto_textobject(object_name, direction)
     match.goto_textobject(object_name, opposite_direction(direction), count)
   end)
   match.goto_textobject(object_name, direction, count)
+  push_jump_if_moved(before, "textobject")
 end
 
 function M.goto_treesitter_sibling(direction)
+  local before = capture_selection_state_snapshot()
   local count = vim.v.count1
   remember_repeatable_motion(function()
     match.goto_treesitter_sibling(direction, count)
@@ -2825,18 +2951,22 @@ function M.goto_treesitter_sibling(direction)
     match.goto_treesitter_sibling(opposite_direction(direction), count)
   end)
   match.goto_treesitter_sibling(direction, count)
+  push_jump_if_moved(before, "treesitter-sibling")
 end
 
 function M.goto_treesitter_sibling_edge(edge)
+  local before = capture_selection_state_snapshot()
   remember_repeatable_motion(function()
     match.goto_treesitter_sibling_edge(edge)
   end, function()
     match.goto_treesitter_sibling_edge(opposite_edge(edge))
   end)
   match.goto_treesitter_sibling_edge(edge)
+  push_jump_if_moved(before, "treesitter-sibling-edge")
 end
 
 function M.goto_treesitter_child(edge)
+  local before = capture_selection_state_snapshot()
   local count = vim.v.count1
   remember_repeatable_motion(function()
     match.goto_treesitter_child(edge, count)
@@ -2844,6 +2974,7 @@ function M.goto_treesitter_child(edge)
     match.goto_treesitter_child(opposite_edge(edge), count)
   end)
   match.goto_treesitter_child(edge, count)
+  push_jump_if_moved(before, "treesitter-child")
 end
 
 local function line_is_blank_text(row)
@@ -2851,6 +2982,7 @@ local function line_is_blank_text(row)
 end
 
 function M.goto_paragraph(direction)
+  local before = capture_selection_state_snapshot()
   remember_repeatable_motion(function()
     M.goto_paragraph(direction)
   end, function()
@@ -2979,6 +3111,7 @@ function M.goto_paragraph(direction)
   if not in_extend_mode then
     state.exit_extend_mode()
   end
+  push_jump_if_moved(before, "paragraph")
 end
 
 function M.add_newline_relative(direction, count_override)
@@ -3599,6 +3732,7 @@ function M.trim_current_preview_selection()
 end
 
 function M.filter_selections_by_regex(keep_matches)
+  local before = capture_selection_state_snapshot()
   local pattern = prompt_selection_regex(keep_matches and "keep" or "remove")
   if not pattern or not state.preview_active() then
     return
@@ -3620,9 +3754,11 @@ function M.filter_selections_by_regex(keep_matches)
   end
 
   state.set_preview_entries(vim.api.nvim_get_current_buf(), kept)
+  push_jump_if_moved(before, keep_matches and "keep-selections" or "remove-selections")
 end
 
 function M.select_regex_matches(pattern)
+  local before = capture_selection_state_snapshot()
   local register_name = resolve_search_register('/')
   pattern = pattern or prompt_selection_regex("select", register_name)
   if not pattern then
@@ -3649,6 +3785,7 @@ function M.select_regex_matches(pattern)
 
   set_preview_entries(matches)
   state.exit_extend_mode()
+  push_jump_if_moved(before, "select-regex")
 end
 
 function M.keep_primary_selection_or_cursor()
@@ -3795,6 +3932,28 @@ function M.read_register(register_name)
   return registers.read(register_name)
 end
 
+function M.save_selection_to_jumplist()
+  if jumplist.push_current("manual") then
+    vim.api.nvim_echo({ { "selection saved to jumplist", "ModeMsg" } }, false, {})
+  end
+end
+
+function M.jump_backward()
+  jumplist.jump_backward(vim.v.count1)
+end
+
+function M.jump_forward()
+  jumplist.jump_forward(vim.v.count1)
+end
+
+function M.jumplist_items()
+  return jumplist.items()
+end
+
+function M.jump_to_jumplist(index)
+  jumplist.jump_to(index)
+end
+
 local function apply_native_history_jump(command)
   local before_seq = vim.fn.undotree().seq_cur
   local ok = pcall(vim.cmd, command)
@@ -3869,10 +4028,12 @@ function M.select_inside_pair()
 end
 
 function M.goto_match()
+  local before = capture_selection_state_snapshot()
   remember_repeatable_motion(function()
     M.goto_match()
   end)
   match.goto_match()
+  push_jump_if_moved(before, "match")
 end
 
 function M.extend_line_below()
@@ -4163,6 +4324,7 @@ function M.copy_selection_on_adjacent_line(delta, count_override)
 end
 
 function M.split_selection_by_line()
+  local before = capture_selection_state_snapshot()
   if not state.preview_active() then
     return
   end
@@ -4175,6 +4337,7 @@ function M.split_selection_by_line()
   end
 
   set_preview_entries(entries)
+  push_jump_if_moved(before, "split-selection-by-line")
 end
 
 function M.align_selections()
@@ -4422,6 +4585,17 @@ function M.setup_autocmds()
     group = group,
     callback = function(args)
       history.clear_buffer(args.buf)
+      jumplist.remove_buffer(args.buf)
+    end,
+  })
+
+  vim.api.nvim_create_autocmd("WinClosed", {
+    group = group,
+    callback = function(args)
+      local win = tonumber(args.match)
+      if win then
+        jumplist.remove_view(win)
+      end
     end,
   })
 

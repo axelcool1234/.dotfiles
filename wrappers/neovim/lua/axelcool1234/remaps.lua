@@ -544,6 +544,9 @@ local keys = {
 
   { "Undo", "u", helix.undo },
   { "Redo", "U", helix.redo },
+  { "Save selection to jumplist", "<C-s>", helix.save_selection_to_jumplist },
+  { "Jump backward on jumplist", "<C-o>", helix.jump_backward },
+  { "Jump forward on jumplist", "<C-i>", helix.jump_forward },
   { "Flash jump", "z", helix.flash_jump, opts = { nowait = true } },
   { "Flash treesitter", "Z", helix.flash_treesitter, opts = { nowait = true } },
   { "Goto line", "G", helix.goto_line },

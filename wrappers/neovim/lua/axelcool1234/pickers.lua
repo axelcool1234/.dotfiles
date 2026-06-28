@@ -203,6 +203,31 @@ local function open_directory_picker(directory, title)
   }):find()
 end
 
+local function jumplist_preview_lines(item)
+  if not item.buffer or not vim.api.nvim_buf_is_valid(item.buffer) then
+    return { "<buffer unavailable>" }
+  end
+
+  local row = item.cursor_pos and item.cursor_pos[1] or 1
+  local last_row = vim.api.nvim_buf_line_count(item.buffer)
+  local start_row = math.max(row - 3, 1)
+  local end_row = math.min(row + 2, last_row)
+  local source = vim.api.nvim_buf_get_lines(item.buffer, start_row - 1, end_row, false)
+  local lines = {}
+
+  for index, line in ipairs(source) do
+    local line_number = start_row + index - 1
+    local prefix = line_number == row and ">" or " "
+    lines[#lines + 1] = string.format("%s %4d %s", prefix, line_number, line)
+  end
+
+  if #lines == 0 then
+    return { "<empty buffer>" }
+  end
+
+  return lines
+end
+
 function M.find_files_in_git_root()
   find_files_in_directory(git_root_or_cwd())
 end
@@ -245,7 +270,63 @@ function M.buffer_picker()
 end
 
 function M.jumplist_picker()
-  require("telescope.builtin").jumplist(helix_telescope_opts())
+  local helix = require("axelcool1234.helix")
+  local items = helix.jumplist_items()
+  if #items == 0 then
+    vim.notify("jumplist is empty", vim.log.levels.INFO)
+    return
+  end
+
+  local pickers = require("telescope.pickers")
+  local finders = require("telescope.finders")
+  local config = require("telescope.config").values
+  local actions = require("telescope.actions")
+  local action_state = require("telescope.actions.state")
+  local previewers = require("telescope.previewers")
+
+  pickers.new({}, {
+    prompt_title = false,
+    results_title = false,
+    preview_title = false,
+    sorting_strategy = "ascending",
+    layout_config = {
+      prompt_position = "top",
+    },
+    finder = finders.new_table({
+      results = items,
+      entry_maker = function(entry)
+        local row = entry.cursor_pos and entry.cursor_pos[1] or 1
+        local col = entry.cursor_pos and entry.cursor_pos[2] or 1
+        local marker = entry.is_current and "*" or " "
+        local selection_suffix = entry.selection_count > 1 and string.format(" [%d]", entry.selection_count) or ""
+        return {
+          value = entry,
+          display = string.format("%s %s:%d:%d %s%s", marker, entry.filename, row, col, entry.line, selection_suffix),
+          ordinal = string.format("%s %06d %06d %s", entry.filename, row, col, entry.line),
+        }
+      end,
+    }),
+    sorter = config.generic_sorter({}),
+    previewer = previewers.new_buffer_previewer({
+      define_preview = function(self, telescope_entry)
+        vim.bo[self.state.bufnr].filetype = ""
+        vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, jumplist_preview_lines(telescope_entry.value))
+      end,
+    }),
+    attach_mappings = function(prompt_bufnr)
+      actions.select_default:replace(function()
+        local selection = action_state.get_selected_entry()
+        actions.close(prompt_bufnr)
+        if not selection then
+          return
+        end
+
+        helix.jump_to_jumplist(selection.value.index)
+      end)
+
+      return true
+    end,
+  }):find()
 end
 
 function M.document_symbols_picker()
