@@ -17,6 +17,61 @@ local function reset_case(lines, row, col0)
   vim.api.nvim_win_set_cursor(0, { row, col0 })
 end
 
+local function with_fresh_jumplist_tab(run)
+  vim.cmd("tabnew")
+  local ok, err = xpcall(run, debug.traceback)
+  vim.cmd("tabclose!")
+  if not ok then
+    error(err)
+  end
+end
+
+local function jumplist_items()
+  return helix.jumplist_items()
+end
+
+local function assert_jumplist_push(reason, label, action)
+  local before = jumplist_items()
+  action()
+  local after = jumplist_items()
+  assert_equal(#after, #before + 1, label .. " should add one jumplist entry")
+  assert_equal(after[1].reason, reason, label .. " should record the expected jumplist reason")
+end
+
+local function with_stubbed_input(value, run)
+  local original_input = vim.fn.input
+  vim.fn.input = function()
+    return value
+  end
+
+  local ok, err = xpcall(run, debug.traceback)
+  vim.fn.input = original_input
+  if not ok then
+    error(err)
+  end
+end
+
+local function with_stubbed_getcharstr(values, run)
+  local original_getcharstr = vim.fn.getcharstr
+  local queue = type(values) == "table" and vim.deepcopy(values) or { values }
+  vim.fn.getcharstr = function()
+    local next_value = queue[1]
+    table.remove(queue, 1)
+    return next_value
+  end
+
+  local ok, err = xpcall(run, debug.traceback)
+  vim.fn.getcharstr = original_getcharstr
+  if not ok then
+    error(err)
+  end
+end
+
+local function start_treesitter(filetype)
+  vim.bo.filetype = filetype
+  pcall(vim.treesitter.start, 0, filetype)
+end
+
 local function all_cursor_positions()
   local primary = vim.api.nvim_win_get_cursor(0)
   local positions = { { primary[1], primary[2] + 1 } }
@@ -407,6 +462,12 @@ local cases = {
     run = function()
       reset_case({ "alpha beta alpha gamma alpha" }, 1, 0)
       helix.select_regex_matches("alpha")
+
+      assert_equal(
+        all_cursor_positions(),
+        { { 1, 5 }, { 1, 16 }, { 1, 28 } },
+        "select regex without an existing preview should search the whole buffer"
+      )
 
       local slash_entry = which_key_entry("/")
       assert(slash_entry ~= nil, "slash register should be listed in which-key registers")
@@ -2138,6 +2199,367 @@ local cases = {
     end,
   },
 }
+
+local jumplist_cases = {
+  {
+    name = "save selection records a manual jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha beta" }, 1, 0)
+        assert_jumplist_push("manual", "save_selection_to_jumplist", function()
+          helix.save_selection_to_jumplist()
+        end)
+      end)
+    end,
+  },
+  {
+    name = "search forward records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha beta alpha" }, 1, 0)
+        assert_jumplist_push("search", "search_regex", function()
+          helix.search_regex()
+          feed_deferred("beta<CR>")
+        end)
+      end)
+    end,
+  },
+  {
+    name = "search backward records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha beta alpha" }, 1, 15)
+        assert_jumplist_push("search", "search_regex_backward", function()
+          helix.search_regex_backward()
+          feed_deferred("beta<CR>")
+        end)
+      end)
+    end,
+  },
+  {
+    name = "search next records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha beta alpha beta" }, 1, 0)
+        helix.search_regex()
+        feed_deferred("beta<CR>")
+        assert_jumplist_push("search-next", "search_next", function()
+          helix.search_next("forward")
+        end)
+      end)
+    end,
+  },
+  {
+    name = "flash jump records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha beta gamma" }, 1, 0)
+        with_stubbed_getcharstr({ "b", "a" }, function()
+          assert_jumplist_push("flash-jump", "flash_jump", function()
+            helix.flash_jump()
+          end)
+        end)
+      end)
+    end,
+  },
+  {
+    name = "flash treesitter records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "return foo(bar)" }, 1, 11)
+        start_treesitter("lua")
+        with_stubbed_getcharstr("a", function()
+          assert_jumplist_push("flash-treesitter", "flash_treesitter", function()
+            helix.flash_treesitter()
+          end)
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto last line records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "one", "two", "three" }, 1, 0)
+        assert_jumplist_push("goto-last-line", "goto_last_line", function()
+          helix.goto_last_line()
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto line records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "one", "two", "three" }, 1, 0)
+        assert_jumplist_push("goto-line", "goto_line", function()
+          helix.goto_line()
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto file start records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "one", "two", "three" }, 3, 0)
+        assert_jumplist_push("goto-file-start", "goto_file_start", function()
+          helix.goto_file_start()
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto column records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "abcdef" }, 1, 5)
+        assert_jumplist_push("goto-column", "goto_column", function()
+          helix.goto_column()
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto last accessed file records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha" }, 1, 0)
+        vim.cmd("enew!")
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { "beta" })
+        vim.api.nvim_win_set_cursor(0, { 1, 0 })
+        assert_jumplist_push("last-accessed-file", "goto_last_accessed_file", function()
+          helix.goto_last_accessed_file()
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto last modified file records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha" }, 1, 0)
+        local modified = vim.api.nvim_get_current_buf()
+        feed("A!<Esc>")
+        vim.api.nvim_exec_autocmds("TextChanged", { buffer = modified })
+        vim.cmd("enew!")
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { "beta" })
+        vim.api.nvim_win_set_cursor(0, { 1, 0 })
+        assert_jumplist_push("last-modified-file", "goto_last_modified_file", function()
+          helix.goto_last_modified_file()
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto last modification records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha", "beta" }, 1, 0)
+        feed("A!<Esc>")
+        vim.api.nvim_win_set_cursor(0, { 2, 0 })
+        assert_jumplist_push("last-modification", "goto_last_modification", function()
+          helix.goto_last_modification()
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto diagnostic records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha", "oops", "beta" }, 1, 0)
+        local ns = vim.api.nvim_create_namespace("motion-test-jumplist-diagnostic")
+        vim.diagnostic.set(ns, 0, {
+          { lnum = 1, col = 0, end_lnum = 1, end_col = 4, message = "oops", severity = vim.diagnostic.severity.ERROR },
+        })
+        assert_jumplist_push("diagnostic", "goto_diagnostic", function()
+          helix.goto_diagnostic("forward")
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto edge diagnostic records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha", "oops", "beta", "warn" }, 2, 0)
+        local ns = vim.api.nvim_create_namespace("motion-test-jumplist-edge-diagnostic")
+        vim.diagnostic.set(ns, 0, {
+          { lnum = 1, col = 0, end_lnum = 1, end_col = 4, message = "oops", severity = vim.diagnostic.severity.ERROR },
+          { lnum = 3, col = 0, end_lnum = 3, end_col = 4, message = "warn", severity = vim.diagnostic.severity.WARN },
+        })
+        assert_jumplist_push("diagnostic-edge", "goto_edge_diagnostic", function()
+          helix.goto_edge_diagnostic("last")
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto change records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        local cache = require("gitsigns.cache").cache
+        reset_case({ "one", "two", "three", "four" }, 1, 0)
+        local bufnr = vim.api.nvim_get_current_buf()
+        cache[bufnr] = {
+          get_hunks = function()
+            return {
+              {
+                added = { start = 2, count = 2 },
+                vend = 3,
+              },
+            }
+          end,
+        }
+        assert_jumplist_push("change", "goto_change", function()
+          helix.goto_change("next")
+        end)
+        cache[bufnr] = nil
+      end)
+    end,
+  },
+  {
+    name = "goto textobject records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({
+          "",
+          "ChangeResult Executable::setToLive() {",
+          "  if (live)",
+          "    return ChangeResult::NoChange;",
+          "  live = true;",
+          "  return ChangeResult::Change;",
+          "}",
+        }, 1, 0)
+        start_treesitter("cpp")
+        assert_jumplist_push("textobject", "goto_textobject", function()
+          helix.goto_textobject("function", "forward")
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto treesitter sibling records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "return foo, bar, baz" }, 1, 8)
+        start_treesitter("lua")
+        assert_jumplist_push("treesitter-sibling", "goto_treesitter_sibling", function()
+          helix.goto_treesitter_sibling("forward")
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto treesitter sibling edge records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "return foo, bar, baz" }, 1, 12)
+        start_treesitter("lua")
+        assert_jumplist_push("treesitter-sibling-edge", "goto_treesitter_sibling_edge", function()
+          helix.goto_treesitter_sibling_edge("last")
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto treesitter child records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "return foo(bar, baz)" }, 1, 11)
+        start_treesitter("lua")
+        with_stubbed_getcharstr({ "z", "z" }, function()
+          helix.select_around_pair()
+          helix.select_around_pair()
+        end)
+        assert_jumplist_push("treesitter-child", "goto_treesitter_child", function()
+          helix.goto_treesitter_child("last")
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto paragraph records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha", "beta", "", "gamma" }, 1, 0)
+        assert_jumplist_push("paragraph", "goto_paragraph", function()
+          helix.goto_paragraph("forward")
+        end)
+      end)
+    end,
+  },
+  {
+    name = "select regex records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha beta alpha" }, 1, 0)
+        helix.select_whole_buffer()
+        assert_jumplist_push("select-regex", "select_regex_matches", function()
+          helix.select_regex_matches("alpha")
+        end)
+      end)
+    end,
+  },
+  {
+    name = "keep selections records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha beta gamma" }, 1, 0)
+        helix.select_whole_buffer()
+        helix.select_regex_matches("alpha|beta")
+        with_stubbed_input("alpha", function()
+          assert_jumplist_push("keep-selections", "filter_selections_by_regex keep", function()
+            helix.filter_selections_by_regex(true)
+          end)
+        end)
+      end)
+    end,
+  },
+  {
+    name = "remove selections records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha beta gamma" }, 1, 0)
+        helix.select_whole_buffer()
+        helix.select_regex_matches("alpha|beta")
+        with_stubbed_input("alpha", function()
+          assert_jumplist_push("remove-selections", "filter_selections_by_regex remove", function()
+            helix.filter_selections_by_regex(false)
+          end)
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto match records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "foo(bar)" }, 1, 3)
+        assert_jumplist_push("match", "goto_match", function()
+          helix.goto_match()
+        end)
+      end)
+    end,
+  },
+  {
+    name = "split selection by line records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha", "beta", "gamma" }, 1, 0)
+        helix.select_whole_buffer()
+        assert_jumplist_push("split-selection-by-line", "split_selection_by_line", function()
+          helix.split_selection_by_line()
+        end)
+      end)
+    end,
+  },
+}
+
+for _, case in ipairs(jumplist_cases) do
+  cases[#cases + 1] = case
+end
 
 for _, case in ipairs(cases) do
   case.run()

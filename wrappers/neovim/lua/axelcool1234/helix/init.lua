@@ -103,6 +103,11 @@ local line_cursor_max_column
 local line_supports_column
 local pos_is_newline
 local extmark_pos_1indexed
+local capture_selection_state_snapshot
+local restore_selection_state_snapshot
+local selection_state_snapshots_equal
+local push_jump_snapshot
+local push_jump_if_moved
 
 local function entry_ends_after(left, right)
   if left.end_pos[1] == right.end_pos[1] then
@@ -1512,7 +1517,7 @@ local function set_preview_entries(entries, config)
   return state.set_preview_entries(vim.api.nvim_get_current_buf(), entries, config)
 end
 
-local function capture_selection_state_snapshot()
+capture_selection_state_snapshot = function()
   local cursor_pos = state_module.current_pos_1indexed()
   return {
     buffer = current_buffer(),
@@ -1526,7 +1531,7 @@ local function capture_selection_state_snapshot()
   }
 end
 
-local function restore_selection_state_snapshot(snapshot)
+restore_selection_state_snapshot = function(snapshot)
   if not snapshot then
     return
   end
@@ -1567,7 +1572,7 @@ jumplist = jumplist_module.new({
   restore = restore_selection_state_snapshot,
 })
 
-local function selection_state_snapshots_equal(left, right)
+selection_state_snapshots_equal = function(left, right)
   if not left or not right then
     return false
   end
@@ -1613,11 +1618,11 @@ local function selection_state_snapshots_equal(left, right)
   return true
 end
 
-local function push_jump_snapshot(snapshot, reason)
+push_jump_snapshot = function(snapshot, reason)
   return jumplist.push_snapshot(vim.deepcopy(snapshot), reason)
 end
 
-local function push_jump_if_moved(before, reason)
+push_jump_if_moved = function(before, reason)
   local after = capture_selection_state_snapshot()
   if selection_state_snapshots_equal(before, after) then
     return false
@@ -3770,9 +3775,16 @@ function M.select_regex_matches(pattern)
   end
 
   local compiled = compile_selection_regex(pattern)
+  local source_entries = preview_or_cursor_entries()
+  if not state.preview_active() then
+    local last_row = vim.fn.line("$")
+    source_entries = {
+      state_module.selection_entry({ 1, 1 }, { last_row, line_cursor_max_column(last_row) }),
+    }
+  end
 
   local matches = {}
-  for _, entry in ipairs(preview_or_cursor_entries()) do
+  for _, entry in ipairs(source_entries) do
     vim.list_extend(matches, entry_regex_matches(entry, compiled))
   end
 
