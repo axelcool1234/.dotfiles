@@ -85,7 +85,7 @@ in
 
           target = lib.mkOption {
             type = lib.types.str;
-            default = "code";
+            default = "codex";
             description = "Package name inside the selected input.";
           };
         };

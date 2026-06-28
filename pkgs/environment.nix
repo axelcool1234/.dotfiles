@@ -11,7 +11,7 @@
 let
   shellPackage = selfPkgs.${hostVars.shell};
 
-  extraPackages = [
+  runtimePkgs = [
     # GUI
     selfPkgs.zathura # PDFs
     pkgs.imv     # Images
@@ -43,12 +43,13 @@ let
     pkgs.nix-prefetch                                              # get hashes
   ];
 
-  runtimePackages = [ shellPackage ] ++ extraPackages;
+  runtimePackages = [ shellPackage ] ++ runtimePkgs;
 
   collectRuntimePersist = key: myLib.collectPersistFromPackages key runtimePackages;
 in
 inputs.wrapper-modules.lib.wrapPackage {
-  inherit pkgs extraPackages;
+  inherit pkgs;
+  inherit runtimePkgs;
 
   package = shellPackage;
 

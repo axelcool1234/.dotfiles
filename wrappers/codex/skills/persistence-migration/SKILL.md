@@ -74,7 +74,7 @@ Delete only the live mountpoint-side files or directories that are preventing th
 
 Examples:
 
-- `/home/user/.code/auth.json`
+- `/home/user/.codex/auth.json`
 - `/home/user/.config/app/state.json`
 
 Do not delete the backing store under `/persist/...` unless the user explicitly wants data removed.
@@ -120,14 +120,14 @@ Success looks like:
 
 Directory-to-files migration example:
 
-- old: `~/.code` persisted as one directory mount
-- new: `~/.code/debug_logs`, `~/.code/sessions`, and several `~/.code/*.json` file mounts
+- old: `~/.codex` persisted as one directory mount
+- new: `~/.codex/debug_logs`, `~/.codex/sessions`, and several `~/.codex/*.json` file mounts
 
 Typical recovery:
 
-1. Unmount active child mounts under `~/.code`
-2. Unmount the old `~/.code` parent mount
-3. Remove conflicting `~/.code/*.json` files on the home side
+1. Unmount active child mounts under `~/.codex`
+2. Unmount the old `~/.codex` parent mount
+3. Remove conflicting `~/.codex/*.json` files on the home side
 4. Re-run `nixos-rebuild switch`
 
 ## Completion Checklist

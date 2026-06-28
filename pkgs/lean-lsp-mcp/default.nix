@@ -9,12 +9,12 @@ let
 
   leanclient = pythonPackages.buildPythonPackage rec {
     pname = "leanclient";
-    version = "0.9.4";
+    version = "0.11.0";
     pyproject = true;
 
     src = pkgs.fetchPypi {
       inherit pname version;
-      hash = "sha256-AaFOGSWcrbofbAKnBAihGJtNk9bwZo88cFFFLpmNBLU=";
+      hash = "sha256-5RhBiQ37sDxBil5k8cu6A6+Lo3qYQhEQX2O1aBj7AlY=";
     };
 
     build-system = [ pythonPackages.hatchling ];
@@ -36,16 +36,20 @@ let
 in
 pythonPackages.buildPythonApplication rec {
   pname = "lean-lsp-mcp";
-  version = "0.25.1";
+  version = "0.27.0";
   pyproject = true;
 
   src = pkgs.fetchPypi {
     pname = "lean_lsp_mcp";
     inherit version;
-    hash = "sha256-Urmv/UXBjsiX38vGJmr6GP/pqkFH8ptut5AtCraBBBw=";
+    hash = "sha256-oeX9SLnFlo0emhoqjUV5h3DHj4AGhAaRwVCsc4GImXo=";
   };
 
   build-system = [ pythonPackages.setuptools ];
+
+  # Upstream currently pins `mcp` to an exact patch version, while nixpkgs is
+  # already on a nearby compatible patch release.
+  pythonRelaxDeps = [ "mcp" ];
 
   dependencies = with pythonPackages; [
     certifi

@@ -24,7 +24,7 @@ in
     # unreliable and it breaks entirely when Helix is spawned from Lazygit.
     # Keep wl-copy/wl-paste available in the wrapper so the Wayland backend can
     # be used consistently on the desktop host.
-    extraPackages = [ pkgs.wl-clipboard ];
+    runtimePkgs = [ pkgs.wl-clipboard ];
 
     escapingFunction = wlib.escapeShellArgWithEnv;
 

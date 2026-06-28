@@ -231,8 +231,8 @@ let
         # - result.helix-nightly = inputs.modded-helix.packages.${system}.default
         #
         # Or for local wrapper specs:
-        # - aliases.harness = { input = "wrappers"; target = "code"; }
-        # - result.harness = basePackages.code
+        # - aliases.harness = { input = "wrappers"; target = "codex"; }
+        # - result.harness = basePackages.codex
         generatedAliases = lib.mapAttrs (
           _name: spec:
           resolveAlias basePackages spec

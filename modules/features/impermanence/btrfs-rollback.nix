@@ -6,41 +6,97 @@ in
   config = lib.mkIf cfg.enable {
     boot.supportedFilesystems = [ "btrfs" ];
 
-    boot.initrd.postResumeCommands = lib.mkAfter ''
-      mkdir -p /btrfs_tmp
-      mount -o subvol=/ ${cfg.btrfsDevice} /btrfs_tmp
+    # Newer systemd stage-1 rejects the old shell hook API, so run the same
+    # rollback logic as a oneshot service after hibernate-resume handling and
+    # before the real root gets mounted at /sysroot.
+    boot.initrd.systemd.services.btrfs-rollback-root = {
+      requiredBy = [ "sysroot.mount" ];
+      before = [
+        "sysroot.mount"
+        "initrd-root-fs.target"
+      ];
+      after = [
+        "systemd-hibernate-resume.service"
+        "initrd-root-device.target"
+      ];
+      unitConfig.DefaultDependencies = false;
+      path = [
+        pkgs.btrfs-progs
+        pkgs.coreutils
+        pkgs.findutils
+        pkgs.util-linux
+      ];
+      serviceConfig.Type = "oneshot";
+      script = ''
+        btrfs_device=${lib.escapeShellArg cfg.btrfsDevice}
+        old_roots_directory=${lib.escapeShellArg cfg.oldRootsDirectory}
+        root_subvolume=/btrfs_tmp/root
+        old_roots=/btrfs_tmp/$old_roots_directory
+        mounted=0
 
-      if [[ -e /btrfs_tmp/root ]]; then
-        mkdir -p /btrfs_tmp/${cfg.oldRootsDirectory}
-        timestamp=$(${pkgs.coreutils}/bin/date \
-          --date="@$(${pkgs.coreutils}/bin/stat -c %Y /btrfs_tmp/root)" \
-          "+%Y-%m-%d_%H:%M:%S")
-        mv \
-          /btrfs_tmp/root \
-          /btrfs_tmp/${cfg.oldRootsDirectory}/$timestamp
-      fi
+        cleanup() {
+          if [[ "$mounted" == 1 ]]; then
+            umount /btrfs_tmp || true
+          fi
+        }
+        trap cleanup EXIT
 
-      delete_subvolume_recursively() {
-        IFS=$'\n'
-        for subvolume in $(${pkgs.btrfs-progs}/bin/btrfs subvolume list -o "$1" | cut -f 9- -d ' '); do
-          delete_subvolume_recursively "/btrfs_tmp/$subvolume"
-        done
-        ${pkgs.btrfs-progs}/bin/btrfs subvolume delete "$1"
-      }
+        mkdir -p /btrfs_tmp
+        mount -o subvol=/ "$btrfs_device" /btrfs_tmp
+        mounted=1
 
-      if [[ -d /btrfs_tmp/${cfg.oldRootsDirectory} ]]; then
-        for archived_root in $(${pkgs.findutils}/bin/find \
-          /btrfs_tmp/${cfg.oldRootsDirectory} \
-          -maxdepth 1 \
-          -mindepth 1 \
-          -mtime +${toString cfg.oldRootsRetentionDays}); do
-          delete_subvolume_recursively "$archived_root"
-        done
-      fi
+        if [[ -e "$root_subvolume" ]]; then
+          mkdir -p "$old_roots"
+          timestamp=$(date \
+            --date="@$(stat -c %Y "$root_subvolume")" \
+            "+%Y-%m-%d_%H:%M:%S")
 
-      ${pkgs.btrfs-progs}/bin/btrfs subvolume create /btrfs_tmp/root
+          archived_root="$old_roots/$timestamp"
+          suffix=0
+          while [[ -e "$archived_root" ]]; do
+            suffix=$((suffix + 1))
+            archived_root="$old_roots/$timestamp-$suffix"
+          done
 
-      umount /btrfs_tmp
-    '';
+          if ! mv "$root_subvolume" "$archived_root"; then
+            echo "warning: failed to archive old root subvolume; booting it unchanged" >&2
+          fi
+        fi
+
+        delete_subvolume_recursively() {
+          local target="$1"
+          local subvolume
+
+          while IFS= read -r subvolume; do
+            [[ -z "$subvolume" ]] && continue
+            delete_subvolume_recursively "/btrfs_tmp/$subvolume"
+          done < <(btrfs subvolume list -o "$target" | cut -f 9- -d ' ')
+
+          btrfs subvolume delete "$target"
+        }
+
+        if [[ -d "$old_roots" ]]; then
+          while IFS= read -r -d "" archived_root; do
+            if ! btrfs subvolume show "$archived_root" >/dev/null 2>&1; then
+              echo "warning: skipping non-subvolume old root: $archived_root" >&2
+              continue
+            fi
+
+            if ! delete_subvolume_recursively "$archived_root"; then
+              echo "warning: failed to delete old root subvolume: $archived_root" >&2
+            fi
+          done < <(find \
+            "$old_roots" \
+            -maxdepth 1 \
+            -mindepth 1 \
+            -mtime +${toString cfg.oldRootsRetentionDays} \
+            -print0)
+        fi
+
+        if [[ ! -e "$root_subvolume" ]]; then
+          btrfs subvolume create "$root_subvolume"
+        fi
+      '';
+    };
   };
 }

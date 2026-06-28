@@ -38,7 +38,7 @@ in
 
     # The local rope-screenshot plugin shells out to these helpers at runtime,
     # so keep them on the wrapped Noctalia PATH rather than in a broader module.
-    extraPackages = [
+    runtimePkgs = [
       pkgs.grim
       pkgs.imagemagick
       pkgs.wl-clipboard

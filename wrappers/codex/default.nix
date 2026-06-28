@@ -1,24 +1,16 @@
 {
   config,
-  hostVars,
   lib,
   myLib,
   selfPkgs,
   ...
 }:
 let
-  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
   discoveredSkills = myLib.importTree.dirsWithFile ./skills "SKILL.md";
   runtimeHome = config.outOfStoreConfig;
   persistRoot =
     assert lib.hasPrefix ''${"$"}HOME/'' runtimeHome;
     lib.removePrefix ''${"$"}HOME/'' runtimeHome;
-
-  persistPath = suffix:
-    if suffix == null then
-      persistRoot
-    else
-      "${persistRoot}/${suffix}";
 in
 {
   imports = [
@@ -35,12 +27,6 @@ in
     settings = lib.mkDefault {
       model = "gpt-5.4";
       model_reasoning_effort = "high";
-      preferred_model_reasoning_effort = "high";
-
-      tui = {
-        review_auto_resolve = false;
-        auto_review_enabled = false;
-      };
 
       mcp_servers = {
         nixos = {
@@ -56,9 +42,30 @@ in
           command = "${selfPkgs."lean-lsp-mcp"}/bin/lean-lsp-mcp";
         };
 
-        typst = {
-          command = "${selfPkgs."typst-mcp"}/bin/typst-mcp";
-        };
+      };
+
+      projects."/home/axelcool1234/.dotfiles".trust_level = "trusted";
+
+      tui = {
+        terminal_title = [
+          "activity"
+          "project-name"
+        ];
+        status_line = [
+          "current-dir"
+          "model-with-reasoning"
+          "task-progress"
+          "git-branch"
+          "run-state"
+          "permissions"
+          "approval-mode"
+          "context-remaining"
+          "five-hour-limit"
+          "weekly-limit"
+          "thread-title"
+        ];
+        status_line_use_colors = true;
+        pet = "null-signal";
       };
     };
 
@@ -68,27 +75,13 @@ in
         lean4.source = selfPkgs."lean4-skill";
       };
 
-    extraConfigFiles = lib.optionals useNoctaliaTheme [
-      "$HOME/.cache/noctalia/every-code-theme.toml"
-    ];
-
     passthru.persist = {
       homeDirectories = [
-        (persistPath "debug_logs")
-        (persistPath "sessions")
-        (persistPath "state")
-        (persistPath "usage")
-        (persistPath "working")
+        # Codex atomically replaces auth/state files, so file-level bind mounts
+        # can fail with EBUSY during login.
+        persistRoot
       ];
-      homeFiles = [
-        (persistPath "auth.json")
-        (persistPath "auth_accounts.json")
-        (persistPath "cleanup-state.json")
-        (persistPath "cleanup.lock")
-        (persistPath "history.jsonl")
-        (persistPath "models_cache.json")
-        (persistPath "version.json")
-      ];
+      homeFiles = [ ];
     };
   };
 }

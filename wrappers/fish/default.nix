@@ -19,7 +19,7 @@ in
   imports = [ ./module.nix ];
 
   config = {
-    extraPackages = [
+    runtimePkgs = [
       pkgs.direnv
       selfPkgs.jjui
       pkgs.lorri

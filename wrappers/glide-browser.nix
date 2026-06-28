@@ -69,7 +69,7 @@ in
       ];
     };
 
-    extraPackages = lib.optionals usePywalfox [
+    runtimePkgs = lib.optionals usePywalfox [
       pkgs.pywalfox-native
     ];
 

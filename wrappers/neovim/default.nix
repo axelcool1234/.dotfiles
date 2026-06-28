@@ -259,7 +259,7 @@ in
     };
 
   # Common tools this config shells out to.
-  extraPackages = [
+  runtimePkgs = [
     pkgs.fzf
     pkgs.fd
     pkgs.gh

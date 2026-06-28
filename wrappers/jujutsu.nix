@@ -7,7 +7,7 @@
   imports = [ wlib.wrapperModules.jujutsu ];
 
   config = {
-    extraPackages = [ pkgs.watchman ];
+    runtimePkgs = [ pkgs.watchman ];
 
     settings = {
       user = {
