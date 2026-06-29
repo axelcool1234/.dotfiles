@@ -41,8 +41,8 @@ in
       function fish_user_key_bindings
         for mode in default insert visual
           bind -M $mode \cz 'fg >/dev/null 2>&1; commandline -f repaint'
-          bind -M $mode \cg 'commandline -r jjui; commandline -f execute'
-          ${lib.optionalString enableKittyScrollbackCommandEdit ''bind -M $mode \ev kitty_scrollback_edit_command_buffer''}
+          bind -M $mode \cj 'commandline -r jjui; commandline -f execute'
+          ${lib.optionalString enableKittyScrollbackCommandEdit ''bind -M $mode \cg kitty_scrollback_edit_command_buffer''}
         end
       end
 

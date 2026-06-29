@@ -49,7 +49,7 @@ in
       tui = {
         terminal_title = [
           "activity"
-          "project-name"
+          "app-name"
         ];
         status_line = [
           "current-dir"

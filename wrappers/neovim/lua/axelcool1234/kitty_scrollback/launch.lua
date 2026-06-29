@@ -64,12 +64,12 @@ local function shell_basename(shell)
   return vim.fn.fnamemodify(shell or vim.o.shell, ":t:r")
 end
 
-local function set_keymap(buf, mode, lhs, rhs, desc)
-  vim.keymap.set(mode, lhs, rhs, {
+local function set_keymap(buf, mode, lhs, rhs, desc, opts)
+  vim.keymap.set(mode, lhs, rhs, vim.tbl_extend("force", {
     buffer = buf,
     silent = true,
     desc = desc,
-  })
+  }, opts or {}))
 end
 
 local function notify_error(lines)
@@ -423,6 +423,15 @@ local function send_paste_buffer_to_kitty()
   send_chunks_to_kitty(trim_trailing_blank_lines(lines), false)
 end
 
+local function submit_paste_buffer_to_kitty()
+  if not state.paste_bufid or not vim.api.nvim_buf_is_valid(state.paste_bufid) then
+    return
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(state.paste_bufid, 0, current_content_end(state.paste_bufid), false)
+  send_chunks_to_kitty(trim_trailing_blank_lines(lines), true)
+end
+
 local function open_paste_window(start_insert)
   if not state.paste_bufid or not vim.api.nvim_buf_is_valid(state.paste_bufid) then
     state.paste_bufid = vim.api.nvim_create_buf(false, false)
@@ -437,6 +446,15 @@ local function open_paste_window(start_insert)
     })
     set_keymap(state.paste_bufid, "n", "gq", close_paste_window, "Kitty scrollback: close paste buffer")
     set_keymap(state.paste_bufid, { "n", "i", "t" }, "<C-c>", quitall, "Kitty scrollback: quit")
+    if state.command_line_editing then
+      set_keymap(state.paste_bufid, { "n", "i" }, "<CR>", submit_paste_buffer_to_kitty, "Kitty scrollback: submit command line")
+      set_keymap(state.paste_bufid, "i", "<S-CR>", function()
+        return "<CR>"
+      end, "Kitty scrollback: insert newline", { expr = true })
+      set_keymap(state.paste_bufid, "i", "<S-Enter>", function()
+        return "<CR>"
+      end, "Kitty scrollback: insert newline", { expr = true })
+    end
   end
 
   if not state.paste_winid or not vim.api.nvim_win_is_valid(state.paste_winid) then

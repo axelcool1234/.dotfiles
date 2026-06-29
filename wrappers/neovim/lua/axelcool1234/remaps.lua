@@ -466,7 +466,7 @@ local keys = {
   { "Scroll half page down", "<C-d>", function() helix.scroll_half_page(1) end },
   { "Scroll half page up", "<C-u>", function() helix.scroll_half_page(-1) end },
 
-  { "jjui", "<C-g>", terminal.open_jjui },
+  { "jjui", "<C-j>", terminal.open_jjui },
 
   { "Exit select mode", "<Esc>", helix.exit_select_mode },
 

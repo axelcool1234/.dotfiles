@@ -57,12 +57,11 @@ in
         "ctrl+l next_tab"
       ]
       ++ lib.optionals enableKittyScrollback [
-        "ctrl+e kitty_scrollback_nvim"
-        "alt+e kitty_scrollback_nvim --config ksb_builtin_last_cmd_output"
-        "ctrl+shift+e send_key alt+v"
+        "ctrl+x kitty_scrollback_nvim"
+        "ctrl+o kitty_scrollback_nvim --config ksb_builtin_last_cmd_output"
       ]
       ++ lib.optionals (!enableKittyScrollback) [
-        "ctrl+e launch --title=scrollback --type=overlay --stdin-source=@screen_scrollback ${lib.getExe selfPkgs.${hostVars.editor}}"
+        "ctrl+x launch --title=scrollback --type=overlay --stdin-source=@screen_scrollback ${lib.getExe selfPkgs.${hostVars.editor}}"
       ];
 
       mouse_map = lib.optionals enableKittyScrollback [
