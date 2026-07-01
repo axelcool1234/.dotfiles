@@ -47,6 +47,7 @@
   - Could also journal work I'm doing each day - may be a good way to stay organized?
 - NVim Helix motions:
   - https://writewithharper.com/
+  - vim-matchup (integrate with m* family motions?)
   - Optional: Make `x` work how I prefer: when cursor is at the top, `x` extends upwards. When it's at the bottom, `x` extends downwards.
   - Optional: `<space>?` - maybe command palette?
   - Optional: Implement DAP stuff (overseer, neotest)
