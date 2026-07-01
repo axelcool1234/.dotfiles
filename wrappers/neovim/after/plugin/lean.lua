@@ -2,6 +2,20 @@ local infoview = require("lean.infoview")
 
 require("lean").setup({ mappings = true })
 
+local hover_mapping_group = vim.api.nvim_create_augroup("AxelLeanHoverMappings", { clear = true })
+
+vim.api.nvim_create_autocmd("FileType", {
+  group = hover_mapping_group,
+  pattern = "lean",
+  callback = function(args)
+    vim.keymap.set("n", "<leader>k", "<cmd>LeanHover<CR>", {
+      buffer = args.buf,
+      silent = true,
+      desc = "Show interactive hover information",
+    })
+  end,
+})
+
 local autoclose_paused = {}
 local sync_infoview
 local quit_abbrevs = {

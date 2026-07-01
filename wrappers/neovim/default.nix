@@ -260,6 +260,7 @@ in
 
   # Common tools this config shells out to.
   runtimePkgs = [
+    pkgs.curl # For lean.nvim :Telescope loogle
     pkgs.fzf
     pkgs.fd
     pkgs.gh
@@ -267,5 +268,9 @@ in
     pkgs.ripgrep
     pkgs.wl-clipboard
     selfPkgs.jjui
+  ];
+
+  runtimeLibs = [
+    pkgs.resvg # For lean.nvim widgets
   ];
 }
