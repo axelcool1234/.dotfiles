@@ -154,6 +154,7 @@ in
         "css"
         "dot"
         "scss"
+        "tsx"
 
         # Version-control and patch editing.
         "diff"
@@ -174,12 +175,15 @@ in
         "cpp"
         "c"
         "cuda"
+        "gleam"
+        "javascript"
         "jq"
         "llvm"
         "mlir"
         "python"
         "rust"
         "tablegen"
+        "typescript"
 
         # Useful for Tree-sitter-powered query editing and regex-aware motions.
         "query"
