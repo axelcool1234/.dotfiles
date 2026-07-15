@@ -57,15 +57,11 @@ in
         "ctrl+l next_tab"
       ]
       ++ lib.optionals enableKittyScrollback [
-        "ctrl+x kitty_scrollback_nvim"
-        "ctrl+o kitty_scrollback_nvim --config ksb_builtin_last_cmd_output"
+        "ctrl+k kitty_scrollback_nvim"
+        "ctrl+r kitty_scrollback_nvim --config ksb_builtin_last_cmd_output"
       ]
       ++ lib.optionals (!enableKittyScrollback) [
-        "ctrl+x launch --title=scrollback --type=overlay --stdin-source=@screen_scrollback ${lib.getExe selfPkgs.${hostVars.editor}}"
-      ];
-
-      mouse_map = lib.optionals enableKittyScrollback [
-        "ctrl+shift+right press ungrabbed combine : mouse_select_command_output : kitty_scrollback_nvim --config ksb_builtin_last_visited_cmd_output"
+        "ctrl+k launch --title=scrollback --type=overlay --stdin-source=@screen_scrollback ${lib.getExe selfPkgs.${hostVars.editor}}"
       ];
     } // lib.optionalAttrs (terminalFont.size != null) {
       font_size = terminalFont.size;
