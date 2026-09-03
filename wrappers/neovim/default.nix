@@ -117,7 +117,7 @@ in
           data = leanNvim;
           before = [ "INIT_MAIN" ];
           config = /* lua */ ''
-            vim.g.lean_config = { mappings = true }
+            require("lean").setup({ mappings = true })
           '';
         }
       ];
