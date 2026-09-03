@@ -9,6 +9,14 @@
 let
   useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
   enableKittyScrollback = hostVars.terminal == "kitty";
+  leanNvim = pkgs.vimPlugins.lean-nvim.overrideAttrs (old: {
+    # Fixed upstream after v2026.4.1: null RPC docstrings decode to vim.NIL.
+    postPatch = (old.postPatch or "") + ''
+      substituteInPlace lua/lean/widget/interactive_code.lua \
+        --replace-fail 'if info_popup.doc ~= nil then' \
+        'if info_popup.doc ~= nil and info_popup.doc ~= vim.NIL then'
+    '';
+  });
 in
 {
   imports = [ wlib.wrapperModules.neovim ];
@@ -104,7 +112,14 @@ in
       # Language-specific plugins that are not just plain LSP clients.
       languages = with pkgs.vimPlugins; [
         vimtex
-        lean-nvim
+        {
+          name = "lean.nvim";
+          data = leanNvim;
+          before = [ "INIT_MAIN" ];
+          config = /* lua */ ''
+            vim.g.lean_config = { mappings = true }
+          '';
+        }
       ];
 
       # Non-essential integrations.
@@ -148,7 +163,6 @@ in
         "json"
         "toml"
         "yaml"
-        "zathurarc"
 
         # Styling, layout, and graph-like formats.
         "css"

@@ -305,11 +305,9 @@ in
   # level kernel choice that your Legion has already been using successfully.
   boot.kernelPackages = pkgs.linuxKernel.packages.linux_zen;
 
-  # Current nixpkgs exposes the built x86_64 zen kernel image as `vmlinuz` in the
-  # store, while the generic bootloader default still assumes `bzImage` from the
-  # kernel package target metadata. Point the bootloader at the real file so both
-  # the base system and the `nvidia-only` specialisation build correctly.
-  system.boot.loader.kernelFile = "vmlinuz";
+  # Keep the bootloader aligned with the image produced by the Zen kernel package.
+  # This is explicit because older nixpkgs revisions exposed this as `vmlinuz`.
+  system.boot.loader.kernelFile = "bzImage";
 
   hardware.graphics = {
     # Enable the system graphics stack.

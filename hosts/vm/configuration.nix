@@ -7,6 +7,13 @@
     selfPkgs.vm-audio-test
   ];
 
+  # Keep the base configuration evaluable as a standalone NixOS output. The
+  # QEMU VM variant replaces this with its generated disk-backed root filesystem.
+  fileSystems."/" = {
+    device = "none";
+    fsType = "tmpfs";
+  };
+
   virtualisation.vmVariant = {
     # Known-good QEMU graphics setup for the dedicated compositor test guest.
     virtualisation.qemu.options = [
