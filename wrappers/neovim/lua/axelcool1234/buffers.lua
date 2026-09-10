@@ -88,7 +88,13 @@ M.ensure_edit_window = ensure_edit_window
 
 local function run_bufferline_cycle(command)
   ensure_edit_window()
+  local source_buffer = vim.api.nvim_get_current_buf()
+  local source_win = vim.api.nvim_get_current_win()
+  local commit_jump = require("axelcool1234.helix").prepare_jumplist_jump("buffer-cycle")
   vim.cmd(command)
+  if vim.api.nvim_get_current_buf() ~= source_buffer then
+    commit_jump(source_win)
+  end
 end
 
 function M.cycle_next()

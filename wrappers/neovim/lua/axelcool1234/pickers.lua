@@ -8,26 +8,63 @@ local function helix_telescope_opts(opts)
   }, opts or {})
 end
 
-local function attach_jump_commit(commit_jump)
+local function selected_location_item()
+  local entry = require("telescope.actions.state").get_selected_entry()
+  if not entry then
+    return nil
+  end
+
+  local value = type(entry.value) == "table" and entry.value or {}
+  local item = {}
+  for _, key in ipairs({ "bufnr", "filename", "lnum", "col", "end_lnum", "end_col" }) do
+    item[key] = entry[key] ~= nil and entry[key] or value[key]
+  end
+  return item.lnum and item or nil
+end
+
+local function attach_jump_commit(commit_jump, selection_kind, all_actions)
   local actions = require("telescope.actions")
-  for _, action in ipairs({
+  local selection_actions = {
     actions.select_default,
-    actions.select_horizontal,
-    actions.select_vertical,
-    actions.select_tab,
     actions.select_drop,
     actions.select_tab_drop,
-  }) do
-    action:enhance({ pre = commit_jump })
+  }
+  if all_actions then
+    vim.list_extend(selection_actions, {
+      actions.select_horizontal,
+      actions.select_vertical,
+      actions.select_tab,
+    })
+  end
+  for _, action in ipairs(selection_actions) do
+    local selected_item = nil
+    action:enhance({
+      pre = function()
+        selected_item = selection_kind and selected_location_item() or nil
+        if not selection_kind then
+          commit_jump()
+        end
+      end,
+      post = selection_kind and function()
+        commit_jump(vim.api.nvim_get_current_win())
+        if selected_item then
+          require("axelcool1234.helix").select_picker_location(selected_item, selection_kind == "line")
+        end
+      end or nil,
+    })
   end
 end
 
 local function jumplist_telescope_opts(reason, opts)
   local commit_jump = require("axelcool1234.helix").prepare_jumplist_jump(reason)
   opts = opts or {}
+  local selection_kind = opts.helix_selection_kind
+  local all_actions = opts.helix_jump_all_actions == true or selection_kind == "range"
+  opts.helix_selection_kind = nil
+  opts.helix_jump_all_actions = nil
   local previous_attach = opts.attach_mappings
   opts.attach_mappings = function(prompt_bufnr, map)
-    attach_jump_commit(commit_jump)
+    attach_jump_commit(commit_jump, selection_kind, all_actions)
     if previous_attach then
       return previous_attach(prompt_bufnr, map)
     end
@@ -73,7 +110,7 @@ local function jump_to_lsp_item(item, reuse_win, commit_jump)
   vim.bo[buffer].buflisted = true
   vim.api.nvim_win_set_buf(win, buffer)
   vim.api.nvim_set_current_win(win)
-  vim.api.nvim_win_set_cursor(win, { item.lnum, math.max((item.col or 1) - 1, 0) })
+  require("axelcool1234.helix").select_picker_location(item)
   vim.cmd("normal! zv")
   return true
 end
@@ -113,7 +150,7 @@ local function open_lsp_locations(list, opts, commit_jump)
     push_cursor_on_edit = true,
     push_tagstack_on_edit = true,
     attach_mappings = function()
-      attach_jump_commit(commit_jump)
+      attach_jump_commit(commit_jump, "range", true)
       return true
     end,
   }):find()
@@ -121,12 +158,12 @@ end
 
 local function lsp_location_picker(request, opts)
   local helix = require("axelcool1234.helix")
-  local commit_jump = helix.prepare_jumplist_jump(opts.reason)
   opts.origin_filename = vim.api.nvim_buf_get_name(0)
   opts.origin_line = vim.api.nvim_win_get_cursor(0)[1]
 
   request({
     on_list = function(list)
+      local commit_jump = helix.prepare_jumplist_jump(opts.reason)
       open_lsp_locations(list, opts, commit_jump)
     end,
     reuse_win = opts.reuse_win,
@@ -152,7 +189,7 @@ local function current_buffer_directory()
 end
 
 local function find_files_in_directory(directory, opts)
-  opts = helix_telescope_opts(vim.tbl_extend("force", { cwd = directory }, opts or {}))
+  opts = jumplist_telescope_opts("file-picker", vim.tbl_extend("force", { cwd = directory }, opts or {}))
   require("telescope.builtin").find_files(opts)
 end
 
@@ -269,6 +306,7 @@ local function open_directory_picker(directory, title)
   local actions = require("telescope.actions")
   local action_state = require("telescope.actions.state")
   local previewers = require("telescope.previewers")
+  local commit_jump = require("axelcool1234.helix").prepare_jumplist_jump("file-explorer")
 
   pickers.new({}, {
     prompt_title = false,
@@ -320,6 +358,7 @@ local function open_directory_picker(directory, title)
           return
         end
 
+        commit_jump()
         vim.cmd.edit(vim.fn.fnameescape(entry.path))
       end)
 
@@ -360,9 +399,14 @@ end
 function M.live_grep_in_git_root()
   local root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
   if vim.v.shell_error == 0 then
-    require("telescope.builtin").live_grep(helix_telescope_opts({ cwd = root }))
+    require("telescope.builtin").live_grep(jumplist_telescope_opts("global-search", {
+      cwd = root,
+      helix_selection_kind = "line",
+    }))
   else
-    require("telescope.builtin").live_grep(helix_telescope_opts())
+    require("telescope.builtin").live_grep(jumplist_telescope_opts("global-search", {
+      helix_selection_kind = "line",
+    }))
   end
 end
 
@@ -371,7 +415,7 @@ function M.find_files_in_cwd()
 end
 
 function M.changed_file_picker()
-  require("telescope.builtin").git_status(helix_telescope_opts({
+  require("telescope.builtin").git_status(jumplist_telescope_opts("changed-file-picker", {
     cwd = git_root_or_cwd(),
   }))
 end
@@ -389,7 +433,7 @@ function M.open_buffer_directory_explorer()
 end
 
 function M.buffer_picker()
-  require("telescope.builtin").buffers(helix_telescope_opts({
+  require("telescope.builtin").buffers(jumplist_telescope_opts("buffer-picker", {
     sort_mru = true,
   }))
 end
@@ -455,23 +499,29 @@ function M.jumplist_picker()
 end
 
 function M.document_symbols_picker()
-  require("telescope.builtin").lsp_document_symbols(jumplist_telescope_opts("symbol"))
+  require("telescope.builtin").lsp_document_symbols(jumplist_telescope_opts("symbol", {
+    helix_selection_kind = "range",
+  }))
 end
 
 function M.workspace_symbols_picker()
-  require("telescope.builtin").lsp_dynamic_workspace_symbols(jumplist_telescope_opts("workspace-symbol"))
+  require("telescope.builtin").lsp_dynamic_workspace_symbols(jumplist_telescope_opts("workspace-symbol", {
+    helix_selection_kind = "range",
+  }))
 end
 
 function M.diagnostics_picker()
   require("telescope.builtin").diagnostics(jumplist_telescope_opts("diagnostic-picker", {
     bufnr = 0,
     sort_by = "severity",
+    helix_selection_kind = "range",
   }))
 end
 
 function M.workspace_diagnostics_picker()
   require("telescope.builtin").diagnostics(jumplist_telescope_opts("workspace-diagnostic-picker", {
     sort_by = "severity",
+    helix_selection_kind = "range",
   }))
 end
 
@@ -517,7 +567,9 @@ function M.implementations_picker()
 end
 
 function M.resume_last_picker()
-  require("telescope.builtin").resume(helix_telescope_opts())
+  require("telescope.builtin").resume(jumplist_telescope_opts("picker-resume", {
+    helix_jump_all_actions = true,
+  }))
 end
 
 return M

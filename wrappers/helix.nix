@@ -93,7 +93,7 @@ in
           g.k = "goto_hover"; # Jump into hover
 
           # jjui integration
-          "C-g" = [
+          "C-j" = [
             ":write-all"
             ":new"
             ":insert-output ${lib.getExe selfPkgs.jjui}"

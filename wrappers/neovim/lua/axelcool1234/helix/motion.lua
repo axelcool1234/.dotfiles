@@ -422,9 +422,8 @@ function M.new(opts)
     state_module.move_cursor_to_pos(entries[1].cursor_pos)
   end
 
-  local function scroll_view_delta(direction)
+  local function scroll_view_delta(direction, amount)
     local view = vim.fn.winsaveview()
-    local amount = vim.v.count > 0 and vim.v.count or math.max(math.floor(vim.api.nvim_win_get_height(0) / 2), 1)
     local probe = vim.deepcopy(view)
     probe.topline = math.max(1, view.topline + (direction * amount))
 
@@ -435,12 +434,11 @@ function M.new(opts)
     return adjusted.topline - view.topline, view
   end
 
-  function motion.scroll_half_page(direction)
+  local function scroll_cursor(direction, amount)
     local buffer = vim.api.nvim_get_current_buf()
     local source_entries = state.current_entries()
     local preferred_columns = state.current_preferred_columns()
-    local amount = vim.v.count > 0 and vim.v.count or math.max(math.floor(vim.api.nvim_win_get_height(0) / 2), 1)
-    local delta, initial_view = scroll_view_delta(direction)
+    local delta, initial_view = scroll_view_delta(direction, amount)
     local last_row = vim.api.nvim_buf_line_count(buffer)
     local entries = {}
     local next_preferred_columns = {}
@@ -490,6 +488,16 @@ function M.new(opts)
 
     state_module.move_cursor_to_pos(entries[1].cursor_pos)
     vim.fn.winrestview(final_view)
+  end
+
+  function motion.scroll_half_page(direction)
+    local amount = vim.v.count > 0 and vim.v.count or math.max(math.floor(vim.api.nvim_win_get_height(0) / 2), 1)
+    scroll_cursor(direction, amount)
+  end
+
+  function motion.scroll_page(direction)
+    local amount = math.max(vim.api.nvim_win_get_height(0) - 2, 1) * vim.v.count1
+    scroll_cursor(direction, amount)
   end
 
   function motion.goto_last_line()

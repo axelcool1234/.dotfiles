@@ -613,7 +613,7 @@ local cases = {
     run = function()
       reset_case({ "local function f(a, b)", "  return a + b", "end" }, "lua", 1, 17)
       run_keys("maa")
-      assert_equal(selection_texts(), { "a" }, "maa should select the parameter around the cursor")
+      assert_equal(selection_texts(), { "a," }, "maa should include the optional trailing comma from parameter.around")
       reset_case({ "local function f(a, b)", "  return a + b", "end" }, "lua", 1, 17)
       run_keys("mia")
       assert_equal(selection_texts(), { "a" }, "mia should select inside the parameter")

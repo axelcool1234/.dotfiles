@@ -39,6 +39,12 @@ local function assert_jumplist_push(reason, label, action)
   assert_equal(after[1].reason, reason, label .. " should record the expected jumplist reason")
 end
 
+local function assert_no_jumplist_push(label, action)
+  local before = jumplist_items()
+  action()
+  assert_equal(#jumplist_items(), #before, label .. " should not add a jumplist entry")
+end
+
 local function with_stubbed_lsp_location_request(method, run)
   local original = vim.lsp.buf[method]
   local request_opts
@@ -238,6 +244,225 @@ end
 
 local cases = {
   {
+    name = "picker locations preserve destination ranges",
+    run = function()
+      reset_case({ "abcdef" }, 1, 0)
+      helix.select_picker_location({ lnum = 1, col = 2, end_lnum = 1, end_col = 5 })
+      assert_equal(selection_texts(), { "bcd" }, "LSP and diagnostic picker targets should retain their full range")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 1 }, "LSP destination cursor should rest at the range start")
+    end,
+  },
+  {
+    name = "picker line targets select the complete line",
+    run = function()
+      reset_case({ "alpha", "beta" }, 1, 0)
+      helix.select_picker_location({ lnum = 1, col = 2 }, true)
+      assert_equal(selection_texts(), { "alpha\n" }, "global-search targets should select the complete matched line")
+    end,
+  },
+  {
+    name = "buffer round trips preserve Helix selections",
+    run = function()
+      reset_case({ "alpha beta" }, 1, 0)
+      local first = vim.api.nvim_get_current_buf()
+      helix.select_regex_matches("alpha|beta")
+      local second = vim.api.nvim_create_buf(true, false)
+      vim.api.nvim_buf_set_lines(second, 0, -1, false, { "other" })
+      vim.api.nvim_set_current_buf(second)
+      vim.api.nvim_set_current_buf(first)
+      assert_equal(selection_texts(), { "alpha", "beta" }, "switching back should restore the view's saved selections")
+      vim.api.nvim_buf_delete(second, { force = true })
+    end,
+  },
+  {
+    name = "inactive view selections track intervening buffer edits",
+    run = function()
+      reset_case({ "alpha beta" }, 1, 6)
+      local first = vim.api.nvim_get_current_buf()
+      helix.toggle_select_mode()
+      helix.normal_motion("l")()
+      helix.normal_motion("l")()
+      helix.normal_motion("l")()
+      helix.normal_motion("l")()
+      local second = vim.api.nvim_create_buf(true, false)
+      vim.api.nvim_buf_set_lines(second, 0, -1, false, { "other" })
+      vim.api.nvim_set_current_buf(second)
+
+      vim.api.nvim_buf_set_text(first, 0, 0, 0, 0, { "prefix " })
+      vim.api.nvim_set_current_buf(first)
+      assert_equal(selection_texts(), { "beta" }, "inactive selections should follow edits made before them")
+      vim.api.nvim_buf_delete(second, { force = true })
+    end,
+  },
+  {
+    name = "split views clone selections and their jumplist",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha beta" }, 1, 0)
+        helix.select_whole_buffer()
+        helix.select_regex_matches("alpha|beta")
+        helix.save_selection_to_jumplist()
+        local source_win = vim.api.nvim_get_current_win()
+
+        helix.split_current_view("vertical")
+        local target_win = vim.api.nvim_get_current_win()
+        assert_equal(selection_texts(), { "alpha", "beta" }, "the new view should clone the source selections")
+        assert_equal(#jumplist_items(), 1, "the new view should clone the source jumplist")
+
+        vim.api.nvim_set_current_win(source_win)
+        assert_equal(selection_texts(), { "alpha", "beta" }, "the source view should retain its selections")
+        assert_equal(#jumplist_items(), 1, "the source view should retain its jumplist")
+        vim.api.nvim_win_close(target_win, true)
+      end)
+    end,
+  },
+  {
+    name = "line-bound selection operations match Helix",
+    run = function()
+      reset_case({ "alpha", "beta", "gamma" }, 2, 1)
+      helix.extend_to_line_bounds()
+      assert_equal(selection_texts(), { "beta\n" }, "X should select the whole current line")
+
+      helix.toggle_select_mode()
+      helix.normal_motion("j")()
+      helix.shrink_to_line_bounds()
+      assert_equal(selection_texts(), { "beta\n" }, "alt-x should discard incomplete edge lines")
+    end,
+  },
+  {
+    name = "selection merge split and primary removal operations",
+    run = function()
+      reset_case({ "alpha beta gamma" }, 1, 0)
+      helix.select_regex_matches("alpha|gamma")
+      helix.merge_selections(false)
+      assert_equal(selection_texts(), { "alpha beta gamma" }, "alt-minus should merge the first through last selection")
+
+      helix.split_selection_by_regex(" ")
+      assert_equal(selection_texts(), { "alpha", "beta", "gamma" }, "S should split selections around regex matches")
+      helix.remove_primary_selection()
+      assert_equal(#selection_texts(), 2, "alt-comma should remove exactly the primary selection")
+    end,
+  },
+  {
+    name = "case commands and joins operate on selections",
+    run = function()
+      reset_case({ "alpha", "  beta" }, 1, 0)
+      helix.extend_to_line_bounds()
+      helix.set_selection_case("upper")
+      assert_equal(current_lines(), { "ALPHA", "  beta" }, "backtick case commands should transform selected text")
+      helix.join_selections(false)
+      assert_equal(current_lines(), { "ALPHA beta" }, "J should join selected and following lines")
+    end,
+  },
+  {
+    name = "joins remove matching comment leaders and alt-J selects inserted spaces",
+    run = function()
+      reset_case({ "-- one", "  -- two", "-- three" }, 1, 0)
+      vim.bo.commentstring = "-- %s"
+      helix.extend_to_line_bounds()
+      helix.join_selections(false)
+      assert_equal(current_lines(), { "-- one two", "-- three" }, "J should remove a repeated line-comment leader")
+
+      helix.join_selections(true)
+      assert_equal(current_lines(), { "-- one two three" }, "alt-J should use the same comment-aware join")
+      assert_equal(all_cursor_positions(), { { 1, 11 } }, "alt-J should place its selection on the inserted separator")
+
+      reset_case({ "/// one", "/// two" }, 1, 0)
+      vim.bo.commentstring = "// %s"
+      vim.bo.comments = ":///,://"
+      helix.join_selections(false)
+      assert_equal(current_lines(), { "/// one two" }, "J should prefer the longest matching line-comment leader")
+    end,
+  },
+  {
+    name = "syntax selections expand and shrink",
+    run = function()
+      reset_case({ "return foo(bar)" }, 1, 11)
+      start_treesitter("lua")
+      helix.expand_selection()
+      local first = selection_texts()
+      helix.expand_selection()
+      local expanded = selection_texts()
+      assert_equal(#first > 0 and #expanded > 0, true, "alt-o should select syntax nodes")
+      helix.shrink_selection()
+      assert_equal(selection_texts(), first, "alt-i should restore the previous syntax selection")
+    end,
+  },
+  {
+    name = "syntax child sibling and boundary selections follow Helix traversal",
+    run = function()
+      reset_case({ "return foo(bar, baz)" }, 1, 11)
+      start_treesitter("lua")
+      helix.select_all_treesitter_siblings()
+      assert_equal(selection_texts(), { "bar", "baz" }, "alt-a should select all named siblings")
+
+      reset_case({ "return foo(bar, baz)" }, 1, 11)
+      start_treesitter("lua")
+      helix.select_treesitter_sibling("forward")
+      assert_equal(selection_texts(), { "baz" }, "alt-n should select the next syntax sibling")
+
+      reset_case({ "return foo(bar, baz)" }, 1, 7)
+      start_treesitter("lua")
+      helix.expand_selection()
+      while selection_texts()[1] ~= "foo(bar, baz)" do
+        local before = selection_texts()
+        helix.expand_selection()
+        if vim.deep_equal(selection_texts(), before) then
+          break
+        end
+      end
+      helix.select_all_treesitter_children()
+      assert_equal(selection_texts(), { "foo", "(bar, baz)" }, "alt-I should select all named children")
+
+      reset_case({ "return foo(bar, baz)" }, 1, 11)
+      start_treesitter("lua")
+      helix.move_parent_node_boundary("end")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 14 }, "alt-e should move just past the current syntax node")
+      helix.move_parent_node_boundary("start")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 10 }, "alt-b should move to the current syntax node start")
+      helix.move_parent_node_boundary("start")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 7 }, "repeated alt-b should climb to an earlier parent start")
+    end,
+  },
+  {
+    name = "new normal-mode Helix aliases are installed",
+    run = function()
+      local expected = {
+        ["<Left>"] = "Left",
+        ["<Home>"] = "Goto line start",
+        ["<PageDown>"] = "Page down",
+        ["<C-j>"] = "jjui",
+        ["gk"] = "Show docs for item under cursor in a buffer",
+        ["`"] = "Lowercase selections",
+        ["<A-`>"] = "Uppercase selections",
+        ["X"] = "Extend selections to line bounds",
+        ["<A-x>"] = "Shrink selections to line bounds",
+        ["S"] = "Split selections by regex",
+        ["<A-->"] = "Merge overlapping selections",
+        ["<A-_>"] = "Merge consecutive selections",
+        ["<A-,>"] = "Remove primary selection",
+        ["J"] = "Join selected lines",
+        ["<A-J>"] = "Join selected lines and select spaces",
+        ["<A-o>"] = "Expand syntax selection",
+        ["<A-i>"] = "Shrink syntax selection",
+        ["<A-I>"] = "Select all syntax children",
+        ["<A-a>"] = "Select all syntax siblings",
+        ["<A-u>"] = "Earlier history",
+        ["<A-U>"] = "Later history",
+        ["<C-w><C-w>"] = "Goto next window",
+        ["<C-w><C-s>"] = "Horizontal bottom split",
+        ["<C-w><C-v>"] = "Vertical right split",
+        ["<C-w><Left>"] = "Jump to left split",
+      }
+      for lhs, description in pairs(expected) do
+        local mapping = vim.fn.maparg(lhs, "n", false, true)
+        assert_equal(mapping.desc, description, lhs .. " should use the Helix-compatible mapping")
+      end
+      assert_equal(vim.fn.maparg("<C-k>", "n"), "", "control-k should remain unbound in normal mode")
+      assert_equal(vim.fn.maparg("<C-g>", "n"), "", "control-g should retain its native Neovim behavior")
+    end,
+  },
+  {
     name = "j updates single preview instead of sticking",
     run = function()
       reset_case({ "one", "two", "three" }, 1, 0)
@@ -245,6 +470,20 @@ local cases = {
       helix.normal_motion("j")()
       helix.normal_motion("j")()
       assert_equal(vim.api.nvim_win_get_cursor(0), { 3, 0 }, "j should keep advancing from the current row")
+    end,
+  },
+  {
+    name = "plain j uses visual lines while gj uses textual lines",
+    run = function()
+      reset_case({ string.rep("a", 200), "second" }, 1, 0)
+      vim.wo.wrap = true
+      helix.move_visual_line_down()
+      assert_equal(vim.api.nvim_win_get_cursor(0)[1], 1, "j should remain on the same text row when moving over a wrap")
+
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      helix.move_textual_line_down()
+      assert_equal(vim.api.nvim_win_get_cursor(0)[1], 2, "gj should move to the next actual text row")
+      vim.wo.wrap = false
     end,
   },
   {
@@ -2160,10 +2399,12 @@ local cases = {
       vim.fn.writefile({ "child" }, child)
       vim.cmd.edit(vim.fn.fnameescape(main))
       vim.api.nvim_win_set_cursor(0, { 1, 4 })
+      local jump_count = #jumplist_items()
 
       local ok, err = pcall(helix.goto_file_targets)
       assert_equal(ok, true, "gf should not error at a lone cursor on a quoted path: " .. tostring(err))
       assert_equal(vim.fs.normalize(vim.api.nvim_buf_get_name(0)), vim.fs.normalize(child), "gf should open the detected relative path near the cursor")
+      assert_equal(#jumplist_items(), jump_count + 1, "gf should save its source selection to the jumplist")
     end,
   },
   {
@@ -2241,6 +2482,65 @@ local cases = {
 
 local jumplist_cases = {
   {
+    name = "file buffer search and change pickers checkpoint on selection",
+    run = function()
+      local cases = {
+        { builtin = "find_files", picker = "find_files_in_cwd", reason = "file-picker" },
+        { builtin = "buffers", picker = "buffer_picker", reason = "buffer-picker" },
+        { builtin = "live_grep", picker = "live_grep_in_git_root", reason = "global-search" },
+        { builtin = "git_status", picker = "changed_file_picker", reason = "changed-file-picker" },
+      }
+
+      for _, case in ipairs(cases) do
+        with_fresh_jumplist_tab(function()
+          reset_case({ "origin" }, 1, 0)
+          local before = jumplist_items()
+          with_stubbed_telescope_builtin(case.builtin, function(get_picker_opts)
+            pickers[case.picker]()
+            local picker_opts = get_picker_opts()
+            assert(picker_opts and picker_opts.attach_mappings, case.picker .. " should install picker mappings")
+            picker_opts.attach_mappings(0, function() end)
+            local action = require("telescope.actions").select_default
+            local pre = action._pre[action[1]]
+            local post = action._post[action[1]]
+            assert(pre or post, case.picker .. " should checkpoint its source on selection")
+            if pre then pre() end
+            if post then post() end
+          end)
+          local after = jumplist_items()
+          assert_equal(#after, #before + 1, case.picker .. " should add a jumplist entry")
+          assert_equal(after[1].reason, case.reason, case.picker .. " should use the expected reason")
+        end)
+      end
+    end,
+  },
+  {
+    name = "resumed pickers receive a fresh jumplist checkpoint",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "first", "second" }, 1, 0)
+        with_stubbed_telescope_builtin("resume", function(get_picker_opts)
+          pickers.resume_last_picker()
+          local first_opts = get_picker_opts()
+          first_opts.attach_mappings(0, function() end)
+          local action = require("telescope.actions").select_default
+          action._pre[action[1]]()
+        end)
+        assert_equal(jumplist_items()[1].reason, "picker-resume", "first resume should save a fresh source")
+
+        vim.api.nvim_win_set_cursor(0, { 2, 0 })
+        with_stubbed_telescope_builtin("resume", function(get_picker_opts)
+          pickers.resume_last_picker()
+          local second_opts = get_picker_opts()
+          second_opts.attach_mappings(0, function() end)
+          local action = require("telescope.actions").select_default
+          action._pre[action[1]]()
+        end)
+        assert_equal(#jumplist_items(), 2, "a second resume should not reuse the first idempotent closure")
+      end)
+    end,
+  },
+  {
     name = "symbol and diagnostic pickers record a jump only on selection",
     run = function()
       local cases = {
@@ -2265,8 +2565,8 @@ local jumplist_cases = {
             assert_equal(#jumplist_items(), #before, case.picker .. " should not save while opening picker mappings")
 
             local action = require("telescope.actions").select_default
-            local commit_jump = action._pre[action[1]]
-            assert(commit_jump, case.picker .. " should checkpoint before selecting a destination")
+            local commit_jump = action._post[action[1]]
+            assert(commit_jump, case.picker .. " should checkpoint the destination view after selection")
             commit_jump()
           end)
 
@@ -2275,6 +2575,31 @@ local jumplist_cases = {
           assert_equal(after[1].reason, case.reason, case.picker .. " should record the expected jumplist reason")
         end)
       end
+    end,
+  },
+  {
+    name = "range picker split actions checkpoint the destination view",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "origin" }, 1, 0)
+        local source_win = vim.api.nvim_get_current_win()
+        with_stubbed_telescope_builtin("lsp_document_symbols", function(get_picker_opts)
+          pickers.document_symbols_picker()
+          get_picker_opts().attach_mappings(0, function() end)
+          local action = require("telescope.actions").select_vertical
+          local commit_jump = action._post[action[1]]
+          assert(commit_jump, "range split selection should install a destination-view checkpoint")
+
+          vim.cmd("vsplit")
+          local target_win = vim.api.nvim_get_current_win()
+          commit_jump()
+          assert_equal(#jumplist_items(), 1, "the destination split should receive the source checkpoint")
+
+          vim.api.nvim_set_current_win(source_win)
+          assert_equal(#jumplist_items(), 0, "the original view should not receive the split action's checkpoint")
+          vim.api.nvim_win_close(target_win, true)
+        end)
+      end)
     end,
   },
   {
@@ -2400,25 +2725,25 @@ local jumplist_cases = {
     end,
   },
   {
-    name = "search next records a jumplist entry",
+    name = "search next does not record a jumplist entry",
     run = function()
       with_fresh_jumplist_tab(function()
         reset_case({ "alpha beta alpha beta" }, 1, 0)
         helix.search_regex()
         feed_deferred("beta<CR>")
-        assert_jumplist_push("search-next", "search_next", function()
+        assert_no_jumplist_push("search_next", function()
           helix.search_next("forward")
         end)
       end)
     end,
   },
   {
-    name = "flash jump records a jumplist entry",
+    name = "flash jump does not record a jumplist entry",
     run = function()
       with_fresh_jumplist_tab(function()
         reset_case({ "alpha beta gamma" }, 1, 0)
         with_stubbed_getcharstr({ "b", "a" }, function()
-          assert_jumplist_push("flash-jump", "flash_jump", function()
+          assert_no_jumplist_push("flash_jump", function()
             helix.flash_jump()
           end)
         end)
@@ -2426,13 +2751,13 @@ local jumplist_cases = {
     end,
   },
   {
-    name = "flash treesitter records a jumplist entry",
+    name = "flash treesitter does not record a jumplist entry",
     run = function()
       with_fresh_jumplist_tab(function()
         reset_case({ "return foo(bar)" }, 1, 11)
         start_treesitter("lua")
         with_stubbed_getcharstr("a", function()
-          assert_jumplist_push("flash-treesitter", "flash_treesitter", function()
+          assert_no_jumplist_push("flash_treesitter", function()
             helix.flash_treesitter()
           end)
         end)
@@ -2456,8 +2781,20 @@ local jumplist_cases = {
       with_fresh_jumplist_tab(function()
         reset_case({ "one", "two", "three" }, 1, 0)
         assert_jumplist_push("goto-line", "goto_line", function()
+          feed("2G")
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto line without a count is a no-op",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "one", "two", "three" }, 1, 0)
+        assert_no_jumplist_push("goto_line without count", function()
           helix.goto_line()
         end)
+        assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "G without a count should not move")
       end)
     end,
   },
@@ -2467,6 +2804,19 @@ local jumplist_cases = {
       with_fresh_jumplist_tab(function()
         reset_case({ "one", "two", "three" }, 3, 0)
         assert_jumplist_push("goto-file-start", "goto_file_start", function()
+          helix.goto_file_start()
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto file start records selections in select mode",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "one", "two", "three" }, 1, 0)
+        helix.select_regex_matches("one|three")
+        helix.toggle_select_mode()
+        assert_jumplist_push("goto-file-start", "goto_file_start select mode", function()
           helix.goto_file_start()
         end)
       end)
@@ -2555,6 +2905,7 @@ local jumplist_cases = {
         assert_jumplist_push("diagnostic-edge", "goto_edge_diagnostic", function()
           helix.goto_edge_diagnostic("last")
         end)
+        assert_equal(selection_texts(), { "warn" }, "]D should select the complete diagnostic range")
       end)
     end,
   },
@@ -2659,14 +3010,16 @@ local jumplist_cases = {
       with_fresh_jumplist_tab(function()
         reset_case({ "alpha beta alpha" }, 1, 0)
         helix.select_whole_buffer()
-        assert_jumplist_push("select-regex", "select_regex_matches", function()
-          helix.select_regex_matches("alpha")
+        with_stubbed_input("alpha", function()
+          assert_jumplist_push("select-regex", "select_regex_matches", function()
+            helix.select_regex_matches()
+          end)
         end)
       end)
     end,
   },
   {
-    name = "keep selections records a jumplist entry",
+    name = "keep selections record a jumplist entry",
     run = function()
       with_fresh_jumplist_tab(function()
         reset_case({ "alpha beta gamma" }, 1, 0)
@@ -2681,7 +3034,7 @@ local jumplist_cases = {
     end,
   },
   {
-    name = "remove selections records a jumplist entry",
+    name = "remove selections record a jumplist entry",
     run = function()
       with_fresh_jumplist_tab(function()
         reset_case({ "alpha beta gamma" }, 1, 0)
@@ -2696,23 +3049,37 @@ local jumplist_cases = {
     end,
   },
   {
-    name = "goto match records a jumplist entry",
+    name = "split selection regex records a jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "alpha beta gamma" }, 1, 0)
+        helix.select_whole_buffer()
+        with_stubbed_input(" ", function()
+          assert_jumplist_push("split-selection", "split_selection_by_regex", function()
+            helix.split_selection_by_regex()
+          end)
+        end)
+      end)
+    end,
+  },
+  {
+    name = "goto match does not record a jumplist entry",
     run = function()
       with_fresh_jumplist_tab(function()
         reset_case({ "foo(bar)" }, 1, 3)
-        assert_jumplist_push("match", "goto_match", function()
+        assert_no_jumplist_push("goto_match", function()
           helix.goto_match()
         end)
       end)
     end,
   },
   {
-    name = "split selection by line records a jumplist entry",
+    name = "split selection by line does not record a jumplist entry",
     run = function()
       with_fresh_jumplist_tab(function()
         reset_case({ "alpha", "beta", "gamma" }, 1, 0)
         helix.select_whole_buffer()
-        assert_jumplist_push("split-selection-by-line", "split_selection_by_line", function()
+        assert_no_jumplist_push("split_selection_by_line", function()
           helix.split_selection_by_line()
         end)
       end)

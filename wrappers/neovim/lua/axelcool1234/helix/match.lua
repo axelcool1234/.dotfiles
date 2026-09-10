@@ -9,6 +9,7 @@ function M.new(opts)
 
   local match = {}
   local textobject_query_cache = {}
+  local object_selection_history = {}
   local find_surround_region_at_point
   local find_surround_region_for_selection
   local surround_region_entry_for_source
@@ -54,6 +55,10 @@ function M.new(opts)
 
   local function current_buffer()
     return vim.api.nvim_get_current_buf()
+  end
+
+  local function object_history_key(buffer)
+    return string.format("%d:%d", vim.api.nvim_get_current_win(), buffer)
   end
 
   local function line_text(row)
@@ -578,14 +583,21 @@ function M.new(opts)
     end
 
     for _ = 1, count do
-      if direction == "forward" then
-        current_node = current_node:next_named_sibling()
-      else
-        current_node = current_node:prev_named_sibling()
+      local sibling = nil
+      while current_node and not sibling do
+        if direction == "forward" then
+          sibling = current_node:next_named_sibling()
+        else
+          sibling = current_node:prev_named_sibling()
+        end
+        if not sibling then
+          current_node = current_node:parent()
+        end
       end
-      if not current_node then
+      if not sibling then
         return source_entry
       end
+      current_node = sibling
     end
 
     return treesitter_node_entry(current_node, true) or source_entry
@@ -1262,6 +1274,164 @@ function M.new(opts)
     if not state.extend_mode_active() then
       state.exit_extend_mode()
     end
+  end
+
+  function match.expand_selection()
+    local buffer = current_buffer()
+    local source_entries = state.preview_active() and current_preview_entries() or current_entries()
+    local entries = {}
+    local changed = false
+    for index, source_entry in ipairs(source_entries) do
+      entries[index] = selection_aware_treesitter_entry(source_entry, true)
+      changed = changed or not same_entry(entries[index], source_entry)
+    end
+    if not changed then
+      return
+    end
+
+    local history_key = object_history_key(buffer)
+    object_selection_history[history_key] = object_selection_history[history_key] or {}
+    table.insert(object_selection_history[history_key], vim.deepcopy(source_entries))
+    state.set_preview_entries(buffer, entries)
+  end
+
+  function match.shrink_selection()
+    local buffer = current_buffer()
+    local current = state.preview_active() and current_preview_entries() or current_entries()
+    local history_key = object_history_key(buffer)
+    local stack = object_selection_history[history_key]
+    if stack and #stack > 0 then
+      local previous = table.remove(stack)
+      local contained = true
+      for _, previous_entry in ipairs(previous) do
+        local found = false
+        for _, current_entry in ipairs(current) do
+          if pos_leq(current_entry.start_pos, previous_entry.start_pos)
+            and pos_leq(previous_entry.end_pos, current_entry.end_pos) then
+            found = true
+            break
+          end
+        end
+        if not found then
+          contained = false
+          break
+        end
+      end
+      if contained then
+        state.set_preview_entries(buffer, previous)
+        return
+      end
+      object_selection_history[history_key] = {}
+    end
+
+    local entries = {}
+    for index, source_entry in ipairs(current) do
+      local node = selected_or_seed_treesitter_node(source_entry)
+      local child = node and node:child(0) or nil
+      entries[index] = treesitter_node_entry(child, true) or source_entry
+    end
+    state.set_preview_entries(buffer, entries)
+  end
+
+  function match.select_sibling(direction)
+    local buffer = current_buffer()
+    local source_entries = state.preview_active() and current_preview_entries() or current_entries()
+    local entries = {}
+    for _, source_entry in ipairs(source_entries) do
+      entries[#entries + 1] = treesitter_sibling_entry(source_entry, direction, 1)
+    end
+    state.set_preview_entries(buffer, entries)
+  end
+
+  local function named_children(node)
+    local children = {}
+    if not node then
+      return children
+    end
+    for index = 0, node:child_count() - 1 do
+      local child = node:child(index)
+      if child and child:named() then
+        children[#children + 1] = child
+      end
+    end
+    return children
+  end
+
+  function match.select_all_siblings()
+    local buffer = current_buffer()
+    local source_entries = state.preview_active() and current_preview_entries() or current_entries()
+    local entries = {}
+    for _, source_entry in ipairs(source_entries) do
+      local node = selected_or_seed_treesitter_node(source_entry)
+      local parent = node and node:parent() or nil
+      while parent and parent:child_count() <= 1 do
+        parent = parent:parent()
+      end
+      local siblings = named_children(parent)
+      if #siblings == 0 then
+        entries[#entries + 1] = source_entry
+      else
+        for _, sibling in ipairs(siblings) do
+          entries[#entries + 1] = treesitter_node_entry(sibling, true)
+        end
+      end
+    end
+    state.set_preview_entries(buffer, entries)
+  end
+
+  function match.select_all_children()
+    local buffer = current_buffer()
+    local source_entries = state.preview_active() and current_preview_entries() or current_entries()
+    local entries = {}
+    for _, source_entry in ipairs(source_entries) do
+      local node = selected_or_seed_treesitter_node(source_entry)
+      local children = named_children(node)
+      if #children == 0 then
+        entries[#entries + 1] = source_entry
+      else
+        for _, child in ipairs(children) do
+          entries[#entries + 1] = treesitter_node_entry(child, true)
+        end
+      end
+    end
+    state.set_preview_entries(buffer, entries)
+  end
+
+  function match.move_parent_node_boundary(edge)
+    local buffer = current_buffer()
+    local source_entries = state.preview_active() and current_preview_entries() or current_entries()
+    local entries = {}
+    for index, source_entry in ipairs(source_entries) do
+      local node = selected_or_seed_treesitter_node(source_entry)
+      local node_entry = treesitter_node_entry(node, true)
+      if not node_entry then
+        entries[index] = source_entry
+      else
+        local target
+        if edge == "end" then
+          target = position.next_pos(buffer, node_entry.end_pos)
+        else
+          target = node_entry.start_pos
+          if pos_equal(source_entry.cursor_pos, target) then
+            local parent = node and node:parent() or nil
+            while parent do
+              local parent_entry = treesitter_node_entry(parent, true)
+              if parent_entry and pos_before(parent_entry.start_pos, target) then
+                target = parent_entry.start_pos
+                break
+              end
+              parent = parent:parent()
+            end
+          end
+        end
+        if state.extend_mode_active() then
+          entries[index] = state_module.selection_entry(source_entry.anchor_pos, target)
+        else
+          entries[index] = state_module.selection_entry(target, target)
+        end
+      end
+    end
+    state.set_preview_entries(buffer, entries)
   end
 
   function match.goto_treesitter_sibling(direction, count_override)

@@ -90,6 +90,8 @@ local replaying_last_motion = false
 local macro_recording_target = nil
 local macro_recording_saved = nil
 local macro_replaying = {}
+local view_selection_snapshots = {}
+local view_transition = {}
 local incremental_search = {
   active = nil,
   ignore_cursor_moved = 0,
@@ -807,11 +809,12 @@ local function finish_incremental_search(session, confirmed)
   vim.fn.histadd("search", session.pattern)
   vim.cmd.nohlsearch()
 
-  if not apply_incremental_search(session, session.pattern, true, nil) then
+  local valid = pcall(validate_selection_regex, session.pattern)
+  if not valid then
+    restore_search_snapshot(session)
     return
   end
-
-  push_jump_if_moved({
+  jumplist.push_snapshot({
     buffer = session.buffer,
     cursor_pos = session.cursor_pos,
     entries = vim.deepcopy(session.entries),
@@ -820,6 +823,10 @@ local function finish_incremental_search(session, confirmed)
     cursor_positions = vim.deepcopy(session.cursor_positions or {}),
     preferred_columns = vim.deepcopy(session.preferred_columns or {}),
   }, "search")
+
+  if not apply_incremental_search(session, session.pattern, true, nil) then
+    return
+  end
 
   suspend_incremental_search_cursor_clear(2)
   vim.schedule(function()
@@ -920,10 +927,7 @@ function M.search_next(direction)
     return
   end
 
-  local before = capture_selection_state_snapshot()
-  if apply_search_match(pattern, direction) then
-    push_jump_if_moved(before, "search-next")
-  end
+  apply_search_match(pattern, direction)
 end
 
 local function echo_search_register_set(register_name, pattern)
@@ -1572,6 +1576,142 @@ jumplist = jumplist_module.new({
   restore = restore_selection_state_snapshot,
 })
 
+local function selection_view_key(win, buffer)
+  return string.format("%d:%d", win, buffer)
+end
+
+local function saved_selections_for(win)
+  local saved = view_selection_snapshots[win]
+  if not saved then
+    saved = {}
+    view_selection_snapshots[win] = saved
+  end
+  return saved
+end
+
+local saved_selection_namespace = vim.api.nvim_create_namespace("axelcool1234-helix-saved-selections")
+
+local function clear_saved_selection(saved)
+  if not saved or not saved.buffer or not vim.api.nvim_buf_is_valid(saved.buffer) then
+    return
+  end
+  for _, marks in ipairs(saved.marks or {}) do
+    pcall(vim.api.nvim_buf_del_extmark, saved.buffer, saved_selection_namespace, marks.anchor)
+    pcall(vim.api.nvim_buf_del_extmark, saved.buffer, saved_selection_namespace, marks.cursor)
+  end
+end
+
+local function save_selection_snapshot(snapshot)
+  local buffer = snapshot.buffer
+  local saved = {
+    buffer = buffer,
+    snapshot = vim.deepcopy(snapshot),
+    marks = {},
+  }
+  for index, entry in ipairs(snapshot.entries or {}) do
+    local anchor_row, anchor_col = position.before_boundary(buffer, entry.anchor_pos)
+    local cursor_row, cursor_col = position.before_boundary(buffer, entry.cursor_pos)
+    local anchor_at_start = entry.anchor_pos[1] == entry.start_pos[1] and entry.anchor_pos[2] == entry.start_pos[2]
+    local cursor_at_start = entry.cursor_pos[1] == entry.start_pos[1] and entry.cursor_pos[2] == entry.start_pos[2]
+    saved.marks[index] = {
+      anchor = vim.api.nvim_buf_set_extmark(buffer, saved_selection_namespace, anchor_row, anchor_col, {
+        right_gravity = anchor_at_start,
+      }),
+      cursor = vim.api.nvim_buf_set_extmark(buffer, saved_selection_namespace, cursor_row, cursor_col, {
+        right_gravity = cursor_at_start,
+      }),
+    }
+  end
+  return saved
+end
+local function resolve_saved_selection(saved)
+  if not saved or not saved.snapshot or not vim.api.nvim_buf_is_valid(saved.buffer) then
+    return nil
+  end
+  local snapshot = vim.deepcopy(saved.snapshot)
+  local entries = {}
+  for index, marks in ipairs(saved.marks or {}) do
+    local anchor = extmark_pos_1indexed(saved.buffer, saved_selection_namespace, marks.anchor)
+    local cursor = extmark_pos_1indexed(saved.buffer, saved_selection_namespace, marks.cursor)
+    if anchor and cursor then
+      entries[index] = state_module.selection_entry(anchor, cursor)
+    end
+  end
+  if #entries == 0 then
+    return snapshot
+  end
+
+  snapshot.entries = entries
+  snapshot.cursor_pos = vim.deepcopy(entries[1].cursor_pos)
+  snapshot.primary_entry = vim.deepcopy(entries[1])
+  snapshot.cursor_positions = {}
+  for index, entry in ipairs(entries) do
+    snapshot.cursor_positions[index] = vim.deepcopy(entry.cursor_pos)
+  end
+  return snapshot
+end
+
+local function replace_saved_selection(win, buffer, snapshot)
+  local saved = saved_selections_for(win)
+  clear_saved_selection(saved[buffer])
+  saved[buffer] = snapshot and save_selection_snapshot(snapshot) or nil
+end
+
+local function save_current_view_selection()
+  local win = vim.api.nvim_get_current_win()
+  local buffer = current_buffer()
+  local key = selection_view_key(win, buffer)
+  if view_transition.leave_key == key then
+    return
+  end
+
+  view_transition.leave_key = key
+  view_transition.enter_key = nil
+  local saved = saved_selections_for(win)
+  if state.preview_active() then
+    local snapshot = capture_selection_state_snapshot()
+    snapshot.extend_mode = false
+    replace_saved_selection(win, buffer, snapshot)
+  else
+    clear_saved_selection(saved[buffer])
+    saved[buffer] = nil
+  end
+  state.clear_preview({ keep_insert_mode = true })
+end
+
+local function restore_current_view_selection()
+  local win = vim.api.nvim_get_current_win()
+  local buffer = current_buffer()
+  local key = selection_view_key(win, buffer)
+  if view_transition.enter_key == key then
+    return
+  end
+
+  view_transition.enter_key = key
+  view_transition.leave_key = nil
+  local saved = view_selection_snapshots[win] and view_selection_snapshots[win][buffer]
+  if not saved then
+    state.clear_preview({ keep_insert_mode = true })
+    state.exit_extend_mode()
+    return
+  end
+
+  local snapshot = resolve_saved_selection(saved)
+  if not snapshot then
+    return
+  end
+  snapshot.extend_mode = false
+  restore_selection_state_snapshot(snapshot)
+  state.exit_extend_mode()
+end
+
+local function forget_saved_buffer(buffer)
+  for _, saved in pairs(view_selection_snapshots) do
+    clear_saved_selection(saved[buffer])
+    saved[buffer] = nil
+  end
+end
+
 selection_state_snapshots_equal = function(left, right)
   if not left or not right then
     return false
@@ -1910,6 +2050,38 @@ local function parse_block_comment_tokens(comments)
     end
   end
 
+  return nil
+end
+
+local function line_comment_tokens(buffer)
+  local tokens = {}
+  local seen = {}
+  local function add(token)
+    token = token and vim.trim(token) or nil
+    if token and token ~= "" and not seen[token] then
+      seen[token] = true
+      tokens[#tokens + 1] = token
+    end
+  end
+
+  add(parse_commentstring(vim.bo[buffer].commentstring))
+  for _, part in ipairs(vim.split(vim.bo[buffer].comments or "", ",", { plain = true, trimempty = true })) do
+    local flags, token = part:match("^([^:]*):(.*)$")
+    if flags and token and flags:sub(1, 1) ~= "s" and flags:sub(1, 1) ~= "m" and flags:sub(1, 2) ~= "ex" then
+      add(token)
+    end
+  end
+
+  table.sort(tokens, function(left, right) return #left > #right end)
+  return tokens
+end
+
+local function matching_line_comment_token(content, tokens)
+  for _, token in ipairs(tokens) do
+    if vim.startswith(content, token) then
+      return token
+    end
+  end
   return nil
 end
 
@@ -2434,7 +2606,6 @@ function M.flash_jump()
     end
     state.enter_extend_mode()
     set_preview_entries({ state_module.selection_entry(snapshot.primary_entry.anchor_pos, target.pos) }, { sync_history = false })
-    push_jump_if_moved(snapshot, "flash-jump")
     return
   end
 
@@ -2444,7 +2615,6 @@ function M.flash_jump()
   state.clear_preview({ keep_insert_mode = true })
   state.exit_extend_mode()
   state_module.move_cursor_to_pos(target.pos)
-  push_jump_if_moved(snapshot, "flash-jump")
 end
 
 function M.flash_treesitter()
@@ -2472,11 +2642,14 @@ function M.flash_treesitter()
   else
     state.exit_extend_mode()
   end
-  push_jump_if_moved(snapshot, "flash-treesitter")
 end
 
 function M.scroll_half_page(direction)
   motion.scroll_half_page(direction)
+end
+
+function M.scroll_page(direction)
+  motion.scroll_page(direction)
 end
 
 function M.goto_last_line()
@@ -2486,6 +2659,9 @@ function M.goto_last_line()
 end
 
 function M.goto_line()
+  if vim.v.count == 0 then
+    return
+  end
   local before = capture_selection_state_snapshot()
   motion.goto_line()
   push_jump_if_moved(before, "goto-line")
@@ -2618,6 +2794,7 @@ function M.goto_file_start()
     if not state.extend_mode_active() then
       state.exit_extend_mode()
     end
+    push_jump_if_moved(before, "goto-file-start")
     return
   end
 
@@ -2669,6 +2846,14 @@ end
 
 function M.move_textual_line_down()
   motion.normal("j")()
+end
+
+function M.move_visual_line_down()
+  motion.normal("gj")()
+end
+
+function M.move_visual_line_up()
+  motion.normal("gk")()
 end
 
 function M.goto_window_position(keys)
@@ -2866,7 +3051,8 @@ function M.goto_edge_diagnostic(edge)
   end)
 
   local diagnostic = edge == "last" and diagnostics[#diagnostics] or diagnostics[1]
-  vim.api.nvim_win_set_cursor(0, { diagnostic.lnum + 1, diagnostic.col })
+  set_preview_entries({ diagnostic_entry(diagnostic, "forward") })
+  state.exit_extend_mode()
   vim.diagnostic.open_float(0, { scope = "cursor", focusable = false })
   push_jump_if_moved(before, "diagnostic-edge")
 end
@@ -2945,6 +3131,30 @@ function M.goto_textobject(object_name, direction)
   end)
   match.goto_textobject(object_name, direction, count)
   push_jump_if_moved(before, "textobject")
+end
+
+function M.expand_selection()
+  match.expand_selection()
+end
+
+function M.shrink_selection()
+  match.shrink_selection()
+end
+
+function M.select_treesitter_sibling(direction)
+  match.select_sibling(direction)
+end
+
+function M.select_all_treesitter_siblings()
+  match.select_all_siblings()
+end
+
+function M.select_all_treesitter_children()
+  match.select_all_children()
+end
+
+function M.move_parent_node_boundary(edge)
+  match.move_parent_node_boundary(edge)
 end
 
 function M.goto_treesitter_sibling(direction)
@@ -3336,7 +3546,13 @@ function M.goto_file_targets()
       if vim.fn.isdirectory(path) == 1 then
         pickers.find_files_in_directory(path)
       else
-        vim.cmd.edit(vim.fn.fnameescape(path))
+        local commit_jump = M.prepare_jumplist_jump("goto-file")
+        local ok, err = pcall(vim.cmd.edit, vim.fn.fnameescape(path))
+        if ok then
+          commit_jump()
+        else
+          vim.notify(err, vim.log.levels.ERROR)
+        end
       end
     end
   end
@@ -3710,6 +3926,33 @@ function M.toggle_selection_case()
   transaction.commit_now()
 end
 
+function M.set_selection_case(kind)
+  local had_preview = state.preview_active()
+  local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
+  local replacements = {}
+  local changed = false
+  local transform = kind == "upper" and string.upper or string.lower
+
+  for index, entry in ipairs(entries) do
+    local text = state_module.get_entry_text(entry)
+    replacements[index] = transform(text)
+    changed = changed or replacements[index] ~= text
+  end
+  if not changed then
+    return
+  end
+
+  local transaction = history.transaction(entries, current_preview_history_config())
+  replace_preview_entries_with_text(entries, replacements)
+  if had_preview then
+    set_preview_entries(entries, { sync_history = false })
+  else
+    state_module.move_cursor_to_pos(entries[1].cursor_pos)
+  end
+  state.exit_extend_mode()
+  transaction.commit_now()
+end
+
 function M.trim_current_preview_selection()
   if not state.preview_active() then
     return
@@ -3744,6 +3987,7 @@ function M.filter_selections_by_regex(keep_matches)
   end
 
   local compiled = compile_selection_regex(pattern)
+  jumplist.push_snapshot(before, keep_matches and "keep-selections" or "remove-selections")
 
   local kept = {}
   for _, entry in ipairs(state.preview.entries) do
@@ -3759,11 +4003,11 @@ function M.filter_selections_by_regex(keep_matches)
   end
 
   state.set_preview_entries(vim.api.nvim_get_current_buf(), kept)
-  push_jump_if_moved(before, keep_matches and "keep-selections" or "remove-selections")
 end
 
 function M.select_regex_matches(pattern)
-  local before = capture_selection_state_snapshot()
+  local prompted = pattern == nil
+  local before = prompted and capture_selection_state_snapshot() or nil
   local register_name = resolve_search_register('/')
   pattern = pattern or prompt_selection_regex("select", register_name)
   if not pattern then
@@ -3775,6 +4019,9 @@ function M.select_regex_matches(pattern)
   end
 
   local compiled = compile_selection_regex(pattern)
+  if prompted then
+    jumplist.push_snapshot(before, "select-regex")
+  end
   local source_entries = preview_or_cursor_entries()
   if not state.preview_active() then
     local last_row = vim.fn.line("$")
@@ -3797,7 +4044,6 @@ function M.select_regex_matches(pattern)
 
   set_preview_entries(matches)
   state.exit_extend_mode()
-  push_jump_if_moved(before, "select-regex")
 end
 
 function M.keep_primary_selection_or_cursor()
@@ -3965,6 +4211,60 @@ function M.prepare_jumplist_jump(reason)
   end
 end
 
+function M.select_picker_location(item, whole_line)
+  if not item then
+    return false
+  end
+
+  local buffer = current_buffer()
+  local row = math.max(1, math.min(tonumber(item.lnum) or 1, position.line_count(buffer)))
+  if whole_line then
+    set_preview_entries({
+      state_module.selection_entry({ row, 1 }, { row, position.cursor_max_column(buffer, row) }),
+    }, { sync_history = false })
+    state.exit_extend_mode()
+    return true
+  end
+
+  local start_byte0 = math.max((tonumber(item.col) or 1) - 1, 0)
+  local start_pos = {
+    row,
+    position.char_col_from_byte_col0(position.line_text(buffer, row), start_byte0),
+  }
+  local end_row = math.max(1, math.min(tonumber(item.end_lnum) or row, position.line_count(buffer)))
+  local end_col = tonumber(item.end_col)
+  local end_pos = start_pos
+  if end_col and (end_row ~= row or end_col ~= tonumber(item.col)) then
+    local end_boundary = {
+      end_row,
+      position.char_col_from_byte_col0(position.line_text(buffer, end_row), math.max(end_col - 1, 0)),
+    }
+    if end_boundary[1] ~= start_pos[1] or end_boundary[2] ~= start_pos[2] then
+      end_pos = position.prev_pos(buffer, end_boundary)
+    end
+  end
+
+  -- Helix flips LSP ranges so the cursor rests at the start of the symbol.
+  set_preview_entries({ state_module.selection_entry(end_pos, start_pos) }, { sync_history = false })
+  state.exit_extend_mode()
+  return true
+end
+
+function M.split_current_view(direction)
+  local source_win = vim.api.nvim_get_current_win()
+  local snapshot = capture_selection_state_snapshot()
+  local command = direction == "vertical" and "botright vsplit" or "botright split"
+  vim.cmd(command)
+  local target_win = vim.api.nvim_get_current_win()
+
+  jumplist.clone_view(source_win, target_win)
+  snapshot.extend_mode = false
+  replace_saved_selection(source_win, snapshot.buffer, snapshot)
+  replace_saved_selection(target_win, snapshot.buffer, snapshot)
+  restore_selection_state_snapshot(snapshot)
+  state.exit_extend_mode()
+end
+
 function M.jump_backward()
   jumplist.jump_backward(vim.v.count1)
 end
@@ -4014,6 +4314,14 @@ function M.redo()
   apply_native_history_jump("redo")
 end
 
+function M.earlier()
+  apply_native_history_jump(("earlier %d"):format(vim.v.count1))
+end
+
+function M.later()
+  apply_native_history_jump(("later %d"):format(vim.v.count1))
+end
+
 function M.surround_add()
   match.surround_add()
 end
@@ -4055,12 +4363,10 @@ function M.select_inside_pair()
 end
 
 function M.goto_match()
-  local before = capture_selection_state_snapshot()
   remember_repeatable_motion(function()
     M.goto_match()
   end)
   match.goto_match()
-  push_jump_if_moved(before, "match")
 end
 
 function M.extend_line_below()
@@ -4351,7 +4657,6 @@ function M.copy_selection_on_adjacent_line(delta, count_override)
 end
 
 function M.split_selection_by_line()
-  local before = capture_selection_state_snapshot()
   if not state.preview_active() then
     return
   end
@@ -4364,7 +4669,240 @@ function M.split_selection_by_line()
   end
 
   set_preview_entries(entries)
-  push_jump_if_moved(before, "split-selection-by-line")
+end
+
+local function entry_is_backward(entry)
+  return pos_before(entry.cursor_pos, entry.anchor_pos)
+end
+
+local function directed_entry(source, start_pos, end_pos)
+  if entry_is_backward(source) then
+    return state_module.selection_entry(end_pos, start_pos)
+  end
+  return state_module.selection_entry(start_pos, end_pos)
+end
+
+function M.extend_to_line_bounds()
+  local entries = {}
+  for _, entry in ipairs(preview_or_cursor_entries()) do
+    entries[#entries + 1] = directed_entry(
+      entry,
+      { entry.start_pos[1], 1 },
+      { entry.end_pos[1], line_cursor_max_column(entry.end_pos[1]) }
+    )
+  end
+  set_preview_entries(entries)
+end
+
+function M.shrink_to_line_bounds()
+  local entries = {}
+  for _, entry in ipairs(preview_or_cursor_entries()) do
+    if entry.start_pos[1] == entry.end_pos[1] then
+      entries[#entries + 1] = entry
+    else
+      local start_row = entry.start_pos[1] + (entry.start_pos[2] == 1 and 0 or 1)
+      local end_row = entry.end_pos[1] - (pos_is_newline(entry.end_pos[1], entry.end_pos[2]) and 0 or 1)
+      if start_row <= end_row then
+        entries[#entries + 1] = directed_entry(
+          entry,
+          { start_row, 1 },
+          { end_row, line_cursor_max_column(end_row) }
+        )
+      else
+        entries[#entries + 1] = entry
+      end
+    end
+  end
+  set_preview_entries(entries)
+end
+
+function M.merge_selections(consecutive)
+  if not state.preview_active() then
+    return
+  end
+
+  local items = {}
+  for index, entry in ipairs(current_preview_entries()) do
+    items[#items + 1] = { entry = entry, primary = index == 1 }
+  end
+  table.sort(items, function(left, right)
+    return pos_before(left.entry.start_pos, right.entry.start_pos)
+  end)
+
+  if not consecutive then
+    local primary = items[1].entry
+    for _, item in ipairs(items) do
+      if item.primary then
+        primary = item.entry
+        break
+      end
+    end
+    set_preview_entries({ directed_entry(primary, items[1].entry.start_pos, items[#items].entry.end_pos) })
+    return
+  end
+
+  local merged = {}
+  for _, item in ipairs(items) do
+    local previous = merged[#merged]
+    local touches = previous and not pos_before(previous.entry.end_pos, item.entry.start_pos)
+    if previous and not touches then
+      local next_pos = position.next_pos(current_buffer(), previous.entry.end_pos)
+      touches = next_pos[1] == item.entry.start_pos[1] and next_pos[2] == item.entry.start_pos[2]
+    end
+
+    if touches then
+      local primary = previous.primary or item.primary
+      local source = previous.primary and previous.entry or item.entry
+      previous.entry = directed_entry(source, previous.entry.start_pos, item.entry.end_pos)
+      previous.primary = primary
+    else
+      merged[#merged + 1] = item
+    end
+  end
+
+  local entries = {}
+  for _, item in ipairs(merged) do
+    if item.primary then
+      table.insert(entries, 1, item.entry)
+    else
+      entries[#entries + 1] = item.entry
+    end
+  end
+  set_preview_entries(entries)
+end
+
+function M.split_selection_by_regex(pattern)
+  local prompted = pattern == nil
+  local before = prompted and capture_selection_state_snapshot() or nil
+  pattern = pattern or prompt_selection_regex("split", resolve_search_register('/'))
+  if not pattern then
+    return
+  end
+
+  local compiled = compile_selection_regex(pattern)
+  if prompted then
+    jumplist.push_snapshot(before, "split-selection")
+  end
+  local entries = {}
+  for _, source in ipairs(preview_or_cursor_entries()) do
+    local cursor = vim.deepcopy(source.start_pos)
+    for _, delimiter in ipairs(entry_regex_matches(source, compiled)) do
+      if pos_before(cursor, delimiter.start_pos) then
+        entries[#entries + 1] = directed_entry(source, cursor, position.prev_pos(current_buffer(), delimiter.start_pos))
+      end
+      cursor = position.next_pos(current_buffer(), delimiter.end_pos)
+    end
+    if not pos_before(source.end_pos, cursor) then
+      entries[#entries + 1] = directed_entry(source, cursor, source.end_pos)
+    end
+  end
+
+  if #entries == 0 then
+    state.clear_preview()
+    return
+  end
+  set_preview_entries(entries)
+end
+
+function M.remove_primary_selection()
+  if not state.preview_active() or #state.preview.entries <= 1 then
+    vim.notify("no selections remaining", vim.log.levels.WARN)
+    return
+  end
+
+  local entries = current_preview_entries()
+  table.remove(entries, 1)
+  set_preview_entries(entries)
+end
+
+function M.join_selections(select_spaces)
+  local buffer = current_buffer()
+  local entries = preview_or_cursor_entries()
+  local comment_tokens = line_comment_tokens(buffer)
+  local boundaries = {}
+  local removal_bytes = {}
+  for _, entry in ipairs(entries) do
+    local last_row = entry.end_pos[1]
+    if entry.start_pos[1] == last_row then
+      last_row = math.min(last_row + 1, position.line_count(buffer))
+    end
+    local first_line = position.line_text(buffer, entry.start_pos[1])
+    local first_content = first_line:sub(#(first_line:match("^[ \t]*") or "") + 1)
+    local current_comment_token = matching_line_comment_token(first_content, comment_tokens)
+    for row = entry.start_pos[1], last_row - 1 do
+      boundaries[row] = true
+      local right = position.line_text(buffer, row + 1)
+      local indent_bytes = #(right:match("^[ \t]*") or "")
+      local token = matching_line_comment_token(right:sub(indent_bytes + 1), comment_tokens)
+      if token and token == current_comment_token then
+        local end_bytes = indent_bytes + #token
+        end_bytes = end_bytes + #(right:sub(end_bytes + 1):match("^[ \t]*") or "")
+        removal_bytes[row] = math.max(removal_bytes[row] or 0, end_bytes)
+      elseif token then
+        current_comment_token = token
+      end
+    end
+  end
+  if not next(boundaries) then
+    return
+  end
+
+  local transaction = history.transaction(entries, current_preview_history_config())
+  local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-join")
+  local entry_marks = {}
+  for index, entry in ipairs(entries) do
+    local anchor_row, anchor_col = position.before_boundary(buffer, entry.anchor_pos)
+    local cursor_row, cursor_col = position.before_boundary(buffer, entry.cursor_pos)
+    entry_marks[index] = {
+      anchor = vim.api.nvim_buf_set_extmark(buffer, namespace, anchor_row, anchor_col, { right_gravity = false }),
+      cursor = vim.api.nvim_buf_set_extmark(buffer, namespace, cursor_row, cursor_col, { right_gravity = false }),
+    }
+  end
+
+  local rows = vim.tbl_keys(boundaries)
+  table.sort(rows, function(left, right) return left > right end)
+  local inserted_space_marks = {}
+  for _, row in ipairs(rows) do
+    local left = position.line_text(buffer, row)
+    local right = position.line_text(buffer, row + 1)
+    local indent_bytes = #(right:match("^%s*") or "")
+    indent_bytes = math.max(indent_bytes, removal_bytes[row] or 0)
+    local separator = indent_bytes == #right and "" or " "
+    vim.api.nvim_buf_set_text(buffer, row - 1, #left, row, indent_bytes, { separator })
+    if separator ~= "" then
+      inserted_space_marks[#inserted_space_marks + 1] = vim.api.nvim_buf_set_extmark(
+        buffer,
+        namespace,
+        row - 1,
+        #left,
+        { right_gravity = false }
+      )
+    end
+  end
+
+  local updated = {}
+  if select_spaces and #inserted_space_marks > 0 then
+    for _, mark in ipairs(inserted_space_marks) do
+      local point = extmark_pos_1indexed(buffer, namespace, mark)
+      if point then
+        updated[#updated + 1] = state_module.selection_entry(point, point)
+      end
+    end
+  else
+    for _, marks in ipairs(entry_marks) do
+      local anchor = extmark_pos_1indexed(buffer, namespace, marks.anchor)
+      local cursor = extmark_pos_1indexed(buffer, namespace, marks.cursor)
+      if anchor and cursor then
+        updated[#updated + 1] = state_module.selection_entry(anchor, cursor)
+      end
+    end
+  end
+  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
+  if #updated > 0 then
+    set_preview_entries(updated, { sync_history = false })
+  end
+  state.exit_extend_mode()
+  transaction.commit_now()
 end
 
 function M.align_selections()
@@ -4572,12 +5110,17 @@ function M.setup_autocmds()
     table.insert(last_modified_buffers, 1, buf)
   end
 
-  vim.api.nvim_create_autocmd("BufLeave", {
+  vim.api.nvim_create_autocmd({ "BufLeave", "WinLeave" }, {
     group = group,
     callback = function()
-      if state.preview.buffer and not state.preview.updating then
-        state.clear_preview()
-      end
+      save_current_view_selection()
+    end,
+  })
+
+  vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
+    group = group,
+    callback = function()
+      restore_current_view_selection()
     end,
   })
 
@@ -4613,6 +5156,7 @@ function M.setup_autocmds()
     callback = function(args)
       history.clear_buffer(args.buf)
       jumplist.remove_buffer(args.buf)
+      forget_saved_buffer(args.buf)
     end,
   })
 
@@ -4622,6 +5166,10 @@ function M.setup_autocmds()
       local win = tonumber(args.match)
       if win then
         jumplist.remove_view(win)
+        for _, saved in pairs(view_selection_snapshots[win] or {}) do
+          clear_saved_selection(saved)
+        end
+        view_selection_snapshots[win] = nil
       end
     end,
   })

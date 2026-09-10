@@ -412,6 +412,26 @@ function M.new(opts)
     views[win] = nil
   end
 
+  function jumplist.clone_view(source_win, target_win)
+    local source = views[source_win]
+    if not source or source_win == target_win then
+      return false
+    end
+
+    cleanup_invalid_entries(source)
+    jumplist.remove_view(target_win)
+
+    local target = view_for(target_win)
+    for _, jump in ipairs(source.jumps) do
+      local snapshot = resolve_snapshot(jump)
+      if snapshot then
+        target.jumps[#target.jumps + 1] = create_jump(snapshot, jump.reason)
+      end
+    end
+    target.current = math.min(source.current, #target.jumps + 1)
+    return true
+  end
+
   return jumplist
 end
 
