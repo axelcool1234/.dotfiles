@@ -3950,6 +3950,21 @@ function M.save_selection_to_jumplist()
   end
 end
 
+function M.prepare_jumplist_jump(reason)
+  local snapshot = capture_selection_state_snapshot()
+  local win = vim.api.nvim_get_current_win()
+  local committed = false
+
+  return function(target_win)
+    if committed then
+      return false
+    end
+
+    committed = true
+    return jumplist.push_snapshot(snapshot, reason, target_win or win)
+  end
+end
+
 function M.jump_backward()
   jumplist.jump_backward(vim.v.count1)
 end

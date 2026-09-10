@@ -301,7 +301,7 @@ local keys = {
   { "Goto line end", "gl", helix.goto_line_end },
   { "Goto first non-blank in line", "gs", helix.goto_first_nonblank },
   { "Goto definition", "gd", pickers.definitions_picker },
-  { "Goto declaration", "gD", "<cmd>lua vim.lsp.buf.declaration()<CR>" },
+  { "Goto declaration", "gD", pickers.declarations_picker },
   { "Goto first tree-sitter child", "gz", function() helix.goto_treesitter_child("first") end },
   { "Goto last tree-sitter child", "gZ", function() helix.goto_treesitter_child("last") end },
   { "Goto type definition", "gy", pickers.type_definitions_picker },

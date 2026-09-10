@@ -8,6 +8,131 @@ local function helix_telescope_opts(opts)
   }, opts or {})
 end
 
+local function attach_jump_commit(commit_jump)
+  local actions = require("telescope.actions")
+  for _, action in ipairs({
+    actions.select_default,
+    actions.select_horizontal,
+    actions.select_vertical,
+    actions.select_tab,
+    actions.select_drop,
+    actions.select_tab_drop,
+  }) do
+    action:enhance({ pre = commit_jump })
+  end
+end
+
+local function jumplist_telescope_opts(reason, opts)
+  local commit_jump = require("axelcool1234.helix").prepare_jumplist_jump(reason)
+  opts = opts or {}
+  local previous_attach = opts.attach_mappings
+  opts.attach_mappings = function(prompt_bufnr, map)
+    attach_jump_commit(commit_jump)
+    if previous_attach then
+      return previous_attach(prompt_bufnr, map)
+    end
+    return true
+  end
+  return helix_telescope_opts(opts)
+end
+
+local function jump_to_lsp_item(item, reuse_win, commit_jump)
+  local buffer = item.bufnr
+  if not buffer or buffer == 0 or not vim.api.nvim_buf_is_valid(buffer) then
+    if not item.filename or item.filename == "" then
+      return false
+    end
+    buffer = vim.fn.bufadd(item.filename)
+  end
+
+  local source_win = vim.api.nvim_get_current_win()
+  local source_pos = vim.fn.getpos(".")
+  source_pos[1] = vim.api.nvim_get_current_buf()
+  vim.cmd("normal! m'")
+  vim.fn.settagstack(source_win, {
+    items = {
+      {
+        tagname = vim.fn.expand("<cword>"),
+        from = source_pos,
+      },
+    },
+  }, "t")
+
+  local win = source_win
+  if reuse_win and vim.api.nvim_win_get_buf(win) ~= buffer then
+    local existing_win = vim.fn.bufwinid(buffer)
+    if existing_win < 0 then
+      existing_win = vim.fn.win_findbuf(buffer)[1]
+    end
+    if existing_win and existing_win >= 0 then
+      win = existing_win
+    end
+  end
+
+  commit_jump(win)
+  vim.bo[buffer].buflisted = true
+  vim.api.nvim_win_set_buf(win, buffer)
+  vim.api.nvim_set_current_win(win)
+  vim.api.nvim_win_set_cursor(win, { item.lnum, math.max((item.col or 1) - 1, 0) })
+  vim.cmd("normal! zv")
+  return true
+end
+
+local function open_lsp_locations(list, opts, commit_jump)
+  local items = list.items or {}
+  if opts.exclude_current_line then
+    items = vim.tbl_filter(function(item)
+      return not (item.filename == opts.origin_filename and item.lnum == opts.origin_line)
+    end, items)
+  end
+
+  if #items == 0 then
+    vim.notify("No " .. opts.label .. " found", vim.log.levels.INFO)
+    return
+  end
+
+  if #items == 1 then
+    jump_to_lsp_item(items[1], opts.reuse_win, commit_jump)
+    return
+  end
+
+  local pickers = require("telescope.pickers")
+  local finders = require("telescope.finders")
+  local config = require("telescope.config").values
+  local make_entry = require("telescope.make_entry")
+  local picker_opts = helix_telescope_opts({})
+
+  pickers.new(picker_opts, {
+    prompt_title = list.title or opts.label,
+    finder = finders.new_table({
+      results = items,
+      entry_maker = make_entry.gen_from_quickfix(picker_opts),
+    }),
+    previewer = config.qflist_previewer(picker_opts),
+    sorter = config.generic_sorter(picker_opts),
+    push_cursor_on_edit = true,
+    push_tagstack_on_edit = true,
+    attach_mappings = function()
+      attach_jump_commit(commit_jump)
+      return true
+    end,
+  }):find()
+end
+
+local function lsp_location_picker(request, opts)
+  local helix = require("axelcool1234.helix")
+  local commit_jump = helix.prepare_jumplist_jump(opts.reason)
+  opts.origin_filename = vim.api.nvim_buf_get_name(0)
+  opts.origin_line = vim.api.nvim_win_get_cursor(0)[1]
+
+  request({
+    on_list = function(list)
+      open_lsp_locations(list, opts, commit_jump)
+    end,
+    reuse_win = opts.reuse_win,
+  })
+end
+
 local function git_root_or_cwd()
   local root = vim.fn.system("git rev-parse --show-toplevel"):gsub("\n", "")
   if vim.v.shell_error == 0 and root ~= "" then
@@ -330,40 +455,65 @@ function M.jumplist_picker()
 end
 
 function M.document_symbols_picker()
-  require("telescope.builtin").lsp_document_symbols(helix_telescope_opts())
+  require("telescope.builtin").lsp_document_symbols(jumplist_telescope_opts("symbol"))
 end
 
 function M.workspace_symbols_picker()
-  require("telescope.builtin").lsp_dynamic_workspace_symbols(helix_telescope_opts())
+  require("telescope.builtin").lsp_dynamic_workspace_symbols(jumplist_telescope_opts("workspace-symbol"))
 end
 
 function M.diagnostics_picker()
-  require("telescope.builtin").diagnostics(helix_telescope_opts({
+  require("telescope.builtin").diagnostics(jumplist_telescope_opts("diagnostic-picker", {
     bufnr = 0,
     sort_by = "severity",
   }))
 end
 
 function M.workspace_diagnostics_picker()
-  require("telescope.builtin").diagnostics(helix_telescope_opts({
+  require("telescope.builtin").diagnostics(jumplist_telescope_opts("workspace-diagnostic-picker", {
     sort_by = "severity",
   }))
 end
 
 function M.references_picker()
-  require("telescope.builtin").lsp_references(helix_telescope_opts())
+  lsp_location_picker(function(opts)
+    vim.lsp.buf.references(nil, opts)
+  end, {
+    label = "references",
+    reason = "lsp-reference",
+    exclude_current_line = true,
+  })
 end
 
 function M.definitions_picker()
-  require("telescope.builtin").lsp_definitions(helix_telescope_opts({ reuse_win = true }))
+  lsp_location_picker(vim.lsp.buf.definition, {
+    label = "definitions",
+    reason = "lsp-definition",
+    reuse_win = true,
+  })
+end
+
+function M.declarations_picker()
+  lsp_location_picker(vim.lsp.buf.declaration, {
+    label = "declarations",
+    reason = "lsp-declaration",
+  })
 end
 
 function M.type_definitions_picker()
-  require("telescope.builtin").lsp_type_definitions(helix_telescope_opts({ reuse_win = true }))
+  lsp_location_picker(vim.lsp.buf.type_definition, {
+    label = "type definitions",
+    reason = "lsp-type-definition",
+    reuse_win = true,
+  })
 end
 
 function M.implementations_picker()
-  require("telescope.builtin").lsp_implementations(helix_telescope_opts({ reuse_win = true }))
+  lsp_location_picker(vim.lsp.buf.implementation, {
+    label = "implementations",
+    reason = "lsp-implementation",
+    reuse_win = true,
+  })
 end
 
 function M.resume_last_picker()

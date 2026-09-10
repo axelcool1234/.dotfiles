@@ -1,4 +1,5 @@
 local helix = require("axelcool1234.helix")
+local pickers = require("axelcool1234.pickers")
 local state_module = require("axelcool1234.helix.state")
 
 local function assert_equal(actual, expected, label)
@@ -36,6 +37,44 @@ local function assert_jumplist_push(reason, label, action)
   local after = jumplist_items()
   assert_equal(#after, #before + 1, label .. " should add one jumplist entry")
   assert_equal(after[1].reason, reason, label .. " should record the expected jumplist reason")
+end
+
+local function with_stubbed_lsp_location_request(method, run)
+  local original = vim.lsp.buf[method]
+  local request_opts
+  vim.lsp.buf[method] = function(first, second)
+    request_opts = second or first
+  end
+
+  local ok, err = xpcall(function()
+    run(function()
+      return request_opts
+    end)
+  end, debug.traceback)
+  vim.lsp.buf[method] = original
+  if not ok then
+    error(err)
+  end
+end
+
+local function with_stubbed_telescope_builtin(name, run)
+  local builtin = require("telescope.builtin")
+  local original = builtin[name]
+  local picker_opts
+  builtin[name] = function(opts)
+    picker_opts = opts
+  end
+
+  local ok, err = xpcall(function()
+    run(function()
+      return picker_opts
+    end)
+  end, debug.traceback)
+  builtin[name] = original
+  require("telescope.actions")._clear()
+  if not ok then
+    error(err)
+  end
 end
 
 local function with_stubbed_input(value, run)
@@ -2201,6 +2240,130 @@ local cases = {
 }
 
 local jumplist_cases = {
+  {
+    name = "symbol and diagnostic pickers record a jump only on selection",
+    run = function()
+      local cases = {
+        { builtin = "lsp_document_symbols", picker = "document_symbols_picker", reason = "symbol" },
+        { builtin = "lsp_dynamic_workspace_symbols", picker = "workspace_symbols_picker", reason = "workspace-symbol" },
+        { builtin = "diagnostics", picker = "diagnostics_picker", reason = "diagnostic-picker" },
+        { builtin = "diagnostics", picker = "workspace_diagnostics_picker", reason = "workspace-diagnostic-picker" },
+      }
+
+      for _, case in ipairs(cases) do
+        with_fresh_jumplist_tab(function()
+          reset_case({ "origin", "destination" }, 1, 0)
+          local before = jumplist_items()
+
+          with_stubbed_telescope_builtin(case.builtin, function(get_picker_opts)
+            pickers[case.picker]()
+            assert_equal(#jumplist_items(), #before, case.picker .. " should not save before picker selection")
+
+            local picker_opts = get_picker_opts()
+            assert(picker_opts and picker_opts.attach_mappings, case.picker .. " should install picker mappings")
+            picker_opts.attach_mappings(0, function() end)
+            assert_equal(#jumplist_items(), #before, case.picker .. " should not save while opening picker mappings")
+
+            local action = require("telescope.actions").select_default
+            local commit_jump = action._pre[action[1]]
+            assert(commit_jump, case.picker .. " should checkpoint before selecting a destination")
+            commit_jump()
+          end)
+
+          local after = jumplist_items()
+          assert_equal(#after, #before + 1, case.picker .. " should add one jumplist entry")
+          assert_equal(after[1].reason, case.reason, case.picker .. " should record the expected jumplist reason")
+        end)
+      end
+    end,
+  },
+  {
+    name = "LSP location motions record a jumplist entry only when they jump",
+    run = function()
+      local cases = {
+        { method = "definition", picker = "definitions_picker", reason = "lsp-definition" },
+        { method = "declaration", picker = "declarations_picker", reason = "lsp-declaration" },
+        { method = "type_definition", picker = "type_definitions_picker", reason = "lsp-type-definition" },
+        { method = "references", picker = "references_picker", reason = "lsp-reference" },
+        { method = "implementation", picker = "implementations_picker", reason = "lsp-implementation" },
+      }
+
+      for _, case in ipairs(cases) do
+        with_fresh_jumplist_tab(function()
+          reset_case({ "origin", "destination" }, 1, 0)
+          local buffer = vim.api.nvim_get_current_buf()
+          local before = jumplist_items()
+
+          with_stubbed_lsp_location_request(case.method, function(get_request_opts)
+            pickers[case.picker]()
+            assert_equal(#jumplist_items(), #before, case.picker .. " should not save before a destination exists")
+
+            local request_opts = get_request_opts()
+            assert(request_opts and request_opts.on_list, case.picker .. " should install an LSP location callback")
+            request_opts.on_list({
+              title = "LSP locations",
+              items = {
+                {
+                  bufnr = buffer,
+                  filename = vim.api.nvim_buf_get_name(buffer),
+                  lnum = 2,
+                  col = 1,
+                  text = "destination",
+                },
+              },
+            })
+          end)
+
+          local after = jumplist_items()
+          assert_equal(#after, #before + 1, case.picker .. " should add one jumplist entry")
+          assert_equal(after[1].reason, case.reason, case.picker .. " should record the expected jumplist reason")
+          assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 0 }, case.picker .. " should jump to the LSP location")
+          helix.jump_backward()
+          assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, case.picker .. " should jump back to the LSP origin")
+          helix.jump_forward()
+          assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 0 }, case.picker .. " should jump forward to the LSP destination")
+        end)
+      end
+    end,
+  },
+  {
+    name = "LSP jumps into a reused window keep their jumplist reachable",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "origin" }, 1, 0)
+        local origin_buffer = vim.api.nvim_get_current_buf()
+        local origin_win = vim.api.nvim_get_current_win()
+
+        vim.cmd("vnew")
+        local target_buffer = vim.api.nvim_get_current_buf()
+        local target_win = vim.api.nvim_get_current_win()
+        vim.api.nvim_buf_set_lines(target_buffer, 0, -1, false, { "destination" })
+        vim.api.nvim_set_current_win(origin_win)
+
+        with_stubbed_lsp_location_request("definition", function(get_request_opts)
+          pickers.definitions_picker()
+          get_request_opts().on_list({
+            title = "LSP locations",
+            items = {
+              {
+                bufnr = target_buffer,
+                filename = vim.api.nvim_buf_get_name(target_buffer),
+                lnum = 1,
+                col = 1,
+                text = "destination",
+              },
+            },
+          })
+        end)
+
+        assert_equal(vim.api.nvim_get_current_win(), target_win, "definition should reuse the window displaying its target")
+        helix.jump_backward()
+        assert_equal(vim.api.nvim_get_current_buf(), origin_buffer, "jump backward should restore the origin in the reused window")
+        helix.jump_forward()
+        assert_equal(vim.api.nvim_get_current_buf(), target_buffer, "jump forward should restore the LSP target in the reused window")
+      end)
+    end,
+  },
   {
     name = "save selection records a manual jumplist entry",
     run = function()
