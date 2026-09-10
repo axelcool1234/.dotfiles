@@ -37,6 +37,9 @@ end
 function M.entry_text_ranges(entry)
   local buffer = vim.api.nvim_get_current_buf()
   local start_row, start_col = position.before_boundary(buffer, entry.start_pos)
+  if entry.empty == true then
+    return start_row, start_col, start_row, start_col
+  end
   local end_row, end_col = position.after_boundary(buffer, entry.end_pos)
   return start_row, start_col, end_row, end_col
 end
@@ -147,11 +150,14 @@ local function merge_two_entries(left, right)
   local end_pos = pos_after(left.end_pos, right.end_pos) and left.end_pos or right.end_pos
   local direction = merged_entry_direction(left, right)
 
+  local merged
   if direction < 0 then
-    return M.selection_entry(end_pos, start_pos)
+    merged = M.selection_entry(end_pos, start_pos)
+  else
+    merged = M.selection_entry(start_pos, end_pos)
   end
-
-  return M.selection_entry(start_pos, end_pos)
+  merged.empty = left.empty == true and right.empty == true
+  return merged
 end
 
 local function sort_preview_items(items)
@@ -385,7 +391,7 @@ function M.new(opts)
     end
 
     local pos = M.current_pos_1indexed()
-    return { pos[2] }
+    return { position.display_col(vim.api.nvim_get_current_buf(), pos) }
   end
 
   -- Preview entries are the single source of truth for Helix-style selections.
@@ -399,7 +405,8 @@ function M.new(opts)
       preview_items[index] = {
         entry = vim.deepcopy(entry),
         cursor_pos = config.cursor_positions and config.cursor_positions[index] or entry.cursor_pos,
-        preferred_col = config.preferred_columns and config.preferred_columns[index] or entry.cursor_pos[2],
+        preferred_col = config.preferred_columns and config.preferred_columns[index]
+          or position.display_col(buffer, entry.cursor_pos),
         is_primary = index == 1,
       }
     end

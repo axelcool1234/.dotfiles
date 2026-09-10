@@ -1,7 +1,7 @@
 local M = {}
 
 function M.char_count(text)
-  return vim.fn.strchars(text)
+  return vim.fn.strchars(text, true)
 end
 
 function M.byte_length(text)
@@ -9,13 +9,13 @@ function M.byte_length(text)
 end
 
 function M.prefix_by_char_count(text, count)
-  return vim.fn.strcharpart(text, 0, math.max(count, 0))
+  return vim.fn.strcharpart(text, 0, math.max(count, 0), true)
 end
 
 function M.slice_by_char_range(text, start_col, end_col)
   local start_index = math.max(start_col - 1, 0)
   local length = math.max(end_col - start_col + 1, 0)
-  return vim.fn.strcharpart(text, start_index, length)
+  return vim.fn.strcharpart(text, start_index, length, true)
 end
 
 function M.suffix_from_char_col(text, start_col)
@@ -24,7 +24,7 @@ function M.suffix_from_char_col(text, start_col)
     return ""
   end
 
-  return vim.fn.strcharpart(text, math.max(start_col - 1, 0), total)
+  return vim.fn.strcharpart(text, math.max(start_col - 1, 0), total, true)
 end
 
 function M.char_at(text, col)
@@ -33,7 +33,7 @@ function M.char_at(text, col)
     return nil
   end
 
-  return vim.fn.strcharpart(text, col - 1, 1)
+  return vim.fn.strcharpart(text, col - 1, 1, true)
 end
 
 function M.byte_col0_from_char_col(text, col)
@@ -42,12 +42,44 @@ function M.byte_col0_from_char_col(text, col)
     return 0
   end
 
-  return vim.str_byteindex(text, clamped - 1)
+  local byte_index = vim.fn.byteidx(text, clamped - 1)
+  return byte_index < 0 and #text or byte_index
 end
 
 function M.char_col_from_byte_col0(text, byte_col0)
   local clamped = math.max(0, math.min(byte_col0, #text))
-  return vim.str_utfindex(text, clamped) + 1
+  return vim.fn.charidx(text, clamped) + 1
+end
+
+function M.display_col_from_char_col(text, col)
+  return vim.fn.strdisplaywidth(M.prefix_by_char_count(text, math.max(col - 1, 0))) + 1
+end
+
+function M.char_col_from_display_col(text, display_col)
+  local target = math.max(display_col, 1)
+  local total = M.char_count(text)
+
+  for col = 1, total do
+    local start_display_col = M.display_col_from_char_col(text, col)
+    local next_display_col = M.display_col_from_char_col(text, col + 1)
+    if target < next_display_col then
+      return col
+    end
+    if target == start_display_col then
+      return col
+    end
+  end
+
+  return total + 1
+end
+
+function M.display_col(buffer, pos)
+  local clamped = M.clamp_pos(buffer, pos)
+  return M.display_col_from_char_col(M.line_text(buffer, clamped[1]), clamped[2])
+end
+
+function M.char_col_at_display_col(buffer, row, display_col)
+  return M.char_col_from_display_col(M.line_text(buffer, row), display_col)
 end
 
 function M.line_count(buffer)

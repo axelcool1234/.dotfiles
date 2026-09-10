@@ -1361,7 +1361,8 @@ function M.new(opts)
     local buffer = current_buffer()
     local source_entries = state.preview_active() and current_preview_entries() or current_entries()
     local entries = {}
-    for _, source_entry in ipairs(source_entries) do
+    for source_index, source_entry in ipairs(source_entries) do
+      local backward = pos_before(source_entry.cursor_pos, source_entry.anchor_pos)
       local node = selected_or_seed_treesitter_node(source_entry)
       local parent = node and node:parent() or nil
       while parent and parent:child_count() <= 1 do
@@ -1371,8 +1372,21 @@ function M.new(opts)
       if #siblings == 0 then
         entries[#entries + 1] = source_entry
       else
+        if source_index == 1 and node then
+          for sibling_index, sibling in ipairs(siblings) do
+            if sibling:id() == node:id() then
+              table.remove(siblings, sibling_index)
+              table.insert(siblings, 1, sibling)
+              break
+            end
+          end
+        end
         for _, sibling in ipairs(siblings) do
-          entries[#entries + 1] = treesitter_node_entry(sibling, true)
+          local entry = treesitter_node_entry(sibling, true)
+          if backward then
+            entry = state_module.selection_entry(entry.end_pos, entry.start_pos)
+          end
+          entries[#entries + 1] = entry
         end
       end
     end
@@ -1384,13 +1398,18 @@ function M.new(opts)
     local source_entries = state.preview_active() and current_preview_entries() or current_entries()
     local entries = {}
     for _, source_entry in ipairs(source_entries) do
+      local backward = pos_before(source_entry.cursor_pos, source_entry.anchor_pos)
       local node = selected_or_seed_treesitter_node(source_entry)
       local children = named_children(node)
       if #children == 0 then
         entries[#entries + 1] = source_entry
       else
         for _, child in ipairs(children) do
-          entries[#entries + 1] = treesitter_node_entry(child, true)
+          local entry = treesitter_node_entry(child, true)
+          if backward then
+            entry = state_module.selection_entry(entry.end_pos, entry.start_pos)
+          end
+          entries[#entries + 1] = entry
         end
       end
     end
@@ -2290,8 +2309,13 @@ function M.new(opts)
 
       local bounds = surround_targets(targets, pair)
       local entries = {}
-      for _, bound in ipairs(bounds) do
-        table.insert(entries, state_module.selection_entry(bound.start_pos, bound.end_pos))
+      for index, bound in ipairs(bounds) do
+        local source = state.preview.entries[index]
+        if source and pos_before(source.cursor_pos, source.anchor_pos) then
+          table.insert(entries, state_module.selection_entry(bound.end_pos, bound.start_pos))
+        else
+          table.insert(entries, state_module.selection_entry(bound.start_pos, bound.end_pos))
+        end
       end
 
       state.enter_extend_mode()

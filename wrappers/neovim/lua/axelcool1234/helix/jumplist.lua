@@ -13,6 +13,7 @@ end
 local function entries_equal(left, right)
   return positions_equal(left.anchor_pos, right.anchor_pos)
     and positions_equal(left.cursor_pos, right.cursor_pos)
+    and (left.empty == true) == (right.empty == true)
 end
 
 local function snapshots_equal(left, right)
@@ -26,8 +27,8 @@ local function snapshots_equal(left, right)
   local right_preferred_columns = right.preferred_columns or {}
 
   if left.buffer ~= right.buffer
-    or left.extend_mode ~= right.extend_mode
-    or left.had_preview ~= right.had_preview
+    or (left.extend_mode == true) ~= (right.extend_mode == true)
+    or (left.had_preview == true) ~= (right.had_preview == true)
     or #left.entries ~= #right.entries
     or #left_cursor_positions ~= #right_cursor_positions
     or #left_preferred_columns ~= #right_preferred_columns then
@@ -115,6 +116,7 @@ function M.new(opts)
       jump.entries[index] = {
         anchor_id = create_mark(snapshot.buffer, entry.anchor_pos),
         cursor_id = create_mark(snapshot.buffer, entry.cursor_pos),
+        empty = entry.empty == true,
       }
     end
 
@@ -164,6 +166,7 @@ function M.new(opts)
       snapshot.entries[index] = {
         anchor_pos = anchor_pos,
         cursor_pos = cursor_pos,
+        empty = entry_marks.empty == true,
       }
     end
 
@@ -183,7 +186,7 @@ function M.new(opts)
       end
 
       if snapshot.preferred_columns[index] == nil then
-        snapshot.preferred_columns[index] = snapshot.cursor_positions[index][2]
+        snapshot.preferred_columns[index] = position.display_col(jump.buffer, snapshot.cursor_positions[index])
       end
     end
 
@@ -218,13 +221,16 @@ function M.new(opts)
   end
 
   local function prune(view)
+    local removed = 0
     while #view.jumps > snapshot_limit do
       cleanup_jump(view.jumps[1])
       table.remove(view.jumps, 1)
       if view.current > 1 then
         view.current = view.current - 1
       end
+      removed = removed + 1
     end
+    return removed
   end
 
   local function push_snapshot_to_view(view, snapshot, reason)
@@ -238,13 +244,13 @@ function M.new(opts)
     local previous = resolve_snapshot(view.jumps[#view.jumps])
     if previous and snapshots_equal(previous, snapshot) then
       view.current = #view.jumps + 1
-      return false
+      return false, 0
     end
 
     view.jumps[#view.jumps + 1] = create_jump(snapshot, reason)
     view.current = #view.jumps + 1
-    prune(view)
-    return true
+    local removed = prune(view)
+    return true, removed
   end
 
   function jumplist.push_snapshot(snapshot, reason, win)
@@ -262,7 +268,7 @@ function M.new(opts)
     snapshot.preferred_columns = deepcopy_or_empty(snapshot.preferred_columns)
     if #snapshot.preferred_columns == 0 then
       for _, cursor_pos in ipairs(snapshot.cursor_positions) do
-        snapshot.preferred_columns[#snapshot.preferred_columns + 1] = cursor_pos[2]
+        snapshot.preferred_columns[#snapshot.preferred_columns + 1] = position.display_col(snapshot.buffer, cursor_pos)
       end
     end
 
@@ -279,13 +285,17 @@ function M.new(opts)
 
     local steps = count or 1
     local live_snapshot = capture()
-    if view.current == (#view.jumps + 1) then
-      push_snapshot_to_view(view, live_snapshot, "live")
-    end
-
     local target = view.current - steps
     if target < 1 then
       return false
+    end
+
+    if view.current == (#view.jumps + 1) then
+      local _, removed = push_snapshot_to_view(view, live_snapshot, "live")
+      target = target - removed
+      if target < 1 then
+        return false
+      end
     end
 
     local snapshot = resolve_snapshot(view.jumps[target])

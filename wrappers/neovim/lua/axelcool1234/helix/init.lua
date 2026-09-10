@@ -1320,15 +1320,32 @@ local function increment_integer_text(selected_text, amount)
   return restore_integer_separators(selected_text, new_text, radix, separator_rtl_indexes)
 end
 
-local function toggled_case_text(text)
-  return (text:gsub("%a", function(char)
-    local lower = string.lower(char)
-    if char == lower then
-      return string.upper(char)
-    end
+local function unicode_upper_text(text)
+  -- Vim uses the simple Unicode mapping for sharp S, while Helix/Rust uses
+  -- the full mapping which may expand one codepoint into several.
+  return vim.fn.toupper((text:gsub("ß", "SS")))
+end
 
-    return lower
-  end))
+local function unicode_lower_text(text)
+  -- Preserve the unconditional Unicode SpecialCasing mapping for dotted I.
+  return vim.fn.tolower((text:gsub("İ", "i̇")))
+end
+
+local function toggled_case_text(text)
+  local toggled = {}
+  for char_col = 1, position.char_count(text) do
+    local grapheme = position.char_at(text, char_col)
+    local lower = unicode_lower_text(grapheme)
+    local upper = unicode_upper_text(grapheme)
+    if grapheme == lower and grapheme ~= upper then
+      toggled[#toggled + 1] = upper
+    elseif grapheme == upper and grapheme ~= lower then
+      toggled[#toggled + 1] = lower
+    else
+      toggled[#toggled + 1] = grapheme
+    end
+  end
+  return table.concat(toggled)
 end
 
 local full_line_entry
@@ -1635,6 +1652,7 @@ local function resolve_saved_selection(saved)
     local cursor = extmark_pos_1indexed(saved.buffer, saved_selection_namespace, marks.cursor)
     if anchor and cursor then
       entries[index] = state_module.selection_entry(anchor, cursor)
+      entries[index].empty = saved.snapshot.entries[index] and saved.snapshot.entries[index].empty == true
     end
   end
   if #entries == 0 then
@@ -1731,7 +1749,8 @@ selection_state_snapshots_equal = function(left, right)
       or entry.anchor_pos[1] ~= other.anchor_pos[1]
       or entry.anchor_pos[2] ~= other.anchor_pos[2]
       or entry.cursor_pos[1] ~= other.cursor_pos[1]
-      or entry.cursor_pos[2] ~= other.cursor_pos[2] then
+      or entry.cursor_pos[2] ~= other.cursor_pos[2]
+      or (entry.empty == true) ~= (other.empty == true) then
       return false
     end
   end
@@ -2478,10 +2497,15 @@ local function clone_entry_to_supported_line(entry, delta, preferred_cursor_col)
   local last_row = position.line_count(current_buffer())
 
   if entry_is_point(entry) then
-    local target_col = preferred_cursor_col or entry.cursor_pos[2]
+    local preferred_display_col = preferred_cursor_col or position.display_col(current_buffer(), entry.cursor_pos)
 
     while target_cursor_row >= 1 and target_cursor_row <= last_row do
-      if line_supports_column(target_cursor_row, target_col) then
+      local max_display_col = position.display_col(current_buffer(), {
+        target_cursor_row,
+        line_cursor_max_column(target_cursor_row),
+      })
+      if preferred_display_col <= max_display_col then
+        local target_col = position.char_col_at_display_col(current_buffer(), target_cursor_row, preferred_display_col)
         return state_module.selection_entry({ target_cursor_row, target_col }, { target_cursor_row, target_col })
       end
 
@@ -2558,8 +2582,8 @@ function M.normal_motion(keys)
   return motion.normal(keys)
 end
 
-function M.apply_word_motion(target)
-  motion.apply_word(target)
+function M.apply_word_motion(target, count_override)
+  motion.apply_word(target, count_override)
 end
 
 function M.find_char_motion(kind)
@@ -2644,12 +2668,12 @@ function M.flash_treesitter()
   end
 end
 
-function M.scroll_half_page(direction)
-  motion.scroll_half_page(direction)
+function M.scroll_half_page(direction, count_override)
+  motion.scroll_half_page(direction, count_override)
 end
 
-function M.scroll_page(direction)
-  motion.scroll_page(direction)
+function M.scroll_page(direction, count_override)
+  motion.scroll_page(direction, count_override)
 end
 
 function M.goto_last_line()
@@ -2946,6 +2970,10 @@ end
 
 local function pos_before(left, right)
   return left[1] < right[1] or (left[1] == right[1] and left[2] < right[2])
+end
+
+local function pos_equal(left, right)
+  return left[1] == right[1] and left[2] == right[2]
 end
 
 local function find_relative_diagnostic(diagnostics, cursor_pos, direction, count)
@@ -3847,11 +3875,12 @@ function M.replace_selection_with_char()
     end
 
     local entries = current_preview_entries()
+    local preferred_columns = state.current_preferred_columns()
     local transaction = history.transaction(entries, current_preview_history_config())
     state.clear_preview()
     local updated = replace_preview_entries_with_char(entries, replacement)
     if #updated > 0 then
-      sync_cursors_to_entries(updated, { sync_history = false })
+      sync_cursors_to_entries(updated, { preferred_columns = preferred_columns, sync_history = false })
     end
     transaction.commit_now()
     return
@@ -3899,6 +3928,7 @@ end
 function M.toggle_selection_case()
   local had_preview = state.preview_active()
   local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
+  local preferred_columns = had_preview and state.current_preferred_columns() or nil
   local replacements = {}
   local changed = false
 
@@ -3915,12 +3945,12 @@ function M.toggle_selection_case()
   end
 
   local transaction = history.transaction(entries, current_preview_history_config())
-  replace_preview_entries_with_text(entries, replacements)
+  local updated = replace_preview_entries_with_text(entries, replacements)
 
   if had_preview then
-    set_preview_entries(entries, { sync_history = false })
+    set_preview_entries(updated, { preferred_columns = preferred_columns, sync_history = false })
   else
-    state_module.move_cursor_to_pos(entries[1].cursor_pos)
+    state_module.move_cursor_to_pos(updated[1].cursor_pos)
   end
 
   transaction.commit_now()
@@ -3929,9 +3959,10 @@ end
 function M.set_selection_case(kind)
   local had_preview = state.preview_active()
   local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
+  local preferred_columns = had_preview and state.current_preferred_columns() or nil
   local replacements = {}
   local changed = false
-  local transform = kind == "upper" and string.upper or string.lower
+  local transform = kind == "upper" and unicode_upper_text or unicode_lower_text
 
   for index, entry in ipairs(entries) do
     local text = state_module.get_entry_text(entry)
@@ -3943,9 +3974,9 @@ function M.set_selection_case(kind)
   end
 
   local transaction = history.transaction(entries, current_preview_history_config())
-  replace_preview_entries_with_text(entries, replacements)
+  local updated = replace_preview_entries_with_text(entries, replacements)
   if had_preview then
-    set_preview_entries(entries, { sync_history = false })
+    set_preview_entries(updated, { preferred_columns = preferred_columns, sync_history = false })
   else
     state_module.move_cursor_to_pos(entries[1].cursor_pos)
   end
@@ -4102,11 +4133,12 @@ end
 
 function M.collapse_selections_to_cursors()
   if state.preview_active() then
+    local preferred_columns = state.current_preferred_columns()
     local entries = {}
     for _, entry in ipairs(current_preview_entries()) do
       table.insert(entries, point_entry(entry.cursor_pos))
     end
-    sync_cursors_to_entries(entries)
+    sync_cursors_to_entries(entries, { preferred_columns = preferred_columns })
     return
   end
 end
@@ -4234,18 +4266,23 @@ function M.select_picker_location(item, whole_line)
   local end_row = math.max(1, math.min(tonumber(item.end_lnum) or row, position.line_count(buffer)))
   local end_col = tonumber(item.end_col)
   local end_pos = start_pos
-  if end_col and (end_row ~= row or end_col ~= tonumber(item.col)) then
+  local empty = false
+  if end_col then
     local end_boundary = {
       end_row,
       position.char_col_from_byte_col0(position.line_text(buffer, end_row), math.max(end_col - 1, 0)),
     }
-    if end_boundary[1] ~= start_pos[1] or end_boundary[2] ~= start_pos[2] then
+    if end_boundary[1] == start_pos[1] and end_boundary[2] == start_pos[2] then
+      empty = true
+    else
       end_pos = position.prev_pos(buffer, end_boundary)
     end
   end
 
   -- Helix flips LSP ranges so the cursor rests at the start of the symbol.
-  set_preview_entries({ state_module.selection_entry(end_pos, start_pos) }, { sync_history = false })
+  local entry = state_module.selection_entry(end_pos, start_pos)
+  entry.empty = empty
+  set_preview_entries({ entry }, { sync_history = false })
   state.exit_extend_mode()
   return true
 end
@@ -4314,12 +4351,12 @@ function M.redo()
   apply_native_history_jump("redo")
 end
 
-function M.earlier()
-  apply_native_history_jump(("earlier %d"):format(vim.v.count1))
+function M.earlier(count_override)
+  apply_native_history_jump(("earlier %d"):format(count_override or vim.v.count1))
 end
 
-function M.later()
-  apply_native_history_jump(("later %d"):format(vim.v.count1))
+function M.later(count_override)
+  apply_native_history_jump(("later %d"):format(count_override or vim.v.count1))
 end
 
 function M.surround_add()
@@ -4618,7 +4655,7 @@ function M.copy_selection_on_adjacent_line(delta, count_override)
 
     local function append_entry(entry, preferred_col)
       table.insert(combined_entries, entry)
-      table.insert(combined_preferred_columns, preferred_col or entry.cursor_pos[2])
+      table.insert(combined_preferred_columns, preferred_col or position.display_col(current_buffer(), entry.cursor_pos))
     end
 
     local primary_clone = clone_entry_to_supported_line(source_entries[1], delta, source_preferred_columns[1])
@@ -4787,13 +4824,21 @@ function M.split_selection_by_regex(pattern)
   for _, source in ipairs(preview_or_cursor_entries()) do
     local cursor = vim.deepcopy(source.start_pos)
     for _, delimiter in ipairs(entry_regex_matches(source, compiled)) do
+      if pos_equal(cursor, delimiter.start_pos) and pos_equal(cursor, source.start_pos) then
+        local empty = state_module.selection_entry(cursor, cursor)
+        empty.empty = true
+        entries[#entries + 1] = empty
+      end
       if pos_before(cursor, delimiter.start_pos) then
         entries[#entries + 1] = directed_entry(source, cursor, position.prev_pos(current_buffer(), delimiter.start_pos))
       end
       cursor = position.next_pos(current_buffer(), delimiter.end_pos)
     end
     if not pos_before(source.end_pos, cursor) then
-      entries[#entries + 1] = directed_entry(source, cursor, source.end_pos)
+      local remainder = directed_entry(source, cursor, source.end_pos)
+      if state_module.get_entry_text(remainder) ~= "" then
+        entries[#entries + 1] = remainder
+      end
     end
   end
 

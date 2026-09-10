@@ -158,12 +158,12 @@ end
 
 local function lsp_location_picker(request, opts)
   local helix = require("axelcool1234.helix")
+  local commit_jump = helix.prepare_jumplist_jump(opts.reason)
   opts.origin_filename = vim.api.nvim_buf_get_name(0)
   opts.origin_line = vim.api.nvim_win_get_cursor(0)[1]
 
   request({
     on_list = function(list)
-      local commit_jump = helix.prepare_jumplist_jump(opts.reason)
       open_lsp_locations(list, opts, commit_jump)
     end,
     reuse_win = opts.reuse_win,

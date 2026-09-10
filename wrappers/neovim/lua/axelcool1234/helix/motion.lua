@@ -123,13 +123,17 @@ local function character_type(char)
   if char == "\n" then
     return character_types.EndOfLine
   end
-  if char:match("%s") then
+
+  -- charclass() handles Unicode scripts, whitespace, and punctuation while
+  -- keeping emoji separate. Classes above 3 are script-specific word classes.
+  local class = vim.fn.charclass(char)
+  if class == 0 then
     return character_types.WhiteSpace
   end
-  if char:match("[%w_]") then
+  if class == 2 or class > 3 then
     return character_types.Word
   end
-  if char:match("[^%s%w_]") then
+  if class == 1 then
     return character_types.Punctuation
   end
   return character_types.Unknown
@@ -160,9 +164,12 @@ local function word_motion_bounds(buffer, target, count, start_pos)
   local current_pos = { start_pos[1], start_pos[2] }
   local range_start = { current_pos[1], current_pos[2] }
   local range_end = { current_pos[1], current_pos[2] }
+  local final_range_start = { current_pos[1], current_pos[2] }
+  local final_range_end = { current_pos[1], current_pos[2] }
   local last_line = vim.api.nvim_buf_line_count(buffer)
 
   for _ = 1, count do
+    local iteration_start = { current_pos[1], current_pos[2] }
     line = current_pos[1]
     line_content = buffer_line(buffer, line)
     range_start = { current_pos[1], current_pos[2] }
@@ -196,7 +203,9 @@ local function word_motion_bounds(buffer, target, count, start_pos)
           if current_type == character_types.EndOfLine
             or prev_type == character_types.EndOfLine
             or current_type == character_types.Unknown then
-            if moved_from_original and current_type ~= character_types.Unknown then
+            if moved_from_original
+              and current_type ~= character_types.Unknown
+              and current_type ~= character_types.EndOfLine then
               break
             end
 
@@ -279,7 +288,9 @@ local function word_motion_bounds(buffer, target, count, start_pos)
           if current_type == character_types.EndOfLine
             or next_type == character_types.EndOfLine
             or current_type == character_types.Unknown then
-            if moved_from_original and current_type ~= character_types.Unknown then
+            if moved_from_original
+              and current_type ~= character_types.Unknown
+              and current_type ~= character_types.EndOfLine then
               break
             end
             if current_pos[1] == last_line then
@@ -350,9 +361,14 @@ local function word_motion_bounds(buffer, target, count, start_pos)
     end
 
     range_end = { current_pos[1], current_pos[2] }
+    if pos_equal(iteration_start, current_pos) then
+      break
+    end
+    final_range_start = range_start
+    final_range_end = range_end
   end
 
-  return range_start, range_end
+  return final_range_start, final_range_end
 end
 
 function M.new(opts)
@@ -444,9 +460,9 @@ function M.new(opts)
     local next_preferred_columns = {}
 
     for index, source_entry in ipairs(source_entries) do
-      local preferred_col = preferred_columns[index] or source_entry.cursor_pos[2]
+      local preferred_col = preferred_columns[index] or position.display_col(buffer, source_entry.cursor_pos)
       local target_row = math.max(1, math.min(source_entry.cursor_pos[1] + (direction * amount), last_row))
-      local target_col = math.min(preferred_col, cursor_max_column(buffer, target_row))
+      local target_col = position.char_col_at_display_col(buffer, target_row, preferred_col)
       local target = { target_row, target_col }
 
       if state.extend_mode_active() then
@@ -467,10 +483,7 @@ function M.new(opts)
       entries[1].cursor_pos[2]
     )
     if final_view.curswant ~= nil then
-      final_view.curswant = position.byte_col0_from_char_col(
-        position.line_text(buffer, entries[1].cursor_pos[1]),
-        next_preferred_columns[1]
-      )
+      final_view.curswant = math.max(next_preferred_columns[1] - 1, 0)
     end
 
     if #source_entries > 1 or state.extend_mode_active() then
@@ -490,13 +503,14 @@ function M.new(opts)
     vim.fn.winrestview(final_view)
   end
 
-  function motion.scroll_half_page(direction)
-    local amount = vim.v.count > 0 and vim.v.count or math.max(math.floor(vim.api.nvim_win_get_height(0) / 2), 1)
+  function motion.scroll_half_page(direction, count_override)
+    local amount = count_override
+      or (vim.v.count > 0 and vim.v.count or math.max(math.floor(vim.api.nvim_win_get_height(0) / 2), 1))
     scroll_cursor(direction, amount)
   end
 
-  function motion.scroll_page(direction)
-    local amount = math.max(vim.api.nvim_win_get_height(0) - 2, 1) * vim.v.count1
+  function motion.scroll_page(direction, count_override)
+    local amount = math.max(vim.api.nvim_win_get_height(0) - 2, 1) * (count_override or vim.v.count1)
     scroll_cursor(direction, amount)
   end
 
@@ -512,9 +526,9 @@ function M.new(opts)
     apply_row_jump(target_row)
   end
 
-  function motion.apply_word(target)
+  function motion.apply_word(target, count_override)
     local buffer = vim.api.nvim_get_current_buf()
-    local count = vim.v.count1
+    local count = count_override or vim.v.count1
     local entries = {}
     local source_entries = state.current_entries()
 
@@ -622,9 +636,9 @@ function M.new(opts)
         local next_preferred_columns = {}
 
         for index, source_entry in ipairs(source_entries) do
-          local preferred_col = preferred_columns[index] or source_entry.cursor_pos[2]
+          local preferred_col = preferred_columns[index] or position.display_col(buffer, source_entry.cursor_pos)
           local target_row = math.max(1, math.min(source_entry.cursor_pos[1] + (delta * count), last_row))
-          local target_col = math.min(preferred_col, cursor_max_column(buffer, target_row))
+          local target_col = position.char_col_at_display_col(buffer, target_row, preferred_col)
           local target = { target_row, target_col }
 
           if state.extend_mode_active() then

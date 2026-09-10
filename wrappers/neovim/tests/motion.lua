@@ -2478,6 +2478,27 @@ local cases = {
       assert_equal(vim.fs.normalize(vim.api.nvim_buf_get_name(0)), vim.fs.normalize(child), "gf should trim selected paths before opening them")
     end,
   },
+  {
+    name = "gf opens URLs without adding an editor jumplist entry",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "https://example.com/path" }, 1, 0)
+        helix.select_whole_buffer()
+        local original_open = vim.ui.open
+        local opened
+        vim.ui.open = function(target)
+          opened = target
+        end
+        local ok, err = xpcall(helix.goto_file_targets, debug.traceback)
+        vim.ui.open = original_open
+        if not ok then
+          error(err)
+        end
+        assert_equal(opened, "https://example.com/path", "gf should delegate URLs to the system opener")
+        assert_equal(#jumplist_items(), 0, "opening a URL should not create an editor jump")
+      end)
+    end,
+  },
 }
 
 local jumplist_cases = {
@@ -2578,28 +2599,54 @@ local jumplist_cases = {
     end,
   },
   {
-    name = "range picker split actions checkpoint the destination view",
+    name = "range picker split and tab actions checkpoint the destination view",
     run = function()
-      with_fresh_jumplist_tab(function()
-        reset_case({ "origin" }, 1, 0)
-        local source_win = vim.api.nvim_get_current_win()
-        with_stubbed_telescope_builtin("lsp_document_symbols", function(get_picker_opts)
-          pickers.document_symbols_picker()
-          get_picker_opts().attach_mappings(0, function() end)
-          local action = require("telescope.actions").select_vertical
-          local commit_jump = action._post[action[1]]
-          assert(commit_jump, "range split selection should install a destination-view checkpoint")
+      local action_cases = {
+        { name = "horizontal", action = "select_horizontal", command = "split" },
+        { name = "vertical", action = "select_vertical", command = "vsplit" },
+        { name = "tab", action = "select_tab", command = "tab split" },
+      }
 
-          vim.cmd("vsplit")
-          local target_win = vim.api.nvim_get_current_win()
-          commit_jump()
-          assert_equal(#jumplist_items(), 1, "the destination split should receive the source checkpoint")
+      for _, case in ipairs(action_cases) do
+        with_fresh_jumplist_tab(function()
+          reset_case({ "origin", "target" }, 1, 0)
+          local source_win = vim.api.nvim_get_current_win()
+          local source_tab = vim.api.nvim_get_current_tabpage()
+          with_stubbed_telescope_builtin("lsp_document_symbols", function(get_picker_opts)
+            pickers.document_symbols_picker()
+            get_picker_opts().attach_mappings(0, function() end)
+            local action = require("telescope.actions")[case.action]
+            local action_state = require("telescope.actions.state")
+            local original_selected = action_state.get_selected_entry
+            action_state.get_selected_entry = function()
+              return { value = { bufnr = vim.api.nvim_get_current_buf(), lnum = 2, col = 1, end_lnum = 2, end_col = 7 } }
+            end
+            local capture_target = action._pre[action[1]]
+            local commit_jump = action._post[action[1]]
+            assert(capture_target, case.name .. " range selection should capture the selected destination")
+            assert(commit_jump, case.name .. " range selection should install a destination-view checkpoint")
 
-          vim.api.nvim_set_current_win(source_win)
-          assert_equal(#jumplist_items(), 0, "the original view should not receive the split action's checkpoint")
-          vim.api.nvim_win_close(target_win, true)
+            capture_target()
+            vim.cmd(case.command)
+            local target_win = vim.api.nvim_get_current_win()
+            local target_tab = vim.api.nvim_get_current_tabpage()
+            commit_jump()
+            action_state.get_selected_entry = original_selected
+            assert_equal(#jumplist_items(), 1, case.name .. " destination should receive the source checkpoint")
+            assert_equal(selection_texts(), { "target" }, case.name .. " destination should restore the selected range")
+
+            vim.api.nvim_set_current_win(source_win)
+            assert_equal(#jumplist_items(), 0, "the original view should not receive the " .. case.name .. " checkpoint")
+            if target_tab ~= source_tab then
+              vim.api.nvim_set_current_tabpage(target_tab)
+              vim.cmd("tabclose!")
+              vim.api.nvim_set_current_win(source_win)
+            else
+              vim.api.nvim_win_close(target_win, true)
+            end
+          end)
         end)
-      end)
+      end
     end,
   },
   {

@@ -836,6 +836,50 @@ local cases = {
       assert_equal(current_lines(), { "(a)", "(b)" }, "ms( should surround the selected cell at each cursor")
     end,
   },
+  {
+    name = "ms surrounds ranged and multiline selections while preserving direction",
+    run = function()
+      reset_case({ "alpha beta" }, "text", 1, 0)
+      helix.select_whole_buffer()
+      helix.select_regex_matches("alpha")
+      helix.flip_selection_direction()
+      run_keys("ms[")
+      assert_equal(current_lines(), { "[alpha] beta" }, "ms[ should surround the complete range")
+      assert_equal(selection_texts(), { "[alpha]" }, "the surrounding pair should become selected")
+      local entry = helix.primary_selection_entry()
+      assert(entry.anchor_pos[2] > entry.cursor_pos[2], "surround add should preserve a backward range")
+
+      reset_case({ "alpha", "beta" }, "text", 1, 0)
+      helix.select_whole_buffer()
+      run_keys("ms{")
+      assert_equal(current_lines(), { "{alpha", "beta}" }, "ms{ should surround a multiline range")
+      assert_equal(selection_texts(), { "{alpha\nbeta}" }, "the multiline result should stay selected")
+    end,
+  },
+  {
+    name = "surround deletion is atomic when one cursor has no matching pair",
+    run = function()
+      reset_case({ "(a)", " b " }, "text", 1, 1)
+      helix.copy_selection_on_adjacent_line(1)
+      run_keys("md(")
+      assert_equal(current_lines(), { "(a)", " b " }, "a mixed valid and invalid surround set should not partially edit")
+      assert_equal(secondary_cursor_count(), 1, "an atomic failure should preserve every cursor")
+    end,
+  },
+  {
+    name = "surround deletion preserves a backward selection",
+    run = function()
+      reset_case({ "(  )" }, "text", 1, 1)
+      helix.select_whole_buffer()
+      helix.select_regex_matches("  ")
+      helix.flip_selection_direction()
+      run_keys("mdm")
+      assert_equal(current_lines(), { "  " }, "mdm should remove the surrounding delimiters")
+      assert_equal(selection_texts(), { "  " }, "mdm should preserve the selected contents")
+      local entry = helix.primary_selection_entry()
+      assert(entry.anchor_pos[2] > entry.cursor_pos[2], "mdm should preserve backward direction")
+    end,
+  },
 }
 
 table.insert(cases, {
