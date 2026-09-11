@@ -4287,6 +4287,20 @@ function M.select_picker_location(item, whole_line)
   return true
 end
 
+function M.sync_primary_cursor_to_selection(expected_buffer)
+  local buffer = current_buffer()
+  if (expected_buffer and buffer ~= expected_buffer) or not state.preview_active() then
+    return false
+  end
+
+  state.set_preview_entries(buffer, current_preview_entries(), {
+    cursor_positions = vim.deepcopy(state.preview.cursor_positions or {}),
+    preferred_columns = vim.deepcopy(state.preview.preferred_columns or {}),
+    sync_history = false,
+  })
+  return true
+end
+
 function M.split_current_view(direction)
   local source_win = vim.api.nvim_get_current_win()
   local snapshot = capture_selection_state_snapshot()

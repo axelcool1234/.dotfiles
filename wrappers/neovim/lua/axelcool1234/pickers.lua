@@ -48,7 +48,19 @@ local function attach_jump_commit(commit_jump, selection_kind, all_actions)
       post = selection_kind and function()
         commit_jump(vim.api.nvim_get_current_win())
         if selected_item then
-          require("axelcool1234.helix").select_picker_location(selected_item, selection_kind == "line")
+          local helix = require("axelcool1234.helix")
+          helix.select_picker_location(selected_item, selection_kind == "line")
+          local destination_win = vim.api.nvim_get_current_win()
+          local destination_buffer = vim.api.nvim_get_current_buf()
+          -- Telescope closes its insert-mode prompt as the selection action
+          -- returns. Resync on the next tick so that final mode transition
+          -- cannot shift the real cursor one cell behind the Helix selection.
+          vim.schedule(function()
+            if vim.api.nvim_win_is_valid(destination_win)
+              and vim.api.nvim_get_current_win() == destination_win then
+              helix.sync_primary_cursor_to_selection(destination_buffer)
+            end
+          end)
         end
       end or nil,
     })
