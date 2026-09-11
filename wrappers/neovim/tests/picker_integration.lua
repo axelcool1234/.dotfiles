@@ -83,16 +83,15 @@ ok, err = xpcall(function()
         { bufnr = destination, lnum = 1, col = 7, end_lnum = 1, end_col = 13, text = "local target = 1" },
       },
     })
-    -- A real mapped LSP jump can leave a CursorMoved event queued behind the
-    -- callback that installed the selection.
-    vim.schedule(function()
-      vim.api.nvim_exec_autocmds("CursorMoved", { buffer = destination })
-    end)
   end)
   assert(vim.wait(2000, function()
     return vim.api.nvim_get_current_buf() == destination
   end, 10), "gd should open its sole definition")
   vim.wait(50)
+  -- A mapped LSP jump can deliver CursorMoved after the selection setup guard
+  -- has expired even though the cursor is still on the selection head.
+  vim.api.nvim_exec_autocmds("CursorMoved", { buffer = destination })
+  vim.wait(10)
 
   local entry = helix.primary_selection_entry()
   assert_equal(state.get_entry_text(entry), "target", "gd should select the complete definition name")
@@ -103,6 +102,13 @@ ok, err = xpcall(function()
   assert_equal(#marks, 1, "gd should render one selection highlight")
   assert_equal({ marks[1][2], marks[1][3] }, { 0, 6 }, "the gd highlight should start at the definition")
   assert_equal(marks[1][4].end_col, 12, "the gd highlight should cover the complete definition name")
+
+  vim.api.nvim_win_set_cursor(0, { 1, 0 })
+  assert(vim.wait(500, function()
+    vim.api.nvim_exec_autocmds("CursorMoved", { buffer = destination })
+    marks = vim.api.nvim_buf_get_extmarks(destination, selection_namespace, 0, -1, { details = true })
+    return #marks == 0
+  end, 10), "moving away from the selection head should still clear the gd highlight")
 end, debug.traceback)
 
 vim.lsp.buf.definition = original_definition

@@ -5201,7 +5201,15 @@ function M.setup_autocmds()
       end
 
       if state.preview.buffer and not state.preview.updating and not state.extend_mode_active() then
-        state.clear_preview()
+        local primary_index = state.preview.primary_index or 1
+        local primary_entry = state.preview.entries[primary_index]
+        local expected_cursor = primary_entry and primary_entry.cursor_pos or nil
+        if state.preview.cursor_positions and state.preview.cursor_positions[primary_index] then
+          expected_cursor = state.preview.cursor_positions[primary_index]
+        end
+        if not expected_cursor or not vim.deep_equal(state_module.current_pos_1indexed(), expected_cursor) then
+          state.clear_preview()
+        end
       end
     end,
   })
