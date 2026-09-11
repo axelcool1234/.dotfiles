@@ -3367,6 +3367,10 @@ function M.add_newline_relative(direction, count_override)
   local entries = preview_or_cursor_entries()
   local buffer = current_buffer()
   local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-add-newline")
+  local history_config = current_preview_history_config()
+  local transaction = history.transaction(entries, history_config)
+  local selection_marks = create_entry_marks(buffer, entries, namespace)
+  local had_preview = state.preview_active()
   local marks = {}
 
   for index, entry in ipairs(entries) do
@@ -3399,7 +3403,17 @@ function M.add_newline_relative(direction, count_override)
     end
   end
 
+  local updated = restore_entries_from_marks(buffer, entries, namespace, selection_marks)
   vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
+  if had_preview then
+    set_preview_entries(updated, {
+      preferred_columns = history_config.preferred_columns,
+      sync_history = false,
+    })
+  elseif updated[1] then
+    state_module.move_cursor_to_pos(updated[1].cursor_pos)
+  end
+  transaction.commit_now()
 end
 
 function M.goto_file_targets()
@@ -3622,6 +3636,7 @@ end
 local function open_line(delta)
   local buffer = vim.api.nvim_get_current_buf()
   local source_entries = preview_or_cursor_entries()
+  local transaction = history.transaction(source_entries, current_preview_history_config())
   local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-open-line")
   local marks = {}
 
@@ -3663,12 +3678,9 @@ local function open_line(delta)
   vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
 
   local insert_entries, selection_config = insertion_entries_and_selection(entries, "start")
-  local snapshot_entries, snapshot_config = insert_preview.build_snapshot(insert_entries, selection_config)
-  local transaction = history.transaction(snapshot_entries, snapshot_config)
-
   insert.start(insert_entries, {
     selection = selection_config,
-    lifecycle = transaction.lifecycle(false),
+    lifecycle = transaction.lifecycle(true),
   })
 end
 
@@ -3868,12 +3880,12 @@ function M.primary_selection_entry()
 end
 
 function M.replace_selection_with_char()
-  if state.preview_active() then
-    local replacement = getcharstr()
-    if not replacement then
-      return
-    end
+  local replacement = getcharstr()
+  if not replacement then
+    return
+  end
 
+  if state.preview_active() then
     local entries = current_preview_entries()
     local preferred_columns = state.current_preferred_columns()
     local transaction = history.transaction(entries, current_preview_history_config())
@@ -3887,20 +3899,15 @@ function M.replace_selection_with_char()
   end
 
   local pos = state_module.current_pos_1indexed()
-  if pos_is_newline(pos[1], pos[2]) then
-    local replacement = getcharstr()
-    if not replacement then
-      return
-    end
-
-    local transaction = history.transaction({ state_module.selection_entry(pos, pos) }, {})
-    replace_preview_entries_with_char({ state_module.selection_entry(pos, pos) }, replacement)
-    state_module.move_cursor_to_pos(pos)
-    transaction.commit_now()
+  local entry = state_module.selection_entry(pos, pos)
+  if state_module.get_entry_text(entry) == "" then
     return
   end
 
-  feedkeys("r", "n")
+  local transaction = history.transaction({ entry }, {})
+  replace_preview_entries_with_char({ entry }, replacement)
+  state_module.move_cursor_to_pos(pos)
+  transaction.commit_now()
 end
 
 function M.replace_selection_with_yank(register_name)
@@ -4162,15 +4169,18 @@ function M.delete(register_name)
   end
 
   local pos = state_module.current_pos_1indexed()
+  local transaction = history.transaction(entries, {})
   local cursor_is_on_newline = pos_is_newline(pos[1], pos[2])
   if cursor_is_on_newline then
     local line = line_text(pos[1])
     vim.api.nvim_buf_set_text(0, pos[1] - 1, #line, pos[1], 0, {})
     state_module.move_cursor_to_pos({ pos[1], position.char_count(line) + 1 })
+    transaction.commit_now()
     return
   end
 
   vim.cmd("normal! x")
+  transaction.commit_now()
 end
 
 function M.select_register(register_name)
@@ -4330,7 +4340,7 @@ local function apply_native_history_jump(command)
     return
   end
 
-  if not history.restore_after_jump(after_seq) and state.preview_active() then
+  if not history.restore_after_jump(before_seq, after_seq) and state.preview_active() then
     state.clear_preview()
   end
 end

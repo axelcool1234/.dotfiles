@@ -12,6 +12,13 @@ function M.new(opts)
     return type(seq) == "number" and seq or 0
   end
 
+  local function close_undo_block()
+    -- API buffer edits otherwise remain in the current undo block until
+    -- Neovim waits for input. Reassigning the global value is the documented
+    -- way to close that block without changing or clearing undo history.
+    vim.go.undolevels = vim.go.undolevels
+  end
+
   local function history_for_buffer(buffer)
     local existing = histories[buffer]
     if existing then
@@ -21,6 +28,7 @@ function M.new(opts)
     local created = {
       seqs = {},
       snapshots = {},
+      transitions = {},
     }
     histories[buffer] = created
     return created
@@ -40,6 +48,7 @@ function M.new(opts)
     for remove_index = #buffer_history.seqs, index + 1, -1 do
       local seq = table.remove(buffer_history.seqs, remove_index)
       buffer_history.snapshots[seq] = nil
+      buffer_history.transitions[seq] = nil
     end
   end
 
@@ -48,7 +57,16 @@ function M.new(opts)
     while #buffer_history.seqs > snapshot_limit do
       local seq = table.remove(buffer_history.seqs, 1)
       buffer_history.snapshots[seq] = nil
+      buffer_history.transitions[seq] = nil
     end
+  end
+
+  local function snapshot_from(entries, config)
+    return {
+      entries = vim.deepcopy(entries),
+      cursor_positions = vim.deepcopy(config.cursor_positions or {}),
+      preferred_columns = vim.deepcopy(config.preferred_columns or {}),
+    }
   end
 
   local function record_snapshot(buffer, seq, entries, config, branch_from_seq)
@@ -64,13 +82,7 @@ function M.new(opts)
 
     local existing_index = seq_index(buffer_history, seq)
 
-    local snapshot = {
-      entries = vim.deepcopy(entries),
-      cursor_positions = vim.deepcopy(config.cursor_positions or {}),
-      preferred_columns = vim.deepcopy(config.preferred_columns or {}),
-    }
-
-    buffer_history.snapshots[seq] = snapshot
+    buffer_history.snapshots[seq] = snapshot_from(entries, config)
     if not existing_index then
       table.insert(buffer_history.seqs, seq)
     end
@@ -107,11 +119,14 @@ function M.new(opts)
 
   function history.begin_change(entries, config)
     local buffer = vim.api.nvim_get_current_buf()
+    close_undo_block()
     local seq = current_undo_seq()
+    config = config or {}
     return {
       before_seq = seq,
+      before_snapshot = snapshot_from(entries, config),
       buffer = buffer,
-      stored = record_snapshot(buffer, seq, vim.deepcopy(entries), config or {}),
+      stored = record_snapshot(buffer, seq, entries, config),
     }
   end
 
@@ -130,7 +145,16 @@ function M.new(opts)
     end
 
     local entries, config = current_snapshot_entries()
-    return record_snapshot(change.buffer, after_seq, entries, config, change.before_seq)
+    if not record_snapshot(change.buffer, after_seq, entries, config, change.before_seq) then
+      return false
+    end
+
+    history_for_buffer(change.buffer).transitions[after_seq] = {
+      parent_seq = change.before_seq,
+      before = change.before_snapshot,
+      after = snapshot_from(entries, config),
+    }
+    return true
   end
 
   function history.capture_current_seq()
@@ -173,9 +197,31 @@ function M.new(opts)
     }
   end
 
-  function history.restore_after_jump(after_seq)
+  function history.restore_after_jump(before_seq, after_seq)
     local buffer = vim.api.nvim_get_current_buf()
-    local snapshot = snapshot_for_seq(buffer, after_seq)
+    if after_seq == nil then
+      after_seq = before_seq
+      before_seq = nil
+    end
+
+    local buffer_history = history_for_buffer(buffer)
+    local snapshot = nil
+    local before_index = before_seq and seq_index(buffer_history, before_seq) or nil
+    local after_index = seq_index(buffer_history, after_seq)
+    if before_index and after_index and after_index < before_index then
+      local child_seq = buffer_history.seqs[after_index + 1]
+      local transition = child_seq and buffer_history.transitions[child_seq] or nil
+      if transition and transition.parent_seq == after_seq then
+        snapshot = transition.before
+      end
+    elseif before_index and after_index and after_index > before_index then
+      local transition = buffer_history.transitions[after_seq]
+      if transition then
+        snapshot = transition.after
+      end
+    end
+
+    snapshot = snapshot or snapshot_for_seq(buffer, after_seq)
     if not snapshot then
       return false
     end
@@ -217,7 +263,7 @@ function M.new(opts)
       end
     end
 
-    return history.restore_after_jump(target_seq)
+    return history.restore_after_jump(current_seq, target_seq)
   end
 
   function history.can_navigate_current_seq(offset)

@@ -52,6 +52,11 @@ local function with_getchar(value, run)
   end
 end
 
+local function feed(keys)
+  local termcodes = vim.api.nvim_replace_termcodes(keys, true, false, true)
+  vim.api.nvim_feedkeys(termcodes, "xt", false)
+end
+
 local function start_treesitter(filetype)
   vim.bo.filetype = filetype
   assert(pcall(vim.treesitter.start, 0, filetype), "Tree-sitter parser unavailable for " .. filetype)
@@ -315,6 +320,131 @@ local cases = {
     end,
   },
   {
+    name = "undoing point deletes restores each delete selection before older edit selections",
+    run = function()
+      reset_case({ "abc", "xyz" }, 2, 0)
+      helix.toggle_select_mode()
+      with_getchar("X", helix.replace_selection_with_char)
+      assert_equal(current_lines(), { "abc", "Xyz" }, "the older edit should apply on the second line")
+
+      helix.keep_primary_selection_or_cursor()
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      feed("dd")
+      assert_equal(current_lines(), { "c", "Xyz" }, "two point deletes should apply on the first line")
+
+      helix.undo()
+      assert_equal(current_lines(), { "bc", "Xyz" }, "the first undo should restore the second deleted character")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "the first delete undo should stay on its line")
+      helix.undo()
+      assert_equal(current_lines(), { "abc", "Xyz" }, "the second undo should restore the first deleted character")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "the final delete undo should not jump to the older edit")
+
+      helix.undo()
+      assert_equal(current_lines(), { "abc", "xyz" }, "the next undo should restore the older edit")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 0 }, "undoing the older edit should restore its own selection")
+
+      helix.redo()
+      assert_equal(current_lines(), { "abc", "Xyz" }, "redo should reapply the older edit")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 0 }, "redoing the older edit should restore its resulting selection")
+      helix.redo()
+      assert_equal(current_lines(), { "bc", "Xyz" }, "redo should reapply the first point delete")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "redoing the first delete should restore its resulting selection")
+      helix.redo()
+      assert_equal(current_lines(), { "c", "Xyz" }, "redo should reapply the second point delete")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "redoing the second delete should stay on its line")
+    end,
+  },
+  {
+    name = "point replace and newline edits keep their undo selections separate from older edits",
+    run = function()
+      local edit_cases = {
+        {
+          name = "point replace",
+          apply = function()
+            with_getchar("Q", helix.replace_selection_with_char)
+          end,
+          changed = { "Qbc", "Xyz" },
+          cursor = { 1, 0 },
+        },
+        {
+          name = "add newline below",
+          apply = function()
+            feed("]<Space>")
+          end,
+          changed = { "abc", "", "Xyz" },
+          cursor = { 1, 0 },
+        },
+        {
+          name = "add newline above",
+          apply = function()
+            feed("[<Space>")
+          end,
+          changed = { "", "abc", "Xyz" },
+          cursor = { 2, 0 },
+        },
+      }
+
+      for _, case in ipairs(edit_cases) do
+        with_fresh_tab(function()
+          reset_case({ "abc", "xyz" }, 2, 0)
+          helix.toggle_select_mode()
+          with_getchar("X", helix.replace_selection_with_char)
+          helix.keep_primary_selection_or_cursor()
+          vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+          case.apply()
+          assert_equal(current_lines(), case.changed, case.name .. " should apply")
+          assert_equal(vim.api.nvim_win_get_cursor(0), case.cursor, case.name .. " should remap its cursor")
+          helix.undo()
+          assert_equal(current_lines(), { "abc", "Xyz" }, case.name .. " should undo independently")
+          assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, case.name .. " undo should stay on its edit line")
+
+          helix.undo()
+          assert_equal(current_lines(), { "abc", "xyz" }, case.name .. " should leave the older edit independently undoable")
+          assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 0 }, case.name .. " should not claim the older edit selection")
+        end)
+      end
+    end,
+  },
+  {
+    name = "newline edits preserve multicursors and form one undo unit",
+    run = function()
+      reset_case({ "a", "b", "c" })
+      helix.select_whole_buffer()
+      helix.select_regex_matches("a|c")
+      helix.add_newline_relative(1)
+      assert_equal(current_lines(), { "a", "", "b", "c", "" }, "newline below should edit every selection")
+      assert_equal(selection_texts(), { "a", "c" }, "newline below should preserve selections through shifted rows")
+
+      helix.undo()
+      assert_equal(current_lines(), { "a", "b", "c" }, "one undo should remove every newline from the command")
+      assert_equal(selection_texts(), { "a", "c" }, "newline undo should restore the original multicursors")
+      helix.redo()
+      assert_equal(current_lines(), { "a", "", "b", "c", "" }, "one redo should restore every inserted newline")
+      assert_equal(selection_texts(), { "a", "c" }, "newline redo should restore the remapped multicursors")
+    end,
+  },
+  {
+    name = "open line keeps its newline and inserted text in one undo unit",
+    run = function()
+      reset_case({ "abc" }, 1, 1)
+      helix.open_line_above()
+      vim.wait(50)
+      vim.api.nvim_buf_set_text(0, 0, 0, 0, 0, { "up" })
+      vim.cmd("stopinsert")
+      vim.wait(100)
+      assert_equal(current_lines(), { "up", "abc" }, "open line should insert text on its new line")
+
+      helix.undo()
+      assert_equal(current_lines(), { "abc" }, "one undo should remove both the inserted text and its new line")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 1 }, "open line undo should restore its original cursor")
+
+      helix.redo()
+      assert_equal(current_lines(), { "up", "abc" }, "one redo should restore both the new line and its text")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 1 }, "open line redo should restore its insertion endpoint")
+    end,
+  },
+  {
     name = "jumplist selections survive edits undo and redo",
     run = function()
       with_fresh_tab(function()
@@ -358,6 +488,10 @@ local cases = {
       helix.set_selection_case("upper")
       helix.set_selection_case("lower")
       assert_equal(current_lines(), { "ab" }, "two history-producing edits should apply")
+      helix.undo()
+      assert_equal(current_lines(), { "AB" }, "one undo should reverse only the most recent API-based edit")
+      helix.redo()
+      assert_equal(current_lines(), { "ab" }, "redo should reapply only the most recent API-based edit")
       helix.earlier(2)
       assert_equal(current_lines(), { "Ab" }, "counted earlier should cross two changes")
       helix.later(2)
