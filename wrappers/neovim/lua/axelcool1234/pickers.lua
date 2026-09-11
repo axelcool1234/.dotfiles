@@ -22,6 +22,24 @@ local function selected_location_item()
   return item.lnum and item or nil
 end
 
+local function select_picker_location(item, whole_line)
+  local helix = require("axelcool1234.helix")
+  helix.select_picker_location(item, whole_line)
+  local destination_win = vim.api.nvim_get_current_win()
+  local destination_buffer = vim.api.nvim_get_current_buf()
+
+  -- LSP callbacks and Telescope actions can leave cursor/mode events queued
+  -- behind the jump. Reapply the range once those events have settled so they
+  -- cannot collapse the Helix selection or shift its real cursor.
+  vim.schedule(function()
+    if vim.api.nvim_win_is_valid(destination_win)
+      and vim.api.nvim_get_current_win() == destination_win
+      and vim.api.nvim_get_current_buf() == destination_buffer then
+      helix.select_picker_location(item, whole_line)
+    end
+  end)
+end
+
 local function attach_jump_commit(commit_jump, selection_kind, all_actions)
   local actions = require("telescope.actions")
   local selection_actions = {
@@ -48,19 +66,7 @@ local function attach_jump_commit(commit_jump, selection_kind, all_actions)
       post = selection_kind and function()
         commit_jump(vim.api.nvim_get_current_win())
         if selected_item then
-          local helix = require("axelcool1234.helix")
-          helix.select_picker_location(selected_item, selection_kind == "line")
-          local destination_win = vim.api.nvim_get_current_win()
-          local destination_buffer = vim.api.nvim_get_current_buf()
-          -- Telescope closes its insert-mode prompt as the selection action
-          -- returns. Resync on the next tick so that final mode transition
-          -- cannot shift the real cursor one cell behind the Helix selection.
-          vim.schedule(function()
-            if vim.api.nvim_win_is_valid(destination_win)
-              and vim.api.nvim_get_current_win() == destination_win then
-              helix.sync_primary_cursor_to_selection(destination_buffer)
-            end
-          end)
+          select_picker_location(selected_item, selection_kind == "line")
         end
       end or nil,
     })
@@ -122,7 +128,7 @@ local function jump_to_lsp_item(item, reuse_win, commit_jump)
   vim.bo[buffer].buflisted = true
   vim.api.nvim_win_set_buf(win, buffer)
   vim.api.nvim_set_current_win(win)
-  require("axelcool1234.helix").select_picker_location(item)
+  select_picker_location(item)
   vim.cmd("normal! zv")
   return true
 end

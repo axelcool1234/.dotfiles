@@ -58,4 +58,56 @@ if not ok then
   error(err)
 end
 
+vim.cmd("enew!")
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "local value = target" })
+vim.api.nvim_win_set_cursor(0, { 1, 14 })
+local destination = vim.api.nvim_create_buf(true, false)
+vim.api.nvim_buf_set_lines(destination, 0, -1, false, { "local target = 1" })
+
+local original_definition = vim.lsp.buf.definition
+local definition_opts
+vim.lsp.buf.definition = function(opts)
+  definition_opts = opts
+end
+
+ok, err = xpcall(function()
+  local gd = vim.api.nvim_replace_termcodes("gd", true, false, true)
+  vim.api.nvim_feedkeys(gd, "xt", false)
+  assert(vim.wait(2000, function()
+    return definition_opts and definition_opts.on_list
+  end, 10), "gd should install an LSP list callback")
+  vim.schedule(function()
+    definition_opts.on_list({
+      title = "Definitions",
+      items = {
+        { bufnr = destination, lnum = 1, col = 7, end_lnum = 1, end_col = 13, text = "local target = 1" },
+      },
+    })
+    -- A real mapped LSP jump can leave a CursorMoved event queued behind the
+    -- callback that installed the selection.
+    vim.schedule(function()
+      vim.api.nvim_exec_autocmds("CursorMoved", { buffer = destination })
+    end)
+  end)
+  assert(vim.wait(2000, function()
+    return vim.api.nvim_get_current_buf() == destination
+  end, 10), "gd should open its sole definition")
+  vim.wait(50)
+
+  local entry = helix.primary_selection_entry()
+  assert_equal(state.get_entry_text(entry), "target", "gd should select the complete definition name")
+  assert_equal(entry.cursor_pos, { 1, 7 }, "the gd selection cursor should rest at the definition start")
+  assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 6 }, "the real cursor should rest on the gd selection head")
+  local selection_namespace = vim.api.nvim_create_namespace("axelcool1234-helix-selection")
+  local marks = vim.api.nvim_buf_get_extmarks(destination, selection_namespace, 0, -1, { details = true })
+  assert_equal(#marks, 1, "gd should render one selection highlight")
+  assert_equal({ marks[1][2], marks[1][3] }, { 0, 6 }, "the gd highlight should start at the definition")
+  assert_equal(marks[1][4].end_col, 12, "the gd highlight should cover the complete definition name")
+end, debug.traceback)
+
+vim.lsp.buf.definition = original_definition
+if not ok then
+  error(err)
+end
+
 print("picker-integration-tests-ok")

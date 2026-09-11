@@ -2680,6 +2680,8 @@ local jumplist_cases = {
                   filename = vim.api.nvim_buf_get_name(buffer),
                   lnum = 2,
                   col = 1,
+                  end_lnum = 2,
+                  end_col = 12,
                   text = "destination",
                 },
               },
@@ -2690,6 +2692,7 @@ local jumplist_cases = {
           assert_equal(#after, #before + 1, case.picker .. " should add one jumplist entry")
           assert_equal(after[1].reason, case.reason, case.picker .. " should record the expected jumplist reason")
           assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 0 }, case.picker .. " should jump to the LSP location")
+          assert_equal(selection_texts(), { "destination" }, case.picker .. " should select the complete LSP range")
           helix.jump_backward()
           assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, case.picker .. " should jump back to the LSP origin")
           helix.jump_forward()
