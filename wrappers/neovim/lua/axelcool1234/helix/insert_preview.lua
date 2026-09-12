@@ -29,7 +29,9 @@ function M.new(opts)
       local start_anchor = start_anchors[index]
       local end_anchor = end_anchors[index]
       if start_anchor and end_anchor then
-        entries[#entries + 1] = state_module.selection_entry(start_anchor, end_anchor)
+        -- `i` inserts at the normalized start of the selection, so that edge
+        -- becomes the active cursor when the insert session rebuilds it.
+        entries[#entries + 1] = state_module.selection_entry(end_anchor, start_anchor)
       elseif start_anchor then
         entries[#entries + 1] = state_module.selection_entry(start_anchor, start_anchor)
       elseif end_anchor then

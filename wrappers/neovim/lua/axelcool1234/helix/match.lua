@@ -727,6 +727,7 @@ function M.new(opts)
     return {
       object_name .. ".movement",
       object_name .. ".around",
+      object_name .. ".inside",
       object_name .. ".outer",
     }
   end

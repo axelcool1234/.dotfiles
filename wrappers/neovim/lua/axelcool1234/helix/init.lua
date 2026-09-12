@@ -3600,36 +3600,120 @@ function M.goto_file_targets()
   end
 end
 
+local function first_non_whitespace_column(line)
+  local byte_col0 = vim.fn.match(line, [[\S]])
+  if byte_col0 < 0 then
+    return 1
+  end
+
+  return position.char_col_from_byte_col0(line, byte_col0)
+end
+
+local function indentation_width_for_empty_line(row)
+  local indentexpr = vim.bo.indentexpr
+  if indentexpr ~= "" then
+    local previous_lnum = vim.v.lnum
+    vim.v.lnum = row
+    local ok, width = pcall(vim.fn.eval, indentexpr)
+    vim.v.lnum = previous_lnum
+
+    width = ok and tonumber(width) or nil
+    if width then
+      -- An indent expression returns -1 to retain the line's current indent.
+      return width >= 0 and width or vim.fn.indent(row)
+    end
+  end
+
+  if vim.bo.cindent or vim.bo.smartindent then
+    return math.max(vim.fn.cindent(row), 0)
+  end
+
+  if vim.bo.autoindent then
+    local previous_row = vim.fn.prevnonblank(row - 1)
+    return previous_row > 0 and vim.fn.indent(previous_row) or 0
+  end
+
+  return 0
+end
+
+local function indentation_text(width)
+  width = math.max(width, 0)
+  if width == 0 then
+    return ""
+  end
+
+  if vim.bo.expandtab then
+    return string.rep(" ", width)
+  end
+
+  local tabstop = math.max(vim.bo.tabstop, 1)
+  return string.rep("\t", math.floor(width / tabstop)) .. string.rep(" ", width % tabstop)
+end
+
 local function line_boundary_point(entry, edge)
   local row = entry.cursor_pos[1]
+  local text = line_text(row)
   if edge == "start" then
-    return { row, 1 }
+    return { row, first_non_whitespace_column(text) }
   end
 
   return { row, line_cursor_max_column(row) }
 end
 
 local function line_boundary_insert(edge)
+  local buffer = current_buffer()
   local source_entries = preview_or_cursor_entries()
   local entries = {}
-  local history_config = {
+  local snapshot_entries = {}
+  local empty_line_indents = {}
+  local snapshot_config = {
     cursor_positions = {},
     preferred_columns = {},
   }
 
   for index, entry in ipairs(source_entries) do
-    entries[index] = point_entry(line_boundary_point(entry, edge))
-    history_config.cursor_positions[index] = vim.deepcopy(entries[index].cursor_pos)
-    history_config.preferred_columns[index] = entries[index].cursor_pos[2]
+    local row = entry.cursor_pos[1]
+    local point
+    if line_text(row) == "" then
+      local indent = empty_line_indents[row]
+      if indent == nil then
+        indent = indentation_text(indentation_width_for_empty_line(row))
+        empty_line_indents[row] = indent
+      end
+      point = { row, position.char_count(indent) + 1 }
+    else
+      point = line_boundary_point(entry, edge)
+    end
+
+    entries[index] = point_entry(point)
+    local snapshot_point = line_text(row) == "" and { row, 1 } or point
+    snapshot_entries[index] = point_entry(snapshot_point)
+    snapshot_config.cursor_positions[index] = vim.deepcopy(snapshot_point)
+    snapshot_config.preferred_columns[index] = snapshot_point[2]
   end
 
-  local transaction = history.transaction(entries, history_config)
+  local transaction = history.transaction(snapshot_entries, snapshot_config)
   if state.preview_active() then
     state.clear_preview({ keep_extend_mode = true })
   end
 
+  local inserted_indent = false
+  local rows = vim.tbl_keys(empty_line_indents)
+  table.sort(rows)
+  for _, row in ipairs(rows) do
+    local indent = empty_line_indents[row]
+    if indent ~= "" then
+      if inserted_indent then
+        pcall(vim.cmd, "silent! undojoin")
+      end
+      vim.api.nvim_buf_set_text(buffer, row - 1, 0, row - 1, 0, { indent })
+      inserted_indent = true
+    end
+  end
+
   insert.start(entries, {
-    lifecycle = transaction.lifecycle(false),
+    lifecycle = transaction.lifecycle(inserted_indent),
+    track_endpoint = true,
   })
 end
 
@@ -3716,6 +3800,7 @@ function M.change_selection(register_name)
   sync_cursors_to_points(start_points, { sync_history = false })
   insert.start(state.current_entries(), {
     lifecycle = transaction.lifecycle(true),
+    track_endpoint = true,
   })
 end
 

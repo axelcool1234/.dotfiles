@@ -414,7 +414,17 @@ function M.new(opts)
       stop_simple_insert(insert.pending_simple)
     end
 
-    if #entries <= 1 and not selection_config.selection_anchors then
+    -- The native single-cursor path lets Escape retreat one cell. Commands
+    -- whose normal-mode cursor remains at the insertion boundary use the
+    -- extmark-backed session even when there is only one cursor.
+    if #entries <= 1 and not selection_config.selection_anchors and config.track_endpoint ~= true then
+      -- A collapsed Helix preview has no highlight, but it is still the source
+      -- of truth for later motions.  Do not carry that invisible pre-insert
+      -- position through a plain, single-cursor insert session.
+      if state.preview_active() then
+        state.clear_preview()
+      end
+
       if entries[1] then
         state_module.move_cursor_to_pos(entries[1].cursor_pos)
       end

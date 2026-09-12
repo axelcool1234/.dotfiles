@@ -427,7 +427,9 @@ function M.new(opts)
       end
     end
 
-    if #source_entries > 1 or state.extend_mode_active() then
+    -- A one-entry preview may be an invisible point retained after insert.
+    -- It is still the source of truth and must move with the real cursor.
+    if #source_entries > 1 or state.extend_mode_active() or state.preview_active() then
       state.set_preview_entries(buffer, entries)
       if not state.extend_mode_active() then
         state.exit_extend_mode()
@@ -710,7 +712,7 @@ function M.new(opts)
         return
       end
 
-      if #source_entries > 1 then
+      if #source_entries > 1 or state.preview_active() then
         state.set_preview_entries(buffer, collect_entries(false))
         return
       end
