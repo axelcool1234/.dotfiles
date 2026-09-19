@@ -30,31 +30,29 @@ let
     };
   };
 
-  glidePackage = pkgs.wrapFirefox (
-    inputs.glide.packages.${system}.glide-browser-bin-unwrapped.override {
-      policies = {
-        ExtensionSettings = builtins.listToAttrs (
-          [
-            (mkExtension "ublock-origin" "uBlock0@raymondhill.net")
-            # (mkExtension "adaptive-tab-bar-colour" "ATBC@EasonWong")
-            (mkExtension "view-page-archive" "{d07ccf11-c0cd-4938-a265-2a4d6ad01189}")
-          ]
-          ++ lib.optionals usePywalfox [
-            (mkExtension "pywalfox" "pywalfox@frewacom.org")
-          ]
-        );
-        # To add additional extensions, find it on addons.mozilla.org, find
-        # the short ID in the url (like https://addons.mozilla.org/en-US/firefox/addon/!SHORT_ID!/)
-        # Then, download the XPI by filling it in to the install_url template, unzip it,
-        # run `jq .browser_specific_settings.gecko.id manifest.json` or
-        # `jq .applications.gecko.id manifest.json` to get the UUID
-        #
-        # You don’t need to get the UUID from the xpi.
-        # You can install it then find the UUID in about:debugging#/runtime/this-firefox.
-      };
-    }
-  ) {
+  glidePackage = pkgs.wrapFirefox inputs.glide.packages.${system}.glide-browser-bin-unwrapped {
     pname = "glide-browser";
+    extraPolicies = {
+      ExtensionSettings = builtins.listToAttrs (
+        [
+          (mkExtension "bitwarden-password-manager" "{446900e4-71c2-419f-a6a7-df9c091e268b}")
+          (mkExtension "ublock-origin" "uBlock0@raymondhill.net")
+          # (mkExtension "adaptive-tab-bar-colour" "ATBC@EasonWong")
+          (mkExtension "view-page-archive" "{d07ccf11-c0cd-4938-a265-2a4d6ad01189}")
+        ]
+        ++ lib.optionals usePywalfox [
+          (mkExtension "pywalfox" "pywalfox@frewacom.org")
+        ]
+      );
+      # To add additional extensions, find it on addons.mozilla.org, find
+      # the short ID in the url (like https://addons.mozilla.org/en-US/firefox/addon/!SHORT_ID!/)
+      # Then, download the XPI by filling it in to the install_url template, unzip it,
+      # run `jq .browser_specific_settings.gecko.id manifest.json` or
+      # `jq .applications.gecko.id manifest.json` to get the UUID
+      #
+      # You don’t need to get the UUID from the xpi.
+      # You can install it then find the UUID in about:debugging#/runtime/this-firefox.
+    };
   };
 in
 {
