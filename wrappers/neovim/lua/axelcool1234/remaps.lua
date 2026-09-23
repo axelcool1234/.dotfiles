@@ -581,7 +581,7 @@ local keys = {
 
   { "Completion: Previous item", "<C-p>", completion.select_prev_item, mode = "i" },
   { "Completion: Next item", "<C-n>", completion.select_next_item, mode = "i" },
-  { "Completion: Close", "<C-q>", completion.abort, mode = "i" },
+  { "Completion: Toggle", "<C-q>", completion.toggle, mode = "i" },
   { "Completion: Accept", "<C-Space>", completion.confirm, mode = "i" },
   { "Snippet: Jump Forward (else Tab)", "<Tab>", completion.jump_forward, mode = { "i", "s" }, opts = { expr = false } },
   { "Snippet: Jump Backward (else Shift-Tab)", "<S-Tab>", completion.jump_backward, mode = { "i", "s" }, opts = { expr = false } },

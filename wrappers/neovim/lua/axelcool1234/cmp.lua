@@ -12,8 +12,14 @@ function M.select_next_item()
   require('cmp').select_next_item()
 end
 
-function M.abort()
-  require('cmp').abort()
+function M.toggle()
+  local cmp = require('cmp')
+
+  if cmp.visible() then
+    cmp.abort()
+  else
+    cmp.complete()
+  end
 end
 
 function M.confirm()

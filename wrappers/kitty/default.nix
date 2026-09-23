@@ -52,16 +52,18 @@ in
       # Keymap.
       map = [
         "ctrl+t new_tab_with_cwd"
+        "ctrl+shift+t send_key ctrl+t"
         "ctrl+shift+n no_op"
         "ctrl+h previous_tab"
         "ctrl+l next_tab"
       ]
       ++ lib.optionals enableKittyScrollback [
-        "ctrl+k kitty_scrollback_nvim"
-        "ctrl+r kitty_scrollback_nvim --config ksb_builtin_last_cmd_output"
+        "ctrl+g kitty_scrollback_nvim"
+        "ctrl+shift+g send_key ctrl+g"
+        "ctrl+alt+g kitty_scrollback_nvim --config ksb_builtin_last_cmd_output"
       ]
       ++ lib.optionals (!enableKittyScrollback) [
-        "ctrl+k launch --title=scrollback --type=overlay --stdin-source=@screen_scrollback ${lib.getExe selfPkgs.${hostVars.editor}}"
+        "ctrl+g launch --title=scrollback --type=overlay --stdin-source=@screen_scrollback ${lib.getExe selfPkgs.${hostVars.editor}}"
       ];
     } // lib.optionalAttrs (terminalFont.size != null) {
       font_size = terminalFont.size;

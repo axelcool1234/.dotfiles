@@ -21,6 +21,7 @@ in
   config = {
     runtimePkgs = [
       pkgs.direnv
+      pkgs.fzf
       selfPkgs.jjui
       pkgs.lorri
       pkgs.zoxide
@@ -29,6 +30,18 @@ in
     shellInit = ''
       ${lib.getExe pkgs.zoxide} init fish | source
       ${lib.getExe pkgs.direnv} hook fish | source
+      ${lib.getExe pkgs.fzf} --fish | source
+
+      function y
+        set --local tmp (mktemp -t "yazi-cwd.XXXXXX")
+        ${lib.getExe selfPkgs.yazi} $argv --cwd-file="$tmp"
+
+        if read --zero cwd < "$tmp"; and test "$cwd" != "$PWD"; and test -d "$cwd"
+          builtin cd -- "$cwd"
+        end
+
+        command rm -f -- "$tmp"
+      end
 
       ${lib.optionalString enableKittyScrollbackCommandEdit ''
         function kitty_scrollback_edit_command_buffer
