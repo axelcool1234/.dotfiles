@@ -10,7 +10,7 @@
 }:
 let
   # Pywalfox allows for Noctalia-shell to manage the theme.
-  usePywalfox = hostVars.desktop-shell == "noctalia-shell";
+  usePywalfox = hostVars.desktopShell == "noctalia-shell";
 
   pywalfoxManifest = pkgs.writeText "pywalfox.json" ''
     {

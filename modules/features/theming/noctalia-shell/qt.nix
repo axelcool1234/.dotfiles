@@ -1,5 +1,4 @@
 {
-  config,
   baseVars,
   hostVars,
   lib,
@@ -23,7 +22,7 @@ let
   '';
 in
 {
-  config = lib.mkIf (config.preferences.desktop-shell == "noctalia-shell") {
+  config = lib.mkIf (hostVars.desktopShell == "noctalia-shell") {
     # https://docs.noctalia.dev/theming/program-specific/gtk-qt/
 
     environment.systemPackages = [ pkgs.qt6Packages.qt6ct ];

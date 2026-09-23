@@ -1,7 +1,9 @@
 { ... }:
 {
   time = {
-    hardwareClockInLocalTime = true;
+    # Linux and systemd expect the hardware clock to use UTC. Keeping the RTC
+    # in local time causes an early-boot clock jump before NTP synchronizes.
+    hardwareClockInLocalTime = false;
     timeZone = "America/Denver";
   };
 

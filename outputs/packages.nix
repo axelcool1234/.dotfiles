@@ -31,6 +31,7 @@ myLib.forAllSystems inputs (
       hostVars = defaults.aliases // {
         fonts = defaults.fonts;
         hostName = null;
+        isNixosHost = false;
         stateVersion = null;
       };
     };

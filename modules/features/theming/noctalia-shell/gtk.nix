@@ -1,5 +1,4 @@
 {
-  config,
   baseVars,
   hostVars,
   lib,
@@ -65,9 +64,11 @@ let
   gtk4Assets = "${pkgs.adw-gtk3}/share/themes/${gtkTheme}/gtk-4.0/assets";
   gtk4Css = "${pkgs.adw-gtk3}/share/themes/${gtkTheme}/gtk-4.0/gtk.css";
   gtk4DarkCss = "${pkgs.adw-gtk3}/share/themes/${gtkTheme}/gtk-4.0/gtk-dark.css";
+  gtk4LibadwaitaCss = "${pkgs.adw-gtk3}/share/themes/${gtkTheme}/gtk-4.0/libadwaita.css";
+  gtk4LibadwaitaTweaksCss = "${pkgs.adw-gtk3}/share/themes/${gtkTheme}/gtk-4.0/libadwaita-tweaks.css";
 in
 {
-  config = lib.mkIf (config.preferences.desktop-shell == "noctalia-shell") {
+  config = lib.mkIf (hostVars.desktopShell == "noctalia-shell") {
     # https://docs.noctalia.dev/theming/program-specific/gtk-qt/
 
     environment.systemPackages = [ pkgs.adw-gtk3 ];
@@ -87,6 +88,8 @@ in
       xdg.config.files."gtk-4.0/assets".source = gtk4Assets;
       xdg.config.files."gtk-4.0/gtk.css".source = gtk4Css;
       xdg.config.files."gtk-4.0/gtk-dark.css".source = gtk4DarkCss;
+      xdg.config.files."gtk-4.0/libadwaita.css".source = gtk4LibadwaitaCss;
+      xdg.config.files."gtk-4.0/libadwaita-tweaks.css".source = gtk4LibadwaitaTweaksCss;
     };
   };
 }

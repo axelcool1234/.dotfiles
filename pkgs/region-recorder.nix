@@ -1,8 +1,13 @@
 {
+  hostVars,
+  lib,
   pkgs,
   selfPkgs,
   ...
 }:
+let
+  useNoctaliaNotifications = hostVars.desktopShell == "noctalia-shell";
+in
 pkgs.writeShellApplication {
   name = "region-recorder";
 
@@ -13,18 +18,18 @@ pkgs.writeShellApplication {
     pkgs.gnugrep      # Exact-match monitor-source checks during device lookup.
     pkgs.pulseaudio   # `pactl` for discovering the active sink/source devices.
     pkgs.procps       # `pgrep`/`pkill` for active-recorder detection and stop.
-    pkgs.python3      # Small helpers for JSON escaping and file:// URI building.
+    pkgs.python3      # Build normalized file:// URIs for clipboard output.
     pkgs.slurp        # Interactive Wayland region selection before recording.
     pkgs.wl-clipboard # `wl-copy` for copying the saved output URI.
     pkgs.wl-screenrec # Actual Wayland screen recorder for region video capture.
-    selfPkgs.noctalia-shell # Noctalia IPC entrypoint for toast notifications.
-  ];
+  ]
+  ++ lib.optional (!useNoctaliaNotifications) pkgs.libnotify;
 
   text = /* bash */ ''
-    # region-recorder: Niri/Noctalia region recording helper for Wayland.
+    # region-recorder: compositor- and shell-independent region recording helper for Wayland.
     #
     # Overview:
-    # - This command is designed for `niri` keybinds that behave like a toggle.
+    # - This command is designed for compositor keybinds that behave like a toggle.
     # - A `toggle` invocation either starts a new region recording or stops the
     #   current one, depending on whether the recorder is already active.
     # - Video mode records the selected region with `wl-screenrec` and, when
@@ -32,11 +37,14 @@ pkgs.writeShellApplication {
     #   one live `ffmpeg` audio graph so both sources stay in sync.
     # - GIF mode records to a temporary video first and converts after stop.
     # - Final outputs are timestamped, copied to the clipboard as `file://`
-    #   URIs by default, and announced through Noctalia toast notifications.
+    #   URIs by default, and announced through the selected desktop shell's
+    #   native notification interface when one is supported.
     #
     # Sources / references:
-    # - Noctalia toast IPC docs:
-    #   https://docs.noctalia.dev/getting-started/keybinds/interface-and-plugins/#toast-notifications
+    # - Noctalia v4 toast IPC:
+    #   https://docs.noctalia.dev/noctalia-shell-legacy/getting-started/keybinds/interface-and-plugins/
+    # - Portable desktop notification fallback:
+    #   https://gitlab.gnome.org/GNOME/libnotify
     # - wl-screenrec upstream project / usage reference:
     #   https://github.com/russelltg/wl-screenrec
     # - wl-clipboard upstream project / URI clipboard behavior:
@@ -66,7 +74,8 @@ pkgs.writeShellApplication {
     # - Successful saves copy a `file://` URI to the Wayland clipboard by
     #   default using `text/uri-list` so the result can be pasted into apps that
     #   understand file references.
-    # - Noctalia toasts are used for user feedback.
+    # - Noctalia IPC is used for feedback when Noctalia is the selected desktop
+    #   shell; otherwise standard desktop notifications are used.
     #
     # Invariants / assumptions:
     # - Only one recording is intended to be active at a time.
@@ -163,34 +172,57 @@ Examples:
 EOF
     }
 
-    # JSON-escape a single string for Noctalia IPC payloads.
-    # Input: one shell string. Output: one JSON string literal.
-    json_string() {
-      python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$1"
-    }
-
     # Convert a filesystem path to an absolute file:// URI.
     # Input: path. Output: normalized URI on stdout.
     path_to_uri() {
       python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).expanduser().resolve().as_uri())' "$1"
     }
 
-    # Send one Noctalia toast notification.
-    # Inputs: type, title, optional body. Falls back to stderr if IPC fails.
+    ${lib.optionalString useNoctaliaNotifications ''
+      # JSON-escape a single string for Noctalia's toast IPC payload.
+      # Input: one shell string. Output: one JSON string literal.
+      json_string() {
+        python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$1"
+      }
+    ''}
+
+    # Send one notification through the selected desktop integration.
+    # Inputs: type, title, optional body. Falls back to stderr if delivery fails.
     toast_send() {
       toast_type="$1"
       title="$2"
       body="''${3-}"
 
-      icon_json=$(json_string "media-record")
-      title_json=$(json_string "$title")
-      body_json=$(json_string "$body")
-      type_json=$(json_string "$toast_type")
-      payload=$(printf '{"title":%s,"body":%s,"type":%s,"icon":%s}' "$title_json" "$body_json" "$type_json" "$icon_json")
+      ${
+        if useNoctaliaNotifications then
+          ''
+            icon_json=$(json_string "media-record")
+            title_json=$(json_string "$title")
+            body_json=$(json_string "$body")
+            type_json=$(json_string "$toast_type")
+            payload=$(printf '{"title":%s,"body":%s,"type":%s,"icon":%s}' "$title_json" "$body_json" "$type_json" "$icon_json")
 
-      if ! noctalia-shell ipc call toast send "$payload" >/dev/null 2>&1; then
-        printf '%s: %s\n' "$title" "$body" >&2
-      fi
+            if ! ${lib.getExe selfPkgs.noctalia-shell} ipc call toast send "$payload" >/dev/null 2>&1; then
+              printf '%s: %s\n' "$title" "$body" >&2
+            fi
+          ''
+        else
+          ''
+            case "$toast_type" in
+              error) urgency="critical" ;;
+              warning) urgency="normal" ;;
+              *) urgency="low" ;;
+            esac
+
+            if ! notify-send \
+              --app-name="Region Recorder" \
+              --icon="media-record" \
+              --urgency="$urgency" \
+              "$title" "$body" >/dev/null 2>&1; then
+              printf '%s: %s\n' "$title" "$body" >&2
+            fi
+          ''
+      }
     }
 
     # Persist the active session metadata atomically.

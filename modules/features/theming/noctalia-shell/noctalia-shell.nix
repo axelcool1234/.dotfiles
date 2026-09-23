@@ -1,6 +1,6 @@
 {
-  config,
   baseVars,
+  hostVars,
   inputs,
   lib,
   pkgs,
@@ -41,7 +41,7 @@ let
   );
 in
 {
-  config = lib.mkIf (config.preferences.desktop-shell == "noctalia-shell") {
+  config = lib.mkIf (hostVars.desktopShell == "noctalia-shell") {
     # Only the Spotify integration needs Flatpak right now, but keeping the
     # enablement here still centralizes the “Noctalia-specific imperative app
     # theming” layer in one place.

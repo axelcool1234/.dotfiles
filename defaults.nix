@@ -106,15 +106,15 @@ in
       description = "Default terminal package alias.";
     };
 
-    desktop = lib.mkOption {
+    compositor = lib.mkOption {
       type = lib.types.nullOr (lib.types.enum [ "niri" ]);
-      default = null;
-      description = "Default desktop package alias.";
+      default = "niri";
+      description = "Default compositor package alias.";
     };
 
-    desktop-shell = lib.mkOption {
+    desktopShell = lib.mkOption {
       type = lib.types.nullOr (lib.types.enum [ "noctalia-shell" ]);
-      default = null;
+      default = "noctalia-shell";
       description = "Default desktop shell package alias.";
     };
   };

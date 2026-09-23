@@ -22,7 +22,7 @@ in
   # - `./modules/features/environment.nix` as `{ environment = ./modules/features/environment.nix; }`
   # - `./wrappers/neovim/default.nix` as `{ neovim = ./wrappers/neovim; }`
   # Will not include:
-  # - `./modules/features/desktop/desktops/niri.nix` because it is nested below the boundary
+  # - `./modules/features/desktop/compositors/niri.nix` because it is nested below the boundary
   # - `./modules/features/impermanence/options.nix` because it is nested below the boundary
   # - a directory without `default.nix`
   entries =

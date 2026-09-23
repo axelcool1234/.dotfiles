@@ -7,7 +7,7 @@
   ...
 }:
 let
-  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktopShell == "noctalia-shell";
   evaluated = inputs.nixpkgs.lib.nixosSystem {
     inherit system;
 

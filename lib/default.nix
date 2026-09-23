@@ -79,9 +79,9 @@ let
 
   # Build a package set for a specific evaluation context.
   #
-  # Generic flake packages use `hostVars = { }`, while host evaluations pass
-  # through their concrete `hostVars` so wrappers can branch on machine
-  # identity when needed.
+  # Generic flake packages pass portable `hostVars`, while host evaluations
+  # pass their concrete `hostVars` so wrappers can branch on the evaluation
+  # context when needed.
   mkPackageSetImpl = myLib:
     {
       pkgs,
@@ -251,11 +251,11 @@ let
     );
 
   helpers = rec {
-  inherit
-    importTree
-    collectPersistFromPackages
-    forAllSystems
-    ;
+    inherit
+      importTree
+      collectPersistFromPackages
+      forAllSystems
+      ;
 
     mkPackageSet = mkPackageSetImpl helpers;
   };

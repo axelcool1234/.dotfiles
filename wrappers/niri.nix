@@ -1,5 +1,4 @@
 {
-  config,
   hostVars,
   lib,
   pkgs,
@@ -8,12 +7,39 @@
   ...
 }:
 let
-  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
-  desktopShellPersist =
-    if hostVars.desktop-shell != null && selfPkgs.${hostVars.desktop-shell}.passthru ? persist then
-      selfPkgs.${hostVars.desktop-shell}.passthru.persist
+  useNoctaliaTheme = hostVars.desktopShell == "noctalia-shell";
+  desktopShell =
+    if hostVars.desktopShell == null then
+      null
     else
-      { };
+      selfPkgs.${hostVars.desktopShell};
+  desktopShellActions =
+    if desktopShell == null then
+      { }
+    else
+      desktopShell.passthru.desktopShell.actions or { };
+  hasDesktopShellAction = action: builtins.hasAttr action desktopShellActions;
+  desktopShellCommand = action:
+    lib.escapeShellArgs ([ (lib.getExe desktopShell) ] ++ desktopShellActions.${action});
+  mkDesktopShellBind = key: action:
+    lib.optionalAttrs (hasDesktopShellAction action) {
+      ${key}.spawn-sh = desktopShellCommand action;
+    };
+  desktopShellBinds = lib.mergeAttrsList [
+    (mkDesktopShellBind "Mod+SHIFT+D" "launcherToggle")
+    (mkDesktopShellBind "Mod+W" "wallpaperToggle")
+    (mkDesktopShellBind "Mod+Escape" "sessionMenuToggle")
+    (mkDesktopShellBind "Mod+Ctrl+L" "lock")
+    (mkDesktopShellBind "XF86AudioRaiseVolume" "volumeIncrease")
+    (mkDesktopShellBind "XF86AudioLowerVolume" "volumeDecrease")
+    (mkDesktopShellBind "XF86AudioMute" "volumeMuteOutput")
+    (mkDesktopShellBind "XF86AudioMicMute" "volumeMuteInput")
+    (mkDesktopShellBind "XF86MonBrightnessUp" "brightnessIncrease")
+    (mkDesktopShellBind "XF86MonBrightnessDown" "brightnessDecrease")
+    (lib.optionalAttrs (hasDesktopShellAction "screenshotRegion") {
+      "Mod+Shift+S".spawn-sh = "${desktopShellCommand "screenshotRegion"} >/dev/null 2>&1 || niri msg action screenshot";
+    })
+  ];
 in
 {
   imports = [ wlib.wrapperModules.niri ];
@@ -21,44 +47,11 @@ in
   config = {
     escapingFunction = wlib.escapeShellArgWithEnv;
 
-    # wrapperModules.niri runs `niri validate -c <generated config>`
-    # so we need this stub so it won't fail.
-    constructFiles.noctaliaStub = lib.mkIf useNoctaliaTheme {
-      relPath = "noctalia.kdl";
-      content = "";
-    };
-
-    runShell = lib.optionals useNoctaliaTheme [
-      ''
-        runtime_base="${"$"}{XDG_RUNTIME_DIR:-${"$"}{XDG_CACHE_HOME:-${"$"}HOME/.cache}}"
-        runtime_dir="$(mktemp -d "$runtime_base/niri-wrapper.XXXXXX")"
-        export NIRI_RUNTIME_CONFIG="$runtime_dir/config.kdl"
-        export NIRI_CONFIG="$NIRI_RUNTIME_CONFIG"
-        cp ${config.constructFiles.generatedConfig.path} "$NIRI_RUNTIME_CONFIG"
-
-        noctalia_config_dir="${"$"}HOME/.config/niri"
-        noctalia_config="$noctalia_config_dir/noctalia.kdl"
-        mkdir -p "$noctalia_config_dir"
-
-        # Keep the runtime include wired to the mutable user file so later
-        # Noctalia theme updates are visible without restarting niri.
-        if [ ! -e "$noctalia_config" ]; then
-          cp ${config.constructFiles.noctaliaStub.path} "$noctalia_config"
-        fi
-
-        # The placeholder is only here to give Noctalia a writable target until
-        # it renders the real theme file.
-        if [ ! -w "$noctalia_config" ]; then
-          chmod u+w "$noctalia_config"
-        fi
-
-        ln -sfn "$noctalia_config" "$runtime_dir/noctalia.kdl"
-      ''
-    ];
-
     settings = {
-      spawn-at-startup = lib.optionals (hostVars.desktop-shell != null) [
-        (lib.getExe selfPkgs.${hostVars.desktop-shell})
+      # NixOS manages the shell as a user service. Keep direct startup for
+      # portable wrapper evaluations that opt into a desktop shell.
+      spawn-at-startup = lib.optionals (desktopShell != null && !hostVars.isNixosHost) [
+        (lib.getExe desktopShell)
       ];
 
       prefer-no-csd = _: {};
@@ -70,30 +63,18 @@ in
 
       binds = {
         # Menus
-        "Mod+SHIFT+D".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call launcher toggle";
-        "Mod+W".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call wallpaper toggle";
-        "Mod+Escape".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call sessionMenu toggle";
-        "Mod+Ctrl+L".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call lockScreen lock";
         "Mod+Shift+Slash".show-hotkey-overlay = _: {};
 
         # Escape Hatch
         "Mod+Shift+Escape".toggle-keyboard-shortcuts-inhibit = _: { allow-inhibiting = false; };
 
         # Main Programs
-        "Mod+T".spawn = "${lib.getExe selfPkgs.${hostVars.terminal}}";
-        "Mod+B".spawn = "${lib.getExe selfPkgs.${hostVars.browser}}";
-        "Mod+S".spawn = "${lib.getExe selfPkgs.spicetify}";
-        "Mod+D".spawn = "${lib.getExe selfPkgs.nixcord}";
+        "Mod+T".spawn = lib.getExe selfPkgs.${hostVars.terminal};
+        "Mod+B".spawn = lib.getExe selfPkgs.${hostVars.browser};
+        "Mod+S".spawn = lib.getExe selfPkgs.spicetify;
+        "Mod+D".spawn = lib.getExe selfPkgs.nixcord;
 
         # Video/Audio Control
-        "XF86AudioRaiseVolume".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume increase";
-        "XF86AudioLowerVolume".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume decrease";
-        "XF86AudioMute".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume muteOutput";
-        "XF86AudioMicMute".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call volume muteInput";
-
-        "XF86MonBrightnessUp".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call brightness increase";
-        "XF86MonBrightnessDown".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call brightness decrease";
-
         "Mod+P".spawn-sh = "${lib.getExe pkgs.playerctl} play-pause";
         "Mod+BracketLeft".spawn-sh = "${lib.getExe pkgs.playerctl} previous";
         "Mod+BracketRight".spawn-sh = "${lib.getExe pkgs.playerctl} next";
@@ -145,8 +126,8 @@ in
         # Utils
         "Mod+R".spawn-sh = "${lib.getExe selfPkgs.region-recorder} toggle video";
         "Mod+Shift+R".spawn-sh = "${lib.getExe selfPkgs.region-recorder} toggle gif";
-        "Mod+Shift+S".spawn-sh = "${lib.getExe selfPkgs.noctalia-shell} ipc call plugin:rope-screenshot takeScreenshot region >/dev/null 2>&1 || niri msg action screenshot";
-      };
+      }
+      // desktopShellBinds;
       workspaces = {
         w01 = _: { };
         w02 = _: { };
@@ -391,20 +372,8 @@ in
       xwayland-satellite.path = lib.getExe pkgs.xwayland-satellite;
 
       extraConfig = lib.optionalString useNoctaliaTheme ''
-        include "noctalia.kdl"
+        include optional=true "~/.config/niri/noctalia.kdl"
       '';
-    };
-
-    # Impermanence only harvests wrapper `passthru.persist` from packages that
-    # are actually installed into `environment.systemPackages`. On this host the
-    # desktop package is `niri`, while the desktop shell (`noctalia-shell`) is
-    # launched by niri rather than installed as a top-level system package. So
-    # forward the desktop-shell wrapper's persistence metadata through niri.
-    passthru.persist = lib.mkIf (hostVars.desktop-shell != null) {
-      systemDirectories = desktopShellPersist.systemDirectories or [ ];
-      systemFiles = desktopShellPersist.systemFiles or [ ];
-      homeDirectories = desktopShellPersist.homeDirectories or [ ];
-      homeFiles = desktopShellPersist.homeFiles or [ ];
     };
   };
 }

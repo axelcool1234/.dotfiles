@@ -1,4 +1,10 @@
-{ hostVars, selfPkgs, pkgs, lib, ... }:
+{
+  hostVars,
+  lib,
+  pkgs,
+  selfPkgs,
+  ...
+}:
 {
   preferences.impermanence.persist.homeDirectories = lib.mkAfter [
     # IndexedDB stores per-workspace app state that Slack uses to restore sessions.
@@ -21,11 +27,14 @@
   ];
 
   environment.systemPackages = [
-    selfPkgs.${hostVars.terminal}  # Default terminal
-    selfPkgs.${hostVars.browser}   # Default browser
+    selfPkgs.${hostVars.terminal} # Default terminal
+    selfPkgs.${hostVars.browser} # Default browser
     selfPkgs.spicetify # Music
-    selfPkgs.nixcord   # Casual communication
-    pkgs.slack         # Work communication
-    pkgs.pcmanfm       # File manager
+    selfPkgs.nixcord # Casual communication
+    pkgs.slack # Work communication
+    pkgs.pcmanfm # File manager
+    selfPkgs.zathura # PDFs
+    pkgs.imv # Images
+    pkgs.mpv # Videos
   ];
 }

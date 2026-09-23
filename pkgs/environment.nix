@@ -12,11 +12,6 @@ let
   shellPackage = selfPkgs.${hostVars.shell};
 
   runtimePkgs = [
-    # GUI
-    selfPkgs.zathura # PDFs
-    pkgs.imv     # Images
-    pkgs.mpv     # Videos
-
     # Utils
     selfPkgs.${hostVars.editor}  # Edit text within files
     pkgs.ripgrep     # Search text within files

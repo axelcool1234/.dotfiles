@@ -7,7 +7,7 @@
   ...
 }:
 let
-  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktopShell == "noctalia-shell";
   uiFont = hostVars.fonts.ui;
   zathuraFont = "${uiFont.family}${lib.optionalString (uiFont.size != null) " ${toString uiFont.size}"}";
 

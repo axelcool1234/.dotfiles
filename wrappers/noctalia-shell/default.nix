@@ -9,7 +9,7 @@
   ...
 }:
 let
-  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktopShell == "noctalia-shell";
 
   activeTemplateIds = [
     "gtk"
@@ -21,8 +21,8 @@ let
     "zathura"
     "yazi"
     "btop"
-    "niri"
-  ];
+  ]
+  ++ lib.optional (hostVars.compositor == "niri") "niri";
 
   activeTemplates = map (id: {
     inherit id;
@@ -58,6 +58,23 @@ in
       ];
     };
 
+    # Compositors consume these optional capabilities from whichever desktop
+    # shell package is selected. Arguments are kept separate from the package
+    # executable so consumers can safely construct their native command form.
+    passthru.desktopShell.actions = {
+      launcherToggle = [ "ipc" "call" "launcher" "toggle" ];
+      wallpaperToggle = [ "ipc" "call" "wallpaper" "toggle" ];
+      sessionMenuToggle = [ "ipc" "call" "sessionMenu" "toggle" ];
+      lock = [ "ipc" "call" "lockScreen" "lock" ];
+      volumeIncrease = [ "ipc" "call" "volume" "increase" ];
+      volumeDecrease = [ "ipc" "call" "volume" "decrease" ];
+      volumeMuteOutput = [ "ipc" "call" "volume" "muteOutput" ];
+      volumeMuteInput = [ "ipc" "call" "volume" "muteInput" ];
+      brightnessIncrease = [ "ipc" "call" "brightness" "increase" ];
+      brightnessDecrease = [ "ipc" "call" "brightness" "decrease" ];
+      screenshotRegion = [ "ipc" "call" "plugin:rope-screenshot" "takeScreenshot" "region" ];
+    };
+
     preInstalledPlugins = {
       custom-commands.src = "${inputs.noctalia-plugins.outPath}/custom-commands";
       rope-screenshot.src = "${./plugins/rope-screenshot}";
@@ -66,6 +83,23 @@ in
     # Make noctalia-shell's configuration mutable for color scheme selection and experimentation.
     escapingFunction = wlib.escapeShellArgWithEnv;
     outOfStoreConfig = ''${"$"}HOME/.config/noctalia-shell'';
+
+    # `outOfStoreConfig` intentionally only fills missing files at ordinary
+    # startup. This explicit helper lets a NixOS activation re-apply the new
+    # declarative defaults without deleting unrelated mutable Noctalia state.
+    constructFiles.sync-noctalia-shell-config = {
+      relPath = "bin/sync-noctalia-shell-config";
+      builder = ''${pkgs.coreutils}/bin/cp "$1" "$2" && ${pkgs.coreutils}/bin/chmod +x "$2"'';
+      content = ''
+        #!${pkgs.bash}/bin/bash
+        set -eu
+
+        config_dir="$HOME/.config/noctalia-shell"
+        ${pkgs.coreutils}/bin/mkdir -p "$config_dir"
+        ${pkgs.coreutils}/bin/cp -rf ${config.configPlaceholder}/. "$config_dir/"
+        ${pkgs.findutils}/bin/find "$config_dir" ! -perm -u+w -exec ${pkgs.coreutils}/bin/chmod u+w {} +
+      '';
+    };
 
     settings = {
       templates = lib.mkIf useNoctaliaTheme {
@@ -205,7 +239,7 @@ in
         clipboardWatchTextCommand = "${pkgs.wl-clipboard}/bin/wl-paste --type text --watch ${lib.getExe pkgs.cliphist} store";
         clipboardWatchImageCommand = "${pkgs.wl-clipboard}/bin/wl-paste --type image --watch ${lib.getExe pkgs.cliphist} store";
         position = "center";
-        terminalCommand = "${lib.getExe selfPkgs.${hostVars.terminal}}";
+        terminalCommand = lib.getExe selfPkgs.${hostVars.terminal};
         viewMode = "grid";
         density = "comfortable";
       };

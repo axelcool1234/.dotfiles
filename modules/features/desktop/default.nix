@@ -1,34 +1,36 @@
 {
-  config,
   hostVars,
-  self,
-  lib,
   myLib,
-  selfPkgs,
   ...
 }:
+let
+  compositors = myLib.importTree.entries ./compositors;
+  desktopShells = myLib.importTree.entries ./shells;
+in
 {
-  imports = builtins.attrValues (myLib.importTree.entries ./desktops);
+  imports =
+    builtins.attrValues compositors
+    ++ builtins.attrValues desktopShells;
 
-  options.preferences.desktop = lib.mkOption {
-    type = lib.types.enum [ "niri" ];
-    default = hostVars.desktop;
-    description = "Desktop implementation to enable.";
-  };
+  assertions = [
+    {
+      assertion =
+        hostVars.compositor != null
+        && builtins.hasAttr hostVars.compositor compositors;
+      message = "hostVars.compositor must name a module under modules/features/desktop/compositors.";
+    }
+    {
+      assertion =
+        hostVars.desktopShell == null
+        || builtins.hasAttr hostVars.desktopShell desktopShells;
+      message = "hostVars.desktopShell must be null or name a module under modules/features/desktop/shells.";
+    }
+  ];
 
-  config = {
-    _module.args.selfPkgs = selfPkgs;
-
-    environment.systemPackages = [
-      selfPkgs.environment # Default interactive shell environment
-      selfPkgs.${config.preferences.desktop} # Default desktop/session package
-    ];
-
-    users.users.greeter = {
-      isNormalUser = false;
-      description = "greetd greeter user";
-      extraGroups = [ "video" "audio" ];
-      linger = true;
-    };
+  users.users.greeter = {
+    isNormalUser = false;
+    description = "greetd greeter user";
+    extraGroups = [ "video" "audio" ];
+    linger = true;
   };
 }

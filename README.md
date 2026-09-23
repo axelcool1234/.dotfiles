@@ -35,7 +35,7 @@
 - Overhaul README
   - Table of contents
   - Showcase (pictures and video)
-  - Defaults section (what editor, terminal, desktop, desktop shell, etc. am I using?)
+  - Defaults section (what editor, terminal, compositor, desktop shell, etc. am I using?)
   - Steal from old README
   - TODO for .dotfiles section at the bottom
   - TODO for personal forks (like Helix) at the bottom
@@ -71,6 +71,19 @@
     search register is seemingly unchanged, so `n` and `N` moves the primary cursor to the contents from register `a`. Not sure
     if this is intended, but it is not how I have it implemented in Neovim. 
   - I cannot highlight and yank the last newline in a file?
+
+## Applying Changes
+
+From the dotfiles checkout on an existing NixOS host, run:
+
+```bash
+nh os switch .
+```
+
+New programs launched through Niri use the activated generation. After Fish,
+Neovim, Helix, or other terminal-environment changes, open a fresh Kitty OS
+window with `Mod+T`. Existing processes keep using the generation they started
+with. Kernel, initrd, and driver changes may still need a reboot.
 
 ## Fresh Install
 We'll use the `legion` host as an example.

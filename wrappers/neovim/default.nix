@@ -7,7 +7,7 @@
   ...
 }:
 let
-  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktopShell == "noctalia-shell";
   enableKittyScrollback = hostVars.terminal == "kitty";
   leanNvim = pkgs.vimPlugins.lean-nvim.overrideAttrs (old: {
     # Fixed upstream after v2026.4.1: null RPC docstrings decode to vim.NIL.
@@ -286,6 +286,7 @@ in
     pkgs.ripgrep
     pkgs.wl-clipboard
     selfPkgs.jjui
+    selfPkgs.zathura # VimTeX PDF viewer
   ];
 
   runtimeLibs = [

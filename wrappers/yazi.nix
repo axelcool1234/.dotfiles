@@ -6,7 +6,7 @@
   ...
 }:
 let
-  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktopShell == "noctalia-shell";
 in
 {
   imports = [ wlib.wrapperModules.yazi ];

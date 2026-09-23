@@ -12,6 +12,8 @@ let
 
   mkHostConfiguration =
     {
+      compositor ? defaults.aliases.compositor,
+      desktopShell ? defaults.aliases.desktopShell,
       hostName,
       modules,
       overrides ? { },
@@ -27,13 +29,13 @@ let
           overrides
         )
         // {
-          inherit hostName stateVersion;
-          desktop = "niri";
-          desktop-shell = "noctalia-shell";
+          inherit compositor hostName stateVersion;
+          inherit desktopShell;
+          isNixosHost = true;
         };
 
       # Host builds get a package set that knows which machine is being
-      # evaluated so wrappers can branch on `hostVars.hostName` when needed.
+      # evaluated so wrappers can use NixOS-specific session behavior.
       selfPkgs = myLib.mkPackageSet {
         pkgs = import inputs.nixpkgs {
           inherit system;
@@ -110,6 +112,8 @@ in
 
   # WSL target for running this flake inside NixOS-WSL.
   wsl = mkHostConfiguration {
+    compositor = null;
+    desktopShell = null;
     hostName = "wsl";
     system = "x86_64-linux";
     modules = [

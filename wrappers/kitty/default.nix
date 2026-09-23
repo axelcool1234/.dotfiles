@@ -7,7 +7,7 @@
   ...
 }:
 let
-  useNoctaliaTheme = hostVars.desktop-shell == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktopShell == "noctalia-shell";
   enableKittyScrollback = hostVars.hostName != null && hostVars.editor == "neovim";
   terminalFont = hostVars.fonts.terminal;
   symbolFont = hostVars.fonts.symbols;
