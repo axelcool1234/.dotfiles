@@ -58,8 +58,8 @@ in
         "ctrl+l next_tab"
       ]
       ++ lib.optionals enableKittyScrollback [
-        "ctrl+g kitty_scrollback_nvim"
-        "ctrl+shift+g send_key ctrl+g"
+        "ctrl+g send_key ctrl+g"
+        "ctrl+shift+g kitty_scrollback_nvim"
         "ctrl+alt+g kitty_scrollback_nvim --config ksb_builtin_last_cmd_output"
       ]
       ++ lib.optionals (!enableKittyScrollback) [
