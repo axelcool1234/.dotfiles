@@ -36,7 +36,7 @@ in
         set --local tmp (mktemp -t "yazi-cwd.XXXXXX")
         ${lib.getExe selfPkgs.yazi} $argv --cwd-file="$tmp"
 
-        if read --zero cwd < "$tmp"; and test "$cwd" != "$PWD"; and test -d "$cwd"
+        if read --null cwd < "$tmp"; and test "$cwd" != "$PWD"; and test -d "$cwd"
           builtin cd -- "$cwd"
         end
 
