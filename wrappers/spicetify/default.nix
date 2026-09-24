@@ -1,14 +1,37 @@
 {
-  baseVars,
+  hostVars,
   inputs,
   lib,
   pkgs,
+  system,
   ...
 }:
 let
   # Reuse the pinned Spicetify package set so our declarative theme/bootstrap
   # files stay in sync with the Spicetify CLI and theme sources we tested.
-  spicePkgs = inputs.spicetify-nix.legacyPackages.${pkgs.stdenv.hostPlatform.system};
+  spicePkgs = inputs.spicetify-nix.legacyPackages.${system};
+
+  # Noctalia rewrites Spicetify's mutable Flatpak installation at runtime.
+  # Other desktop shells retain the fully immutable Nix-built Spotify package.
+  useNoctaliaTheme = hostVars.desktopShell == "noctalia";
+
+  flatpakSpotifyLauncher = pkgs.writeShellApplication {
+    name = "spotify";
+    runtimeInputs = [
+      pkgs.bash
+      pkgs.coreutils
+      pkgs.flatpak
+      pkgs.procps
+    ];
+    text = ''
+      # Expose Chromium's debugger so the managed Spicetify CLI can reload the
+      # running frontend after Noctalia changes its generated color scheme.
+      exec flatpak run --command=spotify com.spotify.Client \
+        --remote-debugging-port=9222 \
+        --remote-allow-origins=* \
+        "$@"
+    '';
+  };
 
   # Comfy is the theme Noctalia's Spotify docs are written around.
   # We treat it as the stable base theme whose `color.ini` gets rewritten by
@@ -238,12 +261,6 @@ let
     '';
   };
 
-  # This file exists only to give Noctalia a guaranteed post-hook slot for an
-  # extra managed Spotify refresh after theme changes.
-  spicetifyRefreshTrigger = pkgs.writeText "spicetify-refresh-trigger.txt" ''
-    trigger
-  '';
-
   # These names are written into `config-xpui.ini`. Spicetify expects a pipe-
   # separated list of extension file names, not Nix package names.
   spicetifyExtensionNames = [
@@ -271,15 +288,6 @@ let
       "${spicePkgs.extensions.keyboardShortcut.src}/${spicePkgs.extensions.keyboardShortcut.name}";
     "spicetify/Extensions/${spicePkgs.extensions.fullAppDisplay.name}" =
       "${spicePkgs.extensions.fullAppDisplay.src}/${spicePkgs.extensions.fullAppDisplay.name}";
-  };
-
-  # Keep an explicit user-template hook as a belt-and-suspenders refresh path.
-  userTemplates = {
-    templates.spicetify-refresh = {
-      input_path = spicetifyRefreshTrigger;
-      output_path = "~/.cache/noctalia/spicetify-refresh-trigger.txt";
-      post_hook = "${spicetifyManaged}/bin/spicetify refresh || true";
-    };
   };
 
   # Flatpak install + Spicetify repair/bootstrap happen here.
@@ -442,37 +450,54 @@ EOF
     '';
   };
 
-  # Packages this program-specific integration needs in the user environment.
-  packages = [ spicetifyManaged ];
-
-  # Under Noctalia, Spotify is the Flatpak app plus its user-scoped container.
-  # Persist those homes here, alongside the rest of the Spotify integration.
-  persistHomeDirectories = [
-    ".local/share/flatpak"
-    ".local/state/spicetify"
-    ".var/app/com.spotify.Client"
-  ];
-
-  # This program needs a mutable install target, so enable Flatpak here rather
-  # than globally for every shell configuration.
-  enableFlatpak = true;
-
-  # Flatpak desktop apps need a portal backend. GTK is the simplest generic
-  # choice for this Niri-based setup.
-  portalConfig = {
-    enable = true;
-    extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
-    config.common.default = lib.mkDefault "*";
-  };
 in
 {
-  inherit
-    enableFlatpak
-    homeFiles
-    packages
-    persistHomeDirectories
-    portalConfig
-    userService
-    userTemplates
-    ;
+  imports = [ ./module.nix ];
+
+  config = {
+    package =
+      if useNoctaliaTheme then
+        flatpakSpotifyLauncher
+      else
+        inputs.spicetify-nix.lib.mkSpicetify pkgs {
+          enabledExtensions = with spicePkgs.extensions; [
+            adblock
+            shuffle
+            keyboardShortcut
+            fullAppDisplay
+          ];
+        };
+
+    spicetifyPackage = if useNoctaliaTheme then spicetifyManaged else pkgs.spicetify-cli;
+
+    # Hjem placement and NixOS service wiring remain host policy. Expose the
+    # artifacts on the selected music package so the graphical-applications
+    # feature can install only what this wrapper requests.
+    passthru = {
+      homeFiles = lib.optionalAttrs useNoctaliaTheme homeFiles;
+
+      hostIntegration = lib.optionalAttrs useNoctaliaTheme {
+        enableFlatpak = true;
+
+        portalConfig = {
+          enable = true;
+          extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
+          config.common.default = lib.mkDefault "*";
+        };
+
+        userServices.spotify-flatpak-bootstrap = userService;
+      };
+
+      # The global impermanence collector reads persistence declarations from
+      # every package installed in environment.systemPackages.
+      persist = {
+        homeDirectories = lib.optionals useNoctaliaTheme [
+          ".local/share/flatpak"
+          ".local/state/spicetify"
+          ".var/app/com.spotify.Client"
+        ];
+        homeFiles = [ ];
+      };
+    };
+  };
 }

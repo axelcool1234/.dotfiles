@@ -10,7 +10,7 @@
   ...
 }:
 let
-  useNoctaliaTheme = hostVars.desktopShell == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktopShell == "noctalia";
 in
 {
   imports = [ wlib.wrapperModules.helix ];

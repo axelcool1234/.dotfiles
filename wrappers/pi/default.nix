@@ -14,7 +14,7 @@ in
   imports = [ ./module.nix ];
 
   config = {
-    settings.theme = lib.mkIf (hostVars.desktopShell == "noctalia-shell") (lib.mkDefault "noctalia");
+    settings.theme = lib.mkIf (hostVars.desktopShell == "noctalia") (lib.mkDefault "noctalia");
 
     settings.packages = lib.mkDefault [
       "npm:@tmustier/pi-usage-extension@0.9.4"

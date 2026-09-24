@@ -16,7 +16,7 @@
   - Get (for fun): https://noctalia.dev/plugins/activate-linux/
   - Investigate: https://noctalia.dev/plugins/assistant-panel/
 - Configure mime types for files
-- Add .face back to get a profile picture for noctalia-shell
+- Add .face back to get a profile picture for Noctalia
 - Figure out `direnv` + `lorri` and add the needed support for local development
 - Explore `nix-portable`, `nix-appimage`, and `railpack` for portability
 - Improve Kitty

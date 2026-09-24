@@ -17,7 +17,6 @@
     # generated config. NixOS only daemon-reloads ordinary user services during
     # a switch, so explicitly invoke that reload for the real desktop user.
     system.userActivationScripts.reloadNiri = {
-      deps = lib.optional (hostVars.desktopShell != null) "activateDesktopShell";
       text = ''
         if [ "$(${lib.getExe' pkgs.coreutils "id"} -un)" = ${lib.escapeShellArg baseVars.username} ] \
           && ${lib.getExe' pkgs.systemd "systemctl"} --user is-active --quiet niri.service

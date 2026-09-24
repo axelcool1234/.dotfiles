@@ -7,7 +7,7 @@
   ...
 }:
 let
-  useNoctaliaTheme = hostVars.desktopShell == "noctalia-shell";
+  useNoctaliaTheme = hostVars.desktopShell == "noctalia";
   enableKittyScrollback = hostVars.terminal == "kitty";
   leanNvim = pkgs.vimPlugins.lean-nvim.overrideAttrs (old: {
     # Fixed upstream after v2026.4.1: null RPC docstrings decode to vim.NIL.
@@ -23,6 +23,10 @@ in
 
   # Use this directory itself as the wrapped Neovim config directory.
   settings.config_directory = ./.;
+  # The community template writes lua/matugen.lua under the ordinary Neovim
+  # config root. Keep that directory on runtimepath without executing its
+  # init.lua, since the wrapper remains the authoritative editor config.
+  settings.block_normal_config = lib.mkIf useNoctaliaTheme false;
 
   # Plugin groups. Keep wrapper-specific bootstraps close to the plugin that
   # needs them, and keep general editor behavior in the Lua config directory.
@@ -208,68 +212,17 @@ in
       ];
     }
     // lib.optionalAttrs useNoctaliaTheme {
-      # Noctalia-only theme bootstrap and live palette reload hook.
+      # The community template owns matugen.lua and its SIGUSR1 reload hook.
+      # This wrapper only supplies base16-nvim and invokes that module.
       theme = with pkgs.vimPlugins; [
         {
           name = "noctalia-theme";
           data = base16-nvim;
           before = [ "INIT_MAIN" ];
           config = /* lua */ ''
-            local uv = vim.uv or vim.loop
-            local palette_path = vim.fn.expand("~/.cache/noctalia/nvim-base16.lua")
-            local signal = nil
-
-            local function apply_noctalia_palette()
-              if not uv.fs_stat(palette_path) then
-                return
-              end
-
-              local palette_ok, palette = pcall(dofile, palette_path)
-              if not palette_ok then
-                vim.notify(
-                  ("Noctalia palette could not be loaded from %s: %s"):format(palette_path, palette),
-                  vim.log.levels.WARN
-                )
-                return
-              end
-
-              local base16_ok, base16 = pcall(require, "base16-colorscheme")
-              if not base16_ok then
-                vim.notify(
-                  ("base16-colorscheme is unavailable: %s"):format(base16),
-                  vim.log.levels.ERROR
-                )
-                return
-              end
-
-              base16.setup(palette)
-
-              vim.api.nvim_exec_autocmds("ColorScheme", {
-                modeline = false,
-                pattern = "noctalia-base16",
-              })
-              vim.api.nvim_exec_autocmds("User", {
-                modeline = false,
-                pattern = "NoctaliaThemeReloaded",
-              })
-            end
-
-            apply_noctalia_palette()
-
-            signal = uv.new_signal()
-            if signal then
-              signal:start("sigusr1", vim.schedule_wrap(apply_noctalia_palette))
-
-              vim.api.nvim_create_autocmd("VimLeavePre", {
-                callback = function()
-                  if signal:is_closing() then
-                    return
-                  end
-
-                  signal:stop()
-                  signal:close()
-                end,
-              })
+            local ok, matugen = pcall(require, "matugen")
+            if ok then
+              matugen.setup()
             end
           '';
         }

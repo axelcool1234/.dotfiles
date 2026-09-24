@@ -49,8 +49,8 @@ current repo grows consumers for them again.
 - `defaults.nix`
 - the target preset file under `fonts/`
 - `modules/features/fonts.nix`
-- `modules/features/theming/noctalia-shell/gtk.nix`
-- `modules/features/theming/noctalia-shell/qt.nix`
+- `modules/features/theming/noctalia/gtk.nix`
+- `modules/features/theming/noctalia/qt.nix`
 - `wrappers/kitty/default.nix`
 - `wrappers/zathura.nix`
 

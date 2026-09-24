@@ -68,7 +68,7 @@ let
   gtk4LibadwaitaTweaksCss = "${pkgs.adw-gtk3}/share/themes/${gtkTheme}/gtk-4.0/libadwaita-tweaks.css";
 in
 {
-  config = lib.mkIf (hostVars.desktopShell == "noctalia-shell") {
+  config = lib.mkIf (hostVars.desktopShell == "noctalia") {
     # https://docs.noctalia.dev/theming/program-specific/gtk-qt/
 
     environment.systemPackages = [ pkgs.adw-gtk3 ];

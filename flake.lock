@@ -433,6 +433,19 @@
     },
     "nixpkgs_5": {
       "locked": {
+        "lastModified": 1788614874,
+        "narHash": "sha256-PRK1fSEiAcO29DkUoOlsVLGYRK3h1YKVr+qQJB0VcYQ=",
+        "rev": "c043004d1c6985732bcc1cbc5a9c9aecbbb4e0f0",
+        "type": "tarball",
+        "url": "https://releases.nixos.org/nixos/unstable/nixos-26.11pre1068089.c043004d1c69/nixexprs.tar.zst"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://channels.nixos.org/nixos-unstable/nixexprs.tar.zst"
+      }
+    },
+    "nixpkgs_6": {
+      "locked": {
         "lastModified": 1786719841,
         "narHash": "sha256-QcpQOT0NQEFkI77t+YXPZqDJc35iIodG7zinieOwFUg=",
         "owner": "NixOS",
@@ -447,19 +460,38 @@
         "type": "github"
       }
     },
-    "noctalia-plugins": {
-      "flake": false,
+    "noctalia": {
+      "inputs": {
+        "nixpkgs": "nixpkgs_5"
+      },
       "locked": {
-        "lastModified": 1784742359,
-        "narHash": "sha256-M+7SLW+wI3KvDMj8dSrW/uUmpPiYhsXA2jpbbgL5imk=",
+        "lastModified": 1789053136,
+        "narHash": "sha256-A7ehoEnAJw4k1Qwpr/WkOkLXWZAVU970uB+sm6nBxP0=",
         "owner": "noctalia-dev",
-        "repo": "noctalia-plugins",
-        "rev": "ea21cb63d063075bc0acd72d8b946ce2c5eef00d",
+        "repo": "noctalia",
+        "rev": "c7b9197af77ff22bfb9a83c52a95643a1d90ca86",
         "type": "github"
       },
       "original": {
         "owner": "noctalia-dev",
-        "repo": "noctalia-plugins",
+        "ref": "v5.1.0",
+        "repo": "noctalia",
+        "type": "github"
+      }
+    },
+    "noctalia-templates": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790166930,
+        "narHash": "sha256-wIZT2k7tEJPg/xb9bCbVhXVYgMu9swphF27kj4daxVc=",
+        "owner": "noctalia-dev",
+        "repo": "community-templates",
+        "rev": "3768ca5a86da5f2b9e08a94715bb257ac8dead4a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "noctalia-dev",
+        "repo": "community-templates",
         "type": "github"
       }
     },
@@ -476,7 +508,8 @@
         "nixos-hardware": "nixos-hardware",
         "nixos-wsl": "nixos-wsl",
         "nixpkgs": "nixpkgs_4",
-        "noctalia-plugins": "noctalia-plugins",
+        "noctalia": "noctalia",
+        "noctalia-templates": "noctalia-templates",
         "spicetify-nix": "spicetify-nix",
         "wrapper-modules": "wrapper-modules"
       }
@@ -597,7 +630,7 @@
     },
     "wrapper-modules": {
       "inputs": {
-        "nixpkgs": "nixpkgs_5"
+        "nixpkgs": "nixpkgs_6"
       },
       "locked": {
         "lastModified": 1787722691,

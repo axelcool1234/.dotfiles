@@ -119,8 +119,8 @@ in
     };
 
     desktopShell = lib.mkOption {
-      type = lib.types.nullOr (lib.types.enum [ "noctalia-shell" ]);
-      default = "noctalia-shell";
+      type = lib.types.nullOr (lib.types.enum [ "noctalia" ]);
+      default = "noctalia";
       description = "Default desktop shell package alias.";
     };
   };

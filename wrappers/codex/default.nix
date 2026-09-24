@@ -47,6 +47,7 @@ in
       projects."/home/axelcool1234/.dotfiles".trust_level = "trusted";
 
       tui = {
+        theme = "noctalia";
         terminal_title = [
           "activity"
           "app-name"

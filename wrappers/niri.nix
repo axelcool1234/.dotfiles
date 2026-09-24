@@ -7,27 +7,26 @@
   ...
 }:
 let
-  useNoctaliaTheme = hostVars.desktopShell == "noctalia-shell";
-  desktopShell =
-    if hostVars.desktopShell == null then
-      null
-    else
-      selfPkgs.${hostVars.desktopShell};
+  useNoctaliaTheme = hostVars.desktopShell == "noctalia";
+  desktopShell = if hostVars.desktopShell == null then null else selfPkgs.${hostVars.desktopShell};
   desktopShellActions =
-    if desktopShell == null then
-      { }
-    else
-      desktopShell.passthru.desktopShell.actions or { };
+    if desktopShell == null then { } else desktopShell.passthru.desktopShell.actions or { };
   hasDesktopShellAction = action: builtins.hasAttr action desktopShellActions;
-  desktopShellCommand = action:
-    lib.escapeShellArgs ([ (lib.getExe desktopShell) ] ++ desktopShellActions.${action});
-  mkDesktopShellBind = key: action:
+  desktopShellCommand =
+    action: lib.escapeShellArgs ([ (lib.getExe desktopShell) ] ++ desktopShellActions.${action});
+  mkDesktopShellBind =
+    key: action:
     lib.optionalAttrs (hasDesktopShellAction action) {
       ${key}.spawn-sh = desktopShellCommand action;
     };
   desktopShellBinds = lib.mergeAttrsList [
     (mkDesktopShellBind "Mod+SHIFT+D" "launcherToggle")
+    (mkDesktopShellBind "Mod+C" "colorPickerPick")
+    (mkDesktopShellBind "Mod+O" "ocrRegion")
+    (mkDesktopShellBind "Mod+X" "screenToolkitToggle")
     (mkDesktopShellBind "Mod+W" "wallpaperToggle")
+    (mkDesktopShellBind "Mod+Shift+W" "wallhavenToggle")
+    (mkDesktopShellBind "Mod+Ctrl+W" "cursorManagerToggle")
     (mkDesktopShellBind "Mod+Escape" "sessionMenuToggle")
     (mkDesktopShellBind "Mod+Ctrl+L" "lock")
     (mkDesktopShellBind "XF86AudioRaiseVolume" "volumeIncrease")
@@ -36,8 +35,10 @@ let
     (mkDesktopShellBind "XF86AudioMicMute" "volumeMuteInput")
     (mkDesktopShellBind "XF86MonBrightnessUp" "brightnessIncrease")
     (mkDesktopShellBind "XF86MonBrightnessDown" "brightnessDecrease")
+    (mkDesktopShellBind "Mod+R" "screenRecordToggle")
     (lib.optionalAttrs (hasDesktopShellAction "screenshotRegion") {
-      "Mod+Shift+S".spawn-sh = "${desktopShellCommand "screenshotRegion"} >/dev/null 2>&1 || niri msg action screenshot";
+      "Mod+Shift+S".spawn-sh =
+        "${desktopShellCommand "screenshotRegion"} >/dev/null 2>&1 || niri msg action screenshot";
     })
   ];
 in
@@ -54,16 +55,16 @@ in
         (lib.getExe desktopShell)
       ];
 
-      prefer-no-csd = _: {};
+      prefer-no-csd = _: { };
 
       input = {
-        workspace-auto-back-and-forth = _: {};
+        workspace-auto-back-and-forth = _: { };
         mouse.accel-profile = "flat";
       };
 
       binds = {
         # Menus
-        "Mod+Shift+Slash".show-hotkey-overlay = _: {};
+        "Mod+Shift+Slash".show-hotkey-overlay = _: { };
 
         # Escape Hatch
         "Mod+Shift+Escape".toggle-keyboard-shortcuts-inhibit = _: { allow-inhibiting = false; };
@@ -80,18 +81,18 @@ in
         "Mod+BracketRight".spawn-sh = "${lib.getExe pkgs.playerctl} next";
 
         # Movement
-        "Mod+H".focus-column-or-monitor-left = _: {};
-        "Mod+J".focus-window-or-workspace-down = _: {};
-        "Mod+K".focus-window-or-workspace-up = _: {};
-        "Mod+L".focus-column-or-monitor-right = _: {};
+        "Mod+H".focus-column-or-monitor-left = _: { };
+        "Mod+J".focus-window-or-workspace-down = _: { };
+        "Mod+K".focus-window-or-workspace-up = _: { };
+        "Mod+L".focus-column-or-monitor-right = _: { };
 
-        "Mod+Shift+H".move-column-left-or-to-monitor-left = _: {};
-        "Mod+Shift+J".move-window-down-or-to-workspace-down = _: {};
-        "Mod+Shift+K".move-window-up-or-to-workspace-up = _: {};
-        "Mod+Shift+L".move-column-right-or-to-monitor-right = _: {};
+        "Mod+Shift+H".move-column-left-or-to-monitor-left = _: { };
+        "Mod+Shift+J".move-window-down-or-to-workspace-down = _: { };
+        "Mod+Shift+K".move-window-up-or-to-workspace-up = _: { };
+        "Mod+Shift+L".move-column-right-or-to-monitor-right = _: { };
 
-        "Mod+Shift+Ctrl+J".move-workspace-down = _: {};
-        "Mod+Shift+Ctrl+K".move-workspace-up = _: {};
+        "Mod+Shift+Ctrl+J".move-workspace-down = _: { };
+        "Mod+Shift+Ctrl+K".move-workspace-up = _: { };
 
         "Mod+1".focus-workspace = 1;
         "Mod+2".focus-workspace = 2;
@@ -120,12 +121,9 @@ in
         "Mod+Shift+Minus".set-window-height = "-10%";
         "Mod+Shift+Equal".set-window-height = "+10%";
 
-        "Mod+F".maximize-column = _: {};
-        "Mod+SHIFT+Q".close-window = _: {};
+        "Mod+F".maximize-column = _: { };
+        "Mod+SHIFT+Q".close-window = _: { };
 
-        # Utils
-        "Mod+R".spawn-sh = "${lib.getExe selfPkgs.region-recorder} toggle video";
-        "Mod+Shift+R".spawn-sh = "${lib.getExe selfPkgs.region-recorder} toggle gif";
       }
       // desktopShellBinds;
       workspaces = {
@@ -143,16 +141,6 @@ in
       window-rule = {
         open-maximized = true;
       };
-      layer-rules = [
-        {
-          matches = [
-            {
-              namespace = "^rope-screenshot$";
-            }
-          ];
-          block-out-from = "screen-capture";
-        }
-      ];
       # https://github.com/liixini/shaders
       # https://github.com/XansiVA/nirimation
       # https://github.com/jgarza9788/niri-animation-collection

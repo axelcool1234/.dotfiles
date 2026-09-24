@@ -23,11 +23,11 @@
       };
     };
 
-    themes = lib.optionals (hostVars.desktopShell == "noctalia-shell") [
+    themes = lib.optionals (hostVars.desktopShell == "noctalia") [
       "noctalia.css"
     ];
 
-    liveThemeReload.enable = hostVars.desktopShell == "noctalia-shell";
+    liveThemeReload.enable = hostVars.desktopShell == "noctalia";
 
     passthru.persist = {
       homeDirectories = [ ".config/YouTube Music" ];
