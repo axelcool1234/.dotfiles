@@ -71,7 +71,7 @@ in
         # Main Programs
         "Mod+T".spawn = lib.getExe selfPkgs.${hostVars.terminal};
         "Mod+B".spawn = lib.getExe selfPkgs.${hostVars.browser};
-        "Mod+S".spawn = lib.getExe selfPkgs.spicetify;
+        "Mod+S".spawn = lib.getExe selfPkgs.${hostVars.music};
         "Mod+D".spawn = lib.getExe selfPkgs.nixcord;
 
         # Video/Audio Control

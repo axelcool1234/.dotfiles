@@ -94,6 +94,12 @@ in
       description = "Default harness package alias spec.";
     };
 
+    music = lib.mkOption {
+      type = lib.types.enum [ "pear-desktop" "spicetify" ];
+      default = "pear-desktop";
+      description = "Default music player package alias.";
+    };
+
     shell = lib.mkOption {
       type = lib.types.enum [ "fish" ];
       default = "fish";

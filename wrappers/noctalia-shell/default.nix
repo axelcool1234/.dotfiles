@@ -16,12 +16,12 @@ let
     "qt"
     "discord"
     "pywalfox"
-    "spicetify"
     "kitty"
     "zathura"
     "yazi"
     "btop"
   ]
+  ++ lib.optional (hostVars.music == "spicetify") "spicetify"
   ++ lib.optional (hostVars.compositor == "niri") "niri";
 
   activeTemplates = map (id: {

@@ -4,6 +4,7 @@
   inputs,
   lib,
   pkgs,
+  selfPkgs,
   ...
 }:
 let
@@ -18,9 +19,12 @@ let
   helix = import ./programs/helix.nix { inherit pkgs; };
   neovim = import ./programs/neovim.nix { inherit pkgs; };
   pi = import ./programs/pi.nix { inherit pkgs; };
+  pearDesktop = import ./programs/pear-desktop.nix { inherit selfPkgs; };
   spotify = import ./programs/spotify.nix {
     inherit baseVars inputs lib pkgs;
   };
+  usePearDesktop = hostVars.music == "pear-desktop";
+  useSpicetify = hostVars.music == "spicetify";
 
   # Merge all extra Noctalia user templates into one TOML file.
   # This keeps program-specific files independent while still producing the one
@@ -36,47 +40,41 @@ let
         helix.userTemplates
         neovim.userTemplates
         pi.userTemplates
-        spotify.userTemplates
+        (lib.optionalAttrs usePearDesktop pearDesktop.userTemplates)
+        (lib.optionalAttrs useSpicetify spotify.userTemplates)
       ]
   );
 in
 {
-  config = lib.mkIf (hostVars.desktopShell == "noctalia-shell") {
-    # Only the Spotify integration needs Flatpak right now, but keeping the
-    # enablement here still centralizes the “Noctalia-specific imperative app
-    # theming” layer in one place.
-    services.flatpak.enable = spotify.enableFlatpak;
+  config = lib.mkIf (hostVars.desktopShell == "noctalia-shell") (
+    lib.mkMerge [
+      {
+        hjem.users.${baseVars.username} = {
+          enable = true;
+          clobberFiles = true;
 
-    # Likewise, the portal requirement comes from the Flatpak Spotify path.
-    xdg.portal = spotify.portalConfig;
-
-    # Collect program-specific helper packages into the user environment.
-    environment.systemPackages = spotify.packages;
-
-    # The Noctalia Spotify path is the only place we intentionally use the
-    # Flatpak app plus its user container, so keep that persistence policy here
-    # with the rest of the integration instead of encoding it as a generic
-    # wrapper-level special case.
-    preferences.impermanence.persist.homeDirectories = spotify.persistHomeDirectories;
-
-    hjem.users.${baseVars.username} = {
-      enable = true;
-      clobberFiles = true;
-
-      # Program-specific static files are merged here so there is still one Hjem
-      # user block to read in the outer module.
-      xdg.config.files =
-        (lib.mapAttrs (_path: source: { inherit source; }) discord.homeFiles)
-        //
-        (lib.mapAttrs (_path: source: { inherit source; }) spotify.homeFiles)
-        // {
-          # User templates are written declaratively too so noctalia-shell sees them on
-          # first launch with no manual TOML editing.
-          "noctalia-shell/user-templates.toml".source = noctaliaUserTemplates;
+          # Program-specific static files are merged here so there is still one
+          # Hjem user block to read in the outer module.
+          xdg.config.files = (lib.mapAttrs (_path: source: { inherit source; }) discord.homeFiles) // {
+            # User templates are written declaratively too so noctalia-shell
+            # sees them on first launch with no manual TOML editing.
+            "noctalia-shell/user-templates.toml".source = noctaliaUserTemplates;
+          };
         };
-    };
+      }
 
-    # Spotify still needs a one-time Flatpak + Spicetify bootstrap service.
-    systemd.user.services.spotify-flatpak-bootstrap = spotify.userService;
-  };
+      (lib.mkIf useSpicetify {
+        services.flatpak.enable = spotify.enableFlatpak;
+        xdg.portal = spotify.portalConfig;
+        environment.systemPackages = spotify.packages;
+        preferences.impermanence.persist.homeDirectories = spotify.persistHomeDirectories;
+
+        hjem.users.${baseVars.username}.xdg.config.files = lib.mapAttrs (_path: source: {
+          inherit source;
+        }) spotify.homeFiles;
+
+        systemd.user.services.spotify-flatpak-bootstrap = spotify.userService;
+      })
+    ]
+  );
 }
