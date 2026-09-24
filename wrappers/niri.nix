@@ -122,6 +122,7 @@ in
         "Mod+Shift+Equal".set-window-height = "+10%";
 
         "Mod+F".maximize-column = _: { };
+        "Mod+Shift+F".fullscreen-window = _: { };
         "Mod+SHIFT+Q".close-window = _: { };
 
       }
