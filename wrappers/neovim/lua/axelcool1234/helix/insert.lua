@@ -103,9 +103,9 @@ function M.new(opts)
 
     local points = {}
     for _, mark in ipairs(marks) do
-      local start_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, mark.start_id, {})
-      if #start_pos > 0 then
-        points[mark.index] = advance_point({ start_pos[1] + 1, start_pos[2] + 1 }, replacement)
+      local start_pos = extmark_pos_1indexed(buffer, namespace, mark.start_id)
+      if start_pos then
+        points[mark.index] = advance_point(start_pos, replacement)
       elseif mark.fallback then
         points[mark.index] = mark.fallback
       end

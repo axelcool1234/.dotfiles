@@ -669,6 +669,32 @@ local cases = {
     end,
   },
   {
+    name = "backspace in multi-insert keeps cursors before suffix after unicode",
+    run = function()
+      reset_case({ "∀ab", "∀ab" }, 1, 4)
+      helix.copy_selection_on_adjacent_line(1)
+      helix.insert_mode()
+
+      local backspace_map = vim.fn.maparg("<BS>", "i", false, true)
+      backspace_map.callback()
+      vim.wait(100)
+      vim.cmd("stopinsert")
+      vim.wait(100)
+
+      assert_equal(current_lines(), { "∀b", "∀b" }, "backspace should delete the character before every cursor")
+      assert_equal(
+        all_cursor_positions(),
+        { { 1, 4 }, { 2, 4 } },
+        "backspace after a multibyte symbol should leave every cursor before the suffix"
+      )
+      assert_equal(
+        helix.primary_selection_entry().cursor_pos,
+        { 2, 2 },
+        "backspace after a multibyte symbol should preserve the logical insertion endpoint"
+      )
+    end,
+  },
+  {
     name = "normal mode backspace is unmapped to a no-op",
     run = function()
       local backspace_map = vim.fn.maparg("<BS>", "n", false, true)
