@@ -1,17 +1,7 @@
 local M = {}
 local position = require("axelcool1234.helix.position")
-
-local function advance_point(start_pos, lines)
-  if #lines == 0 then
-    return start_pos
-  end
-
-  if #lines == 1 then
-    return { start_pos[1], start_pos[2] + position.char_count(lines[1]) }
-  end
-
-  return { start_pos[1] + #lines - 1, position.char_count(lines[#lines]) + 1 }
-end
+local range_module = require("axelcool1234.helix.range")
+local transaction_module = require("axelcool1234.helix.transaction")
 
 local function extmark_pos_1indexed(buffer, namespace, mark_id)
   local pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, mark_id, {})
@@ -21,7 +11,7 @@ local function extmark_pos_1indexed(buffer, namespace, mark_id)
 
   local row = pos[1] + 1
   local line = position.line_text(buffer, row)
-  return { row, position.char_col_from_byte_col0(line, pos[2]) }
+  return { row, position.grapheme_col_from_byte_col0(line, pos[2]) }
 end
 
 function M.new(opts)
@@ -64,54 +54,32 @@ function M.new(opts)
     end
 
     local buffer = vim.api.nvim_get_current_buf()
-    local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-insert")
-    local marks = {}
-
-    for _, range in ipairs(ranges) do
-      marks[#marks + 1] = {
-        index = range.index,
-        fallback = range.fallback,
-        start_id = vim.api.nvim_buf_set_extmark(buffer, namespace, range.start_row, range.start_col, {
-          right_gravity = false,
-        }),
-        end_id = vim.api.nvim_buf_set_extmark(buffer, namespace, range.end_row, range.end_col, {
-          right_gravity = true,
-        }),
-      }
+    if insert.session_has_edits then
+      pcall(vim.cmd, "silent! undojoin")
     end
-
-    table.sort(marks, function(left, right)
-      local left_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, left.end_id, {})
-      local right_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, right.end_id, {})
-      if left_pos[1] == right_pos[1] then
-        return left_pos[2] > right_pos[2]
-      end
-      return left_pos[1] > right_pos[1]
-    end)
-
-    for order, mark in ipairs(marks) do
-      local start_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, mark.start_id, {})
-      local end_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, mark.end_id, {})
-      if #start_pos > 0 and #end_pos > 0 then
-        if insert.session_has_edits or order > 1 then
-          pcall(vim.cmd, "silent! undojoin")
-        end
-        vim.api.nvim_buf_set_text(buffer, start_pos[1], start_pos[2], end_pos[1], end_pos[2], replacement)
-        insert.session_has_edits = true
-      end
+    local transaction = transaction_module.new(buffer)
+    for _, spec in ipairs(ranges) do
+      local range = range_module.from_byte_range(
+        buffer,
+        spec.start_row,
+        spec.start_col,
+        spec.end_row,
+        spec.end_col
+      )
+      transaction:track_range(range)
+      transaction:replace(range, replacement)
     end
-
+    local result = transaction:apply()
+    insert.session_has_edits = true
     local points = {}
-    for _, mark in ipairs(marks) do
-      local start_pos = extmark_pos_1indexed(buffer, namespace, mark.start_id)
-      if start_pos then
-        points[mark.index] = advance_point(start_pos, replacement)
-      elseif mark.fallback then
-        points[mark.index] = mark.fallback
+    for index, spec in ipairs(ranges) do
+      local range = result.ranges[index]
+      if range then
+        points[spec.index] = position.cell_after_boundary(buffer, range:to())
+      elseif spec.fallback then
+        points[spec.index] = spec.fallback
       end
     end
-
-    vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
     return points
   end
 
@@ -131,9 +99,9 @@ function M.new(opts)
           buffer,
           namespace,
           spec.pos[1] - 1,
-          position.byte_col0_from_char_col(line, spec.pos[2]),
+          position.byte_col0_from_grapheme_col(line, spec.pos[2]),
           {
-          right_gravity = spec.right_gravity == true,
+            right_gravity = transaction_module.affinity_gravity[spec.affinity or "before"],
           }
         )
       end
@@ -146,7 +114,7 @@ function M.new(opts)
     }
   end
 
-  local function create_point_marks(points, namespace_name, right_gravity)
+  local function create_point_marks(points, namespace_name, affinity)
     local buffer = vim.api.nvim_get_current_buf()
     local namespace = vim.api.nvim_create_namespace(namespace_name)
     local marks = {}
@@ -157,9 +125,9 @@ function M.new(opts)
         buffer,
         namespace,
         point[1] - 1,
-        position.byte_col0_from_char_col(line, point[2]),
+        position.byte_col0_from_grapheme_col(line, point[2]),
         {
-          right_gravity = right_gravity == true,
+          right_gravity = transaction_module.affinity_gravity[affinity or "before"],
         }
       )
     end
@@ -194,19 +162,26 @@ function M.new(opts)
     local points = {}
 
     for index, entry in ipairs(entries) do
-      points[index] = entry.cursor_pos
+      points[index] = entry:cursor()
     end
 
     return points
   end
 
-  local function preview_entries(points, anchor_state, end_anchor_state, selection_config)
-    return insert_preview.build_live(
+  local function preview_ranges(points, anchor_state, end_anchor_state, selection_config)
+    local entries = insert_preview.build_live(
       points,
       mark_positions(anchor_state),
       mark_positions(end_anchor_state),
       selection_config
     )
+    for index, entry in ipairs(entries) do
+      local point = points[index]
+      if point and not vim.deep_equal(point, entry:cursor()) then
+        entry.visual_cursor = vim.deepcopy(point)
+      end
+    end
+    return entries
   end
 
   local function session_cursor_points(session)
@@ -231,8 +206,8 @@ function M.new(opts)
       return {}
     end
 
-    local start_row, start_col = position.before_boundary(buffer, start_pos)
-    local end_row, end_col = position.before_boundary(buffer, end_pos)
+    local start_row, start_col = position.byte_before_cell(buffer, start_pos)
+    local end_row, end_col = position.byte_before_cell(buffer, end_pos)
 
     if end_row < start_row or (end_row == start_row and end_col < start_col) then
       return {}
@@ -256,8 +231,8 @@ function M.new(opts)
       local start_pos = start_points[index]
       local end_pos = end_points[index]
       if start_pos and end_pos then
-        local start_row, start_col = position.before_boundary(session.buffer, start_pos)
-        local end_row, end_col = position.before_boundary(session.buffer, end_pos)
+        local start_row, start_col = position.byte_before_cell(session.buffer, start_pos)
+        local end_row, end_col = position.byte_before_cell(session.buffer, end_pos)
         ranges[#ranges + 1] = {
           index = index,
           start_row = start_row,
@@ -278,10 +253,10 @@ function M.new(opts)
     end
 
     local points = session_cursor_points(session)
-    state.set_preview_entries(
+    state.set_preview_ranges(
       session.buffer,
-      preview_entries(points, session.anchor_state, session.end_anchor_state, session.selection_config),
-      { keep_cursor = true, cursor_positions = points, sync_history = false }
+      preview_ranges(points, session.anchor_state, session.end_anchor_state, session.selection_config),
+      { keep_cursor = true, sync_history = false }
     )
 
     pcall(vim.api.nvim__redraw, {
@@ -300,8 +275,8 @@ function M.new(opts)
     for index, point in ipairs(points) do
       local prev = position.prev_pos(buffer, point)
       if prev[1] ~= point[1] or prev[2] ~= point[2] then
-        local start_row, start_col = position.before_boundary(buffer, prev)
-        local end_row, end_col = position.before_boundary(buffer, point)
+        local start_row, start_col = position.byte_before_cell(buffer, prev)
+        local end_row, end_col = position.byte_before_cell(buffer, point)
         ranges[#ranges + 1] = {
           index = index,
           start_row = start_row,
@@ -376,10 +351,10 @@ function M.new(opts)
 
     local final_points = session_cursor_points(session)
     if #final_points > 0 then
-      state.set_preview_entries(
+      state.set_preview_ranges(
         session.buffer,
-        preview_entries(final_points, session.anchor_state, session.end_anchor_state, session.selection_config),
-        { keep_cursor = true, cursor_positions = final_points, sync_history = false }
+        preview_ranges(final_points, session.anchor_state, session.end_anchor_state, session.selection_config),
+        { keep_cursor = true, sync_history = false }
       )
       state_module.move_cursor_to_pos(final_points[1])
     end
@@ -426,7 +401,7 @@ function M.new(opts)
       end
 
       if entries[1] then
-        state_module.move_cursor_to_pos(entries[1].cursor_pos)
+        state_module.move_cursor_to_pos(entries[1]:cursor())
       end
 
       if lifecycle.on_finish then
@@ -461,7 +436,7 @@ function M.new(opts)
     insert.session_has_edits = false
     state.enter_insert_mode()
     if active_entries[1] then
-      state_module.move_cursor_to_pos(active_entries[1].cursor_pos)
+      state_module.move_cursor_to_pos(active_entries[1]:cursor())
     end
 
     local session = {
@@ -473,19 +448,19 @@ function M.new(opts)
       synced_lines = {},
       anchor_state = create_anchor_marks(selection_config.selection_anchors, "axelcool1234-helix-insert-anchor-start"),
       end_anchor_state = create_anchor_marks(selection_config.selection_ends, "axelcool1234-helix-insert-anchor-end"),
-      start_state = create_point_marks(cursor_points(active_entries), "axelcool1234-helix-insert-cursor-start", false),
-      end_state = create_point_marks(cursor_points(active_entries), "axelcool1234-helix-insert-cursor-end", true),
+      start_state = create_point_marks(cursor_points(active_entries), "axelcool1234-helix-insert-cursor-start", "before"),
+      end_state = create_point_marks(cursor_points(active_entries), "axelcool1234-helix-insert-cursor-end", "after"),
     }
     insert.session = session
     session.insert_keymaps = { "<BS>", "<C-h>" }
 
-    state.set_preview_entries(
+    state.set_preview_ranges(
       session.buffer,
-      preview_entries(cursor_points(active_entries), session.anchor_state, session.end_anchor_state, selection_config),
-      { keep_cursor = true, cursor_positions = cursor_points(active_entries), sync_history = false }
+      preview_ranges(cursor_points(active_entries), session.anchor_state, session.end_anchor_state, selection_config),
+      { keep_cursor = true, sync_history = false }
     )
     if active_entries[1] then
-      state_module.move_cursor_to_pos(active_entries[1].cursor_pos)
+      state_module.move_cursor_to_pos(active_entries[1]:cursor())
     end
 
     for _, lhs in ipairs(session.insert_keymaps) do

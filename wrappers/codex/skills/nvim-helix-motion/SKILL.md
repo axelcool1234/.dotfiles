@@ -1,288 +1,159 @@
 ---
 name: nvim-helix-motion
-description: Use when adding, fixing, or auditing Neovim motions and keymaps that should behave like Helix motions in this dotfiles repo, especially under `wrappers/neovim/lua/axelcool1234/remaps.lua`.
+description: Add, fix, or audit Neovim motions, selections, edits, and keymaps that should behave like Helix in this dotfiles repo, especially under `wrappers/neovim/lua/axelcool1234/helix/` and `remaps.lua`.
 metadata:
   short-description: Implement Helix-compatible Neovim motions
 ---
 
 # Neovim Helix Motion
 
-Use this skill when the user asks to add or fix a Neovim keybinding so it
-matches Helix behavior, including local custom Helix bindings from this repo.
+Use this skill for the dotfiles repo's plugin-free Helix emulation layer. Local
+selections and multicursor behavior are not delegated to a cursor plugin.
 
-This skill is specific to the dotfiles Neovim wrapper. It is not generic
-Neovim plugin advice.
+## Inspect the Relevant Sources
 
-The current Neovim Helix layer is plugin-free for multicursor behavior.
-Selections are modeled locally, not delegated to `multicursor-nvim` or another
-cursor plugin.
+Read the local implementation before making nontrivial changes; this skill is a
+map, not a substitute for current code.
 
-## Files To Inspect First
-
-Always read the relevant local source before changing code:
-
-- `wrappers/helix.nix`
-- `wrappers/neovim/lua/axelcool1234/remaps.lua`
-- `wrappers/neovim/lua/axelcool1234/helix/init.lua`
+- `wrappers/helix.nix` for local Helix overrides
+- `wrappers/neovim/lua/axelcool1234/remaps.lua` for Neovim mappings
 - `wrappers/neovim/lua/axelcool1234/helix/position.lua`
+- `wrappers/neovim/lua/axelcool1234/helix/range.lua`
+- `wrappers/neovim/lua/axelcool1234/helix/selection.lua`
+- `wrappers/neovim/lua/axelcool1234/helix/transaction.lua`
 - `wrappers/neovim/lua/axelcool1234/helix/state.lua`
-- `wrappers/neovim/lua/axelcool1234/helix/motion.lua`
-- `wrappers/neovim/lua/axelcool1234/helix/match.lua` when working on the `m` family
-- `wrappers/neovim/lua/axelcool1234/helix/insert.lua`
-- `wrappers/neovim/tests/match.lua` when changing matching/surround behavior
-- `wrappers/neovim/default.nix` when a real dependency may need to be added or removed
+- the behavior module involved: usually `motion.lua`, `match.lua`, `insert.lua`,
+  or `init.lua`
+- the corresponding files under `wrappers/neovim/tests/`, especially
+  `selection_model.lua` for coordinate/model changes and `match.lua` for the
+  `m` family
 
-This skill can become stale as the Helix emulation layer evolves. Before making
-nontrivial changes, prefer re-reading the local source over trusting the skill
-text. In particular, do not assume `init.lua` still contains all `m`-family
-logic; matching/surround behavior now has its own `helix/match.lua` module.
+Compare stock Helix behavior, local overrides, and the existing Neovim
+implementation. Local overrides win. For example, this repo maps `H`/`L` to
+previous/next buffer and `g.k` to hover.
 
-When the requested key comes from the user's Helix table, compare three layers:
+## Coordinate and Selection Model
 
-- stock Helix behavior
-- local overrides in `wrappers/helix.nix`
-- existing Neovim behavior in `remaps.lua` and `helix/*.lua`
+Keep these layers distinct:
 
-Local Helix overrides win over stock Helix. For example, this repo maps `H` and
-`L` to previous/next buffer, and `g.k` to hover, even when those differ from
-plain Vim expectations.
+- A cell position is `{ row, grapheme_col }`, both 1-indexed. It identifies a
+  selectable grapheme or the synthetic newline cell.
+- A boundary is a gap between cells, represented by `{ row, col }`; its column
+  is a 0-indexed grapheme boundary.
+- Neovim, Tree-sitter, LSP, and extmark APIs use byte columns. Convert only at
+  an adapter boundary in `position.lua`.
+- `Range` stores directional, half-open `anchor` and `head` boundaries. Use
+  methods such as `:anchor_cell()`, `:cursor()`, `:start_cell()`, `:end_cell()`,
+  `:byte_range()`, `:text()`, and `:is_empty()`. Do not add parallel cached
+  cell fields.
+- `Selection` owns normalized ranges plus the primary index.
+- `Transaction` owns buffer edits and range tracking. Commands describe edits
+  in logical boundaries; transaction code performs byte conversion and extmark
+  tracking.
+- `state.lua` owns per-window, per-buffer selections, mode flags, and rendering.
+  Preferred display columns and exceptional visual cursor cells live on each
+  `Range`, not in parallel arrays.
 
-## Mental Model
+Grapheme columns are not byte offsets or Unicode scalar counts. Always use the
+grapheme helpers in `position.lua`; regressions should cover multibyte text such
+as `∀` and multi-codepoint grapheme clusters.
 
-The selection entry is the source of truth.
+Newline is a first-class selectable cell. On a non-final line,
+`cursor_max_column()` may be one past the last text grapheme because that cell
+represents the newline. Motions and edits must decide how newline cells behave,
+not discard them as invalid columns.
 
-- Every selection entry stores `anchor_pos` and `cursor_pos`.
-- `start_pos` and `end_pos` are normalized bounds derived from those two points.
-- Newline is a first-class selectable cell in this Helix layer. On non-final
-  lines, a valid cursor/selection column may be `#line + 1`, which means “the
-  newline position”, not “past the end by mistake”.
-- `position.lua` is the canonical home for newline-aware coordinate math:
-  cursor max column, newline detection, boundary conversion, and next/previous
-  positions. Do not hand-roll row/column math in other modules unless there is
-  a very strong reason.
-- The primary cursor is the real Neovim cursor.
-- Secondary cursors and selection highlights are rendered from preview extmarks.
-- Select mode and insert mode should both operate on the same local selection
-  entries.
+## Implementation Rules
 
-Current module intent:
+1. Identify the Helix command and observable behavior, not only its key. Treat
+   notation such as `ms<char>` as a prompted command family.
 
-- `position.lua`: newline-aware coordinate helpers
-- `state.lua`: mode flags, preview state, and preview rendering
-- `motion.lua`: movement semantics
-- `match.lua`: `m` family matching, surround editing, and textobject behavior
-- `insert.lua`: insert-session lifecycle
-- `init.lua`: command wiring plus higher-level editing/search/surround helpers
+2. Construct real ranges with `range.from_cells`, `range.from_boundaries`, or
+   `range.from_byte_range` at an external byte-coordinate adapter. The old
+   table-shaped selection entries and their compatibility property names no
+   longer exist.
 
-Do not reintroduce plugin compatibility layers for multicursor behavior unless
-the user explicitly asks for that.
+3. Read selections through `state.current_selection()`, `state.current_ranges()`,
+   `state.preview_ranges()`, and `state.primary_range()`. Publish them through
+   `state.set_preview_selection()` or `state.set_preview_ranges()`.
 
-## Implementation Workflow
+4. Preserve direction explicitly. Decide where both anchor and cursor land,
+   including after edits. Do not normalize away backward selections unless the
+   Helix command does so.
 
-1. Identify the Helix command name and behavior, not just the key text.
-   Treat descriptions like `ms<char>` as generic placeholders, not literal
-   characters.
+5. Transform all active ranges together. The primary cursor is the real Neovim
+   cursor; other cursors and highlights are renderings of the same selection
+   model, not a separate source of truth.
 
-2. Reuse the local selection helpers before adding new abstractions.
-   Prefer helpers such as `selection_entry`, `current_entries`,
-   `set_preview_entries`, `move_cursor_to_pos`, `entry_text_ranges`,
-   `get_entry_text`, `replace_entry_text`, `getcharstr`, `feedkeys`, and the
-   newline-aware position helpers in `position.lua`.
+6. Route buffer changes through `Transaction`. Use `track_ranges()` or
+   `Transaction:track_range()` with semantic affinity (`inside`, `outside`,
+   `before`, or `after`) instead of exposing raw extmark gravity choices in
+   commands. Do not edit one range and then calculate later ranges from shifted
+   buffer contents.
 
-3. Preserve selection semantics explicitly.
-   Helix commands usually act on selections. When implementing a motion or edit,
-   decide where the anchor and cursor should land after the operation.
+7. Route insert-driven operations through `insert.lua`. One insert session
+   normally forms one undo block and synchronizes secondary ranges from the
+   local insert-session state.
 
-4. Preserve multi-selection behavior through local preview state.
-   If a command should affect many selections, transform all selection entries
-   together. Do not special-case a single real cursor path in ways that diverge
-   from the multi-selection path unless the behavior is intentionally different.
+8. Keep byte math at adapters. Prefer `boundary_to_byte`, `boundary_from_byte`,
+   `byte_before_cell`, `byte_after_cell`, `byte_col0_from_grapheme_col`, and
+   `grapheme_col_from_byte_col0`. Do not use `#line` as a logical column or pass
+   grapheme columns directly to Neovim APIs.
 
-5. For buffer edits touching many selections, snapshot extmarks first and apply
-   edits from the end of the buffer backward.
-   Do not edit one selection and then compute the next selection from shifted
-   buffer positions.
+9. Reuse `next_pos`, `prev_pos`, `supports_column`, `is_newline_pos`, and display
+   column helpers rather than duplicating row/column traversal.
 
-6. For `c`, `d`, `i`, and related insert-driven operations, route through the
-   local insert-session engine in `helix/insert.lua`.
-   The current model is real Insert mode on the primary cursor with secondary
-   synchronization driven from the local insert session state, not a blocking
-   `getcharstr()` loop. Preserve live redraw while typing and preserve a single
-   undo block for one insert session unless the user explicitly wants different
-   behavior.
+For surround commands, snapshot all ranges before editing and apply the changes
+through one transaction. After `ms<char>`, preserve the Helix selection landing
+behavior around the inserted delimiters. For clone commands such as `C` or
+`<A-c>`, retain the original ranges and append clones. For vertical movement,
+preserve each range's preferred display column across short or wide-character
+lines.
 
-7. Keep changes narrowly scoped.
-   Most Helix behavior changes should stay inside `remaps.lua` and
-   `lua/axelcool1234/helix/`. Only touch `default.nix` if a real dependency is
-   added or removed.
+## Validation
 
-8. Treat newline-aware behavior as part of the feature, not a special-case hack.
-   If a command works on ordinary characters in Helix, consider whether it must
-   also work when the cursor or selection sits on the newline cell.
-
-## Common Patterns
-
-For simple Helix aliases backed by existing Neovim behavior, add a mapping with
-a clear `desc` through the local `mappings` table.
-
-For prompted Helix commands, prompt once and apply the result to all active
-selection entries.
-
-For regex-driven commands, prefer local Vim regex helpers such as
-`vim.fn.matchstrpos` and preserve user options like `ignorecase`, `smartcase`,
-and `magic`.
-
-For cursor movement or selection math, prefer `position.lua` helpers such as
-`cursor_max_column`, `supports_column`, `is_newline_pos`, `before_boundary`,
-`after_boundary`, `next_pos`, and `prev_pos` rather than open-coding `#line`,
-`+ 1`, or row/column clamps in the command implementation.
-
-For newline-aware commands, treat the newline cell like selectable whitespace.
-Examples:
-
-- vertical motion may land on newline when the remembered column is past the end
-  of a short line
-- `d`, `c`, and `r` should work on newline positions and may join lines
-- whole-line selections such as `x` should include the newline cell on
-  non-final lines
-
-For surround-like commands such as `ms<char>`, remember that `<char>` is the
-typed delimiter. After inserting delimiters, update the active selection so the
-anchor is on the opening delimiter and the cursor is on the closing delimiter
-when that is Helix's behavior.
-
-When surround edits can touch multiple selections on the same line, snapshot all
-targets first and use temporary extmarks while applying edits from the end of
-the buffer backward.
-
-For clone-style commands such as `C` or `<A-c>`, preserve the original entries
-and append cloned entries. Do not replace the original cursor set with only the
-clones.
-
-For whole-buffer selection, prefer populating local selection entries directly
-instead of relying on Vim visual mode as the source of truth.
-
-For vertical multicursor movement, preserve a remembered preferred column per
-cursor. Do not let a short line permanently overwrite the desired target column.
-
-## Headless Testing Strategy
-
-Always run a headless Neovim smoke test after editing remaps or the local Helix
-engine. Prefer `nix run .#neovim -- --headless ...` because it validates the
-built wrapper, compiles Nix changes, and exercises the real startup path.
-
-Important repo-specific note: the Nix-built Neovim wrapper only sees files that
-are included in the Git source snapshot. If you add a new Lua file and the
-wrapper cannot `require()` it, check whether it is still untracked. You do not
-need to commit it, but you often do need to stage it so `nix run .#neovim` can
-see it.
-
-Preferred wrapper smoke shape:
+Use the real Nix-built wrapper where practical:
 
 ```bash
-nix run .#neovim -- --headless \
-  '+lua print("wrapper-ok")' \
-  +qa!
+nix run .#neovim -- --headless '+lua print("wrapper-ok")' +qa!
 ```
 
-Test key registration by printing `maparg` descriptions:
+New files must be visible to the Git-based Nix source snapshot. `git add -N`
+is sufficient to make an untracked path visible without staging its contents.
 
-```vim
-+'lua for _, lhs in ipairs({ "c", "i", "d", "C", "%", "K", "<A-K>", "ms", "H", "L" }) do local m = vim.fn.maparg(lhs, "n", false, true); print(lhs .. " -> " .. (m.desc or m.rhs or "<callback>")) end'
-```
-
-Test behavior in scratch buffers, not just registration. Useful shapes:
+Run the focused harnesses relevant to the change. For model or Unicode work,
+include at least:
 
 ```bash
-nix run .#neovim -- --headless \
-  "+lua vim.api.nvim_buf_set_lines(0, 0, -1, false, {'alpha beta alpha'})" \
-  "+lua local helix = require('axelcool1234.helix'); helix.select_whole_buffer(); helix.select_regex_matches('alpha')" \
-  "+lua local keys = vim.api.nvim_replace_termcodes('Z<Esc>', true, false, true); vim.api.nvim_feedkeys(keys, 'n', false); require('axelcool1234.helix').change_selection()" \
-  "+lua print(vim.inspect(vim.api.nvim_buf_get_lines(0, 0, -1, false)))" \
-  +qa!
+nix run .#neovim -- --headless -u NONE \
+  --cmd 'set runtimepath+=/absolute/path/to/.dotfiles/wrappers/neovim' \
+  -l wrappers/neovim/tests/selection_model.lua
 ```
 
-```bash
-nix run .#neovim -- --headless \
-  "+lua local helix = require('axelcool1234.helix'); vim.api.nvim_buf_set_lines(0, 0, -1, false, {'a', 'a', 'a'}); vim.api.nvim_win_set_cursor(0, {1, 0}); helix.copy_selection_on_adjacent_line(1); helix.copy_selection_on_adjacent_line(1)" \
-  "+lua local keys = vim.api.nvim_replace_termcodes('Z<Esc>', true, false, true); vim.api.nvim_feedkeys(keys, 'n', false); require('axelcool1234.helix').insert_mode()" \
-  "+lua print(vim.inspect(vim.api.nvim_buf_get_lines(0, 0, -1, false)))" \
-  +qa!
-```
+Also run `word_motion.lua`, `jumplist.lua`, `match.lua`, `motion.lua`, or
+`parity.lua` as appropriate. A test should assert observable buffer text,
+selection text, direction, cursor cell, range count, or undo behavior—not only
+that a mapping exists.
 
-For undo-sensitive insert behavior, prefer testing on a real temporary file, not
-an unnamed scratch buffer, because undo history is easier to observe reliably.
-One insert session should normally roll back with a single `u`.
+Headless `feedkeys()` and mapping-description checks can differ from live UI
+behavior. Treat a known headless limitation separately from model/edit
+regressions, and use direct command calls for Unicode and transaction tests when
+possible.
 
-For a new motion, design at least one scratch-buffer check that proves the key's
-observable behavior, such as cursor position, anchor/cursor direction,
-selection text, clone count, buffer contents, or undo behavior.
-
-Be careful with headless Insert mode tests that rely on `feedkeys()` timing.
-They are useful as smoke checks, but they are not always a faithful proxy for
-live UI insert behavior. Prefer direct helper validation or non-interactive
-editing checks when possible.
-
-For newline-aware behavior, prefer explicit scratch-buffer checks such as:
-
-```bash
-nix run .#neovim -- --headless \
-  "+lua local helix = require('axelcool1234.helix'); vim.api.nvim_buf_set_lines(0, 0, -1, false, {'ab', 'cd'}); vim.api.nvim_win_set_cursor(0, {1, 2}); helix.delete(); print(vim.inspect(vim.api.nvim_buf_get_lines(0, 0, -1, false)))" \
-  +qa!
-```
-
-That kind of check is more robust than trying to fully script a live Insert mode
-session in headless Neovim.
-
-Use and expand the local headless regression harness when possible:
-
-- `wrappers/neovim/tests/match.lua`
-
-Today that file focuses on the `m` family, but the harness structure itself is
-general-purpose. When adding or fixing other Helix-style motions, prefer either:
-
-- extending `wrappers/neovim/tests/match.lua` when the new cases still fit the
-  same headless pattern, or
-- creating a sibling harness file in `wrappers/neovim/tests/` that follows the
-  same structure when the scope grows beyond matching/surround behavior
-
-Preferred harness run shape:
-
-```bash
-nix run .#neovim -- --headless \
-  '+doautocmd VimEnter' \
-  "+lua dofile(vim.fn.getcwd() .. '/wrappers/neovim/tests/match.lua')" \
-  +qa!
-```
-
-Harness files may intentionally include expected-error cases, so messages like
-`Cursor on ambiguous surround pair` and `Surround pair not found around all
-cursors` can appear during a successful run.
-
-When possible, aggressively port cases from the Helix source tree instead of
-inventing all tests from scratch. High-value upstream sources:
+When useful, port behavioral cases from:
 
 - `~/Projects/helix/helix-term/tests/test/movement.rs`
 - `~/Projects/helix/helix-term/tests/test/commands.rs`
+- `~/Projects/helix/helix-core/src/selection.rs`
+- `~/Projects/helix/helix-core/src/transaction.rs`
 - `~/Projects/helix/helix-core/src/surround.rs`
-- `~/Projects/helix/helix-core/src/match_brackets.rs`
 
-Prefer copying the behavioral shape of an upstream Helix test into the local
-harness, then adapting only the assertion format and cursor coordinates needed
-for Neovim's API.
+## Completion Check
 
-## Completion Checklist
-
-- [ ] `wrappers/helix.nix` local overrides inspected
-- [ ] `position.lua` newline-aware helpers inspected before changing row/col logic
-- [ ] existing local Helix helpers reused where reasonable
-- [ ] anchor/cursor landing behavior decided explicitly
-- [ ] newline-cell behavior considered explicitly, not only ordinary characters
-- [ ] local multi-selection behavior preserved without plugin compatibility
-- [ ] extmark snapshot strategy used for multi-edit operations when needed
-- [ ] current insert-session path considered for `c`/`d`/`i`-style changes
-- [ ] headless Neovim load check passed
-- [ ] key registration checked with `maparg`
-- [ ] at least one scratch-buffer behavior check run for nontrivial motions
-- [ ] undo behavior checked when insert semantics were changed
-- [ ] a headless harness under `wrappers/neovim/tests/` updated or consciously checked when changing nontrivial Helix behavior
+- Coordinate space is explicit at every external API boundary.
+- Multibyte graphemes and newline cells were considered.
+- Range direction, primary selection, and preferred display columns survive.
+- Multi-range edits use one transaction with semantic affinity.
+- No legacy selection-entry properties or byte-based logical column math were
+  reintroduced.
+- Relevant focused harnesses and a load/syntax check were run.

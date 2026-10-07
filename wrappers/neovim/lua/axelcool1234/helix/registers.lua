@@ -22,24 +22,24 @@ function M.new(opts)
     ['%'] = "<document path>",
   }
 
-  local function current_entries()
-    return state.current_entries()
+  local function current_ranges()
+    return state.current_ranges()
   end
 
   local function entry_starts_before(left, right)
-    if left.start_pos[1] == right.start_pos[1] then
-      if left.start_pos[2] == right.start_pos[2] then
-        if left.end_pos[1] == right.end_pos[1] then
-          return left.end_pos[2] < right.end_pos[2]
+    if left:start_cell()[1] == right:start_cell()[1] then
+      if left:start_cell()[2] == right:start_cell()[2] then
+        if left:end_cell()[1] == right:end_cell()[1] then
+          return left:end_cell()[2] < right:end_cell()[2]
         end
 
-        return left.end_pos[1] < right.end_pos[1]
+        return left:end_cell()[1] < right:end_cell()[1]
       end
 
-      return left.start_pos[2] < right.start_pos[2]
+      return left:start_cell()[2] < right:start_cell()[2]
     end
 
-    return left.start_pos[1] < right.start_pos[1]
+    return left:start_cell()[1] < right:start_cell()[1]
   end
 
   local function selection_index_values(entries)
@@ -65,8 +65,8 @@ function M.new(opts)
 
   local function current_selection_texts()
     local values = {}
-    for _, entry in ipairs(current_entries()) do
-      values[#values + 1] = state_module.get_entry_text(entry)
+    for _, entry in ipairs(current_ranges()) do
+      values[#values + 1] = entry:text()
     end
     return values
   end
@@ -243,7 +243,7 @@ function M.new(opts)
     end
 
     if name == '#' then
-      return selection_index_values(current_entries())
+      return selection_index_values(current_ranges())
     end
 
     if name == '.' then

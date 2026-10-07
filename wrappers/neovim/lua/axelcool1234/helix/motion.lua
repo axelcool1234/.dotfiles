@@ -1,5 +1,6 @@
 local state_module = require("axelcool1234.helix.state")
 local position = require("axelcool1234.helix.position")
+local range_module = require("axelcool1234.helix.range")
 
 local M = {}
 
@@ -43,13 +44,13 @@ local function normalize_find_char(char)
   return char
 end
 
-local function char_at_pos(buffer, pos)
+local function grapheme_at_pos(buffer, pos)
   if position.is_newline_pos(buffer, pos) then
     return "\n"
   end
 
   local line = buffer_line(buffer, pos[1])
-  return position.char_at(line, pos[2])
+  return position.grapheme_at(line, pos[2])
 end
 
 local function step_pos(buffer, pos, forward)
@@ -90,7 +91,7 @@ local function find_char_target(buffer, start_pos, char, opts)
       end
 
       pos = next_pos
-      if char_at_pos(buffer, pos) == target_char then
+      if grapheme_at_pos(buffer, pos) == target_char then
         if opts.till then
           local till_target = step_pos(buffer, pos, not opts.forward)
           if pos_equal(till_target, start_pos) then
@@ -140,19 +141,19 @@ local function character_type(char)
 end
 
 local function current_char(current_pos, line_content)
-  return position.char_at(line_content, current_pos[2]) or "\n"
+  return position.grapheme_at(line_content, current_pos[2]) or "\n"
 end
 
 local function next_char(current_pos, line_content)
-  if current_pos[2] < position.char_count(line_content) then
-    return position.char_at(line_content, current_pos[2] + 1)
+  if current_pos[2] < position.grapheme_count(line_content) then
+    return position.grapheme_at(line_content, current_pos[2] + 1)
   end
   return "\n"
 end
 
 local function prev_char(current_pos, line_content)
   if current_pos[2] > 1 then
-    return position.char_at(line_content, current_pos[2] - 1)
+    return position.grapheme_at(line_content, current_pos[2] - 1)
   end
   return "\n"
 end
@@ -352,7 +353,7 @@ local function word_motion_bounds(buffer, target, count, start_pos)
         end
 
         current_pos[2] = current_pos[2] + 1
-        if current_pos[2] > position.char_count(line_content) then
+        if current_pos[2] > position.grapheme_count(line_content) then
           break
         end
 
@@ -374,6 +375,10 @@ end
 function M.new(opts)
   local state = opts.state
 
+  local function range_from_cells(anchor, cursor, range_opts)
+    return range_module.from_cells(vim.api.nvim_get_current_buf(), anchor, cursor, range_opts)
+  end
+
   local motion = {}
 
   local function first_nonblank_col(line)
@@ -382,7 +387,7 @@ function M.new(opts)
       return 1
     end
 
-    return position.char_col_from_byte_col0(line, byte_col1 - 1)
+    return position.grapheme_col_from_byte_col0(line, byte_col1 - 1)
   end
 
   local function direct_motion_target(buffer, pos, keys)
@@ -394,7 +399,7 @@ function M.new(opts)
     end
 
     if keys == "$" then
-      return { row, math.max(position.char_count(line), 1) }
+      return { row, math.max(position.grapheme_count(line), 1) }
     end
 
     if keys == "G" then
@@ -408,36 +413,37 @@ function M.new(opts)
 
   local function word_motion_entry(buffer, start_pos, target, count)
     local anchor_pos, cursor_pos = word_motion_bounds(buffer, target, count, start_pos)
-    return state_module.selection_entry(anchor_pos, cursor_pos)
+    return range_from_cells(anchor_pos, cursor_pos)
   end
 
   local function apply_row_jump(target_row)
     local buffer = vim.api.nvim_get_current_buf()
-    local source_entries = state.current_entries()
+    local source_entries = state.current_ranges()
     local entries = {}
 
     for index, source_entry in ipairs(source_entries) do
       local target = { target_row, 1 }
 
       if state.extend_mode_active() then
-        local anchor = state.preview.entries[index] and state.preview.entries[index].anchor_pos or source_entry.anchor_pos
-        table.insert(entries, state_module.selection_entry(anchor, target))
+        local preview_range = state.preview_range(index)
+        local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
+        table.insert(entries, range_from_cells(anchor, target))
       else
-        table.insert(entries, state_module.selection_entry(target, target))
+        table.insert(entries, range_from_cells(target, target))
       end
     end
 
     -- A one-entry preview may be an invisible point retained after insert.
     -- It is still the source of truth and must move with the real cursor.
     if #source_entries > 1 or state.extend_mode_active() or state.preview_active() then
-      state.set_preview_entries(buffer, entries)
+      state.set_preview_ranges(buffer, entries)
       if not state.extend_mode_active() then
         state.exit_extend_mode()
       end
       return
     end
 
-    state_module.move_cursor_to_pos(entries[1].cursor_pos)
+    state_module.move_cursor_to_pos(entries[1]:cursor())
   end
 
   local function scroll_view_delta(direction, amount)
@@ -454,42 +460,40 @@ function M.new(opts)
 
   local function scroll_cursor(direction, amount)
     local buffer = vim.api.nvim_get_current_buf()
-    local source_entries = state.current_entries()
-    local preferred_columns = state.current_preferred_columns()
+    local source_entries = state.current_ranges()
     local delta, initial_view = scroll_view_delta(direction, amount)
     local last_row = vim.api.nvim_buf_line_count(buffer)
     local entries = {}
-    local next_preferred_columns = {}
 
     for index, source_entry in ipairs(source_entries) do
-      local preferred_col = preferred_columns[index] or position.display_col(buffer, source_entry.cursor_pos)
-      local target_row = math.max(1, math.min(source_entry.cursor_pos[1] + (direction * amount), last_row))
-      local target_col = position.char_col_at_display_col(buffer, target_row, preferred_col)
+      local preferred_col = source_entry.goal_display_col or position.display_col(buffer, source_entry:cursor())
+      local target_row = math.max(1, math.min(source_entry:cursor()[1] + (direction * amount), last_row))
+      local target_col = position.grapheme_col_at_display_col(buffer, target_row, preferred_col)
       local target = { target_row, target_col }
 
       if state.extend_mode_active() then
-        local anchor = state.preview.entries[index] and state.preview.entries[index].anchor_pos or source_entry.anchor_pos
-        table.insert(entries, state_module.selection_entry(anchor, target))
+        local preview_range = state.preview_range(index)
+        local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
+        table.insert(entries, range_from_cells(anchor, target))
       else
-        table.insert(entries, state_module.selection_entry(target, target))
+        table.insert(entries, range_from_cells(target, target))
       end
-
-      next_preferred_columns[index] = preferred_col
+      entries[#entries].goal_display_col = preferred_col
     end
 
     local final_view = vim.deepcopy(initial_view)
     final_view.topline = initial_view.topline + delta
-    final_view.lnum = entries[1].cursor_pos[1]
-    final_view.col = position.byte_col0_from_char_col(
-      position.line_text(buffer, entries[1].cursor_pos[1]),
-      entries[1].cursor_pos[2]
+    final_view.lnum = entries[1]:cursor()[1]
+    final_view.col = position.byte_col0_from_grapheme_col(
+      position.line_text(buffer, entries[1]:cursor()[1]),
+      entries[1]:cursor()[2]
     )
     if final_view.curswant ~= nil then
-      final_view.curswant = math.max(next_preferred_columns[1] - 1, 0)
+      final_view.curswant = math.max(entries[1].goal_display_col - 1, 0)
     end
 
     if #source_entries > 1 or state.extend_mode_active() then
-      state.set_preview_entries(buffer, entries, { preferred_columns = next_preferred_columns })
+      state.set_preview_ranges(buffer, entries)
       vim.fn.winrestview(final_view)
       if not state.extend_mode_active() then
         state.exit_extend_mode()
@@ -501,7 +505,7 @@ function M.new(opts)
       state.clear_preview()
     end
 
-    state_module.move_cursor_to_pos(entries[1].cursor_pos)
+    state_module.move_cursor_to_pos(entries[1]:cursor())
     vim.fn.winrestview(final_view)
   end
 
@@ -532,13 +536,14 @@ function M.new(opts)
     local buffer = vim.api.nvim_get_current_buf()
     local count = count_override or vim.v.count1
     local entries = {}
-    local source_entries = state.current_entries()
+    local source_entries = state.current_ranges()
 
     local function append_entry(source_entry, index)
-      local entry = word_motion_entry(buffer, source_entry.cursor_pos, target, count)
+      local entry = word_motion_entry(buffer, source_entry:cursor(), target, count)
       if state.extend_mode_active() then
-        local anchor = state.preview.entries[index] and state.preview.entries[index].anchor_pos or source_entry.cursor_pos
-        table.insert(entries, state_module.selection_entry(anchor, entry.cursor_pos))
+        local preview_range = state.preview_range(index)
+        local anchor = preview_range and preview_range:anchor_cell() or source_entry:cursor()
+        table.insert(entries, range_from_cells(anchor, entry:cursor()))
       else
         table.insert(entries, entry)
       end
@@ -548,7 +553,7 @@ function M.new(opts)
       append_entry(entry, index)
     end
 
-    state.set_preview_entries(buffer, entries)
+    state.set_preview_ranges(buffer, entries)
     if not state.extend_mode_active() then
       state.exit_extend_mode()
     end
@@ -557,7 +562,7 @@ function M.new(opts)
   function motion.find_char(kind, char, count_override)
     local buffer = vim.api.nvim_get_current_buf()
     local count = count_override or vim.v.count1
-    local source_entries = state.current_entries()
+    local source_entries = state.current_ranges()
     local entries = {}
     local matched_any = false
     local opts = {
@@ -567,18 +572,19 @@ function M.new(opts)
     }
 
     for index, source_entry in ipairs(source_entries) do
-      local target = find_char_target(buffer, source_entry.cursor_pos, char, opts)
+      local target = find_char_target(buffer, source_entry:cursor(), char, opts)
       if target then
         matched_any = true
       else
-        target = source_entry.cursor_pos
+        target = source_entry:cursor()
       end
 
       if state.extend_mode_active() then
-        local anchor = state.preview.entries[index] and state.preview.entries[index].anchor_pos or source_entry.anchor_pos
-        table.insert(entries, state_module.selection_entry(anchor, target))
+        local preview_range = state.preview_range(index)
+        local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
+        table.insert(entries, range_from_cells(anchor, target))
       else
-        table.insert(entries, state_module.selection_entry(source_entry.cursor_pos, target))
+        table.insert(entries, range_from_cells(source_entry:cursor(), target))
       end
     end
 
@@ -586,7 +592,7 @@ function M.new(opts)
       return
     end
 
-    state.set_preview_entries(buffer, entries)
+    state.set_preview_ranges(buffer, entries)
     if not state.extend_mode_active() then
       state.exit_extend_mode()
     end
@@ -596,33 +602,33 @@ function M.new(opts)
     return function()
       local count = vim.v.count1
       local buffer = vim.api.nvim_get_current_buf()
-      local source_entries = state.current_entries()
-      local preferred_columns = state.current_preferred_columns()
+      local source_entries = state.current_ranges()
 
       if keys == "h" or keys == "l" then
         local entries = {}
         local forward = keys == "l"
 
         for index, source_entry in ipairs(source_entries) do
-          local target = stepped_pos(buffer, source_entry.cursor_pos, forward, count)
+          local target = stepped_pos(buffer, source_entry:cursor(), forward, count)
 
           if state.extend_mode_active() then
-            local anchor = state.preview.entries[index] and state.preview.entries[index].anchor_pos or source_entry.anchor_pos
-            table.insert(entries, state_module.selection_entry(anchor, target))
+            local preview_range = state.preview_range(index)
+            local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
+            table.insert(entries, range_from_cells(anchor, target))
           else
-            table.insert(entries, state_module.selection_entry(target, target))
+            table.insert(entries, range_from_cells(target, target))
           end
         end
 
         if #source_entries > 1 or state.extend_mode_active() or state.preview_active() then
-          state.set_preview_entries(buffer, entries)
+          state.set_preview_ranges(buffer, entries)
           if not state.extend_mode_active() then
             state.exit_extend_mode()
           end
           return
         end
 
-        state_module.move_cursor_to_pos(entries[1].cursor_pos)
+        state_module.move_cursor_to_pos(entries[1]:cursor())
         return
       end
 
@@ -635,26 +641,25 @@ function M.new(opts)
         local delta = keys == "j" and 1 or -1
         local last_row = vim.api.nvim_buf_line_count(buffer)
         local entries = {}
-        local next_preferred_columns = {}
 
         for index, source_entry in ipairs(source_entries) do
-          local preferred_col = preferred_columns[index] or position.display_col(buffer, source_entry.cursor_pos)
-          local target_row = math.max(1, math.min(source_entry.cursor_pos[1] + (delta * count), last_row))
-          local target_col = position.char_col_at_display_col(buffer, target_row, preferred_col)
+          local preferred_col = source_entry.goal_display_col or position.display_col(buffer, source_entry:cursor())
+          local target_row = math.max(1, math.min(source_entry:cursor()[1] + (delta * count), last_row))
+          local target_col = position.grapheme_col_at_display_col(buffer, target_row, preferred_col)
           local target = { target_row, target_col }
 
           if state.extend_mode_active() then
-            local anchor = state.preview.entries[index] and state.preview.entries[index].anchor_pos or source_entry.anchor_pos
-            table.insert(entries, state_module.selection_entry(anchor, target))
+            local preview_range = state.preview_range(index)
+            local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
+            table.insert(entries, range_from_cells(anchor, target))
           else
-            table.insert(entries, state_module.selection_entry(target, target))
+            table.insert(entries, range_from_cells(target, target))
           end
-
-          next_preferred_columns[index] = preferred_col
+          entries[#entries].goal_display_col = preferred_col
         end
 
         if #source_entries > 1 or state.extend_mode_active() or state.preview_active() then
-          state.set_preview_entries(buffer, entries, { preferred_columns = next_preferred_columns })
+          state.set_preview_ranges(buffer, entries)
           if not state.extend_mode_active() then
             state.exit_extend_mode()
           end
@@ -666,14 +671,15 @@ function M.new(opts)
         local entries = {}
 
         for index, source_entry in ipairs(source_entries) do
-          state_module.move_cursor_to_pos(source_entry.cursor_pos)
+          state_module.move_cursor_to_pos(source_entry:cursor())
           run_normal_motion(keys, count)
           local pos = state_module.current_pos_1indexed()
           if anchor_from_preview then
-            local anchor = state.preview.entries[index] and state.preview.entries[index].anchor_pos or source_entry.anchor_pos
-            table.insert(entries, state_module.selection_entry(anchor, pos))
+            local preview_range = state.preview_range(index)
+            local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
+            table.insert(entries, range_from_cells(anchor, pos))
           else
-            table.insert(entries, state_module.selection_entry(pos, pos))
+            table.insert(entries, range_from_cells(pos, pos))
           end
         end
 
@@ -685,17 +691,18 @@ function M.new(opts)
         local used_direct_motion = false
 
         local function append_direct_entry(source_entry, index)
-          local target = direct_motion_target(buffer, source_entry.cursor_pos, keys)
+          local target = direct_motion_target(buffer, source_entry:cursor(), keys)
           if not target then
             return false
           end
 
           used_direct_motion = true
-          local anchor = source_entry.anchor_pos
-          if state.preview_active() and state.preview.entries[index] then
-            anchor = state.preview.entries[index].anchor_pos or state.preview.entries[index].start_pos
+          local anchor = source_entry:anchor_cell()
+          local preview_range = state.preview_active() and state.preview_range(index) or nil
+          if preview_range then
+            anchor = preview_range:anchor_cell()
           end
-          table.insert(direct_entries, state_module.selection_entry(anchor, target))
+          table.insert(direct_entries, range_from_cells(anchor, target))
           return true
         end
 
@@ -704,16 +711,16 @@ function M.new(opts)
         end
 
         if used_direct_motion then
-          state.set_preview_entries(buffer, direct_entries)
+          state.set_preview_ranges(buffer, direct_entries)
           return
         end
 
-        state.set_preview_entries(buffer, collect_entries(true))
+        state.set_preview_ranges(buffer, collect_entries(true))
         return
       end
 
       if #source_entries > 1 or state.preview_active() then
-        state.set_preview_entries(buffer, collect_entries(false))
+        state.set_preview_ranges(buffer, collect_entries(false))
         return
       end
 

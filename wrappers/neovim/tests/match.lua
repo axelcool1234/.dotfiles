@@ -767,6 +767,14 @@ local cases = {
     end,
   },
   {
+    name = "treesitter seed range consumes the full unicode cell",
+    run = function()
+      reset_case({ "local α = 1" }, "lua", 1, 6)
+      run_keys("maz")
+      assert_equal(selection_texts(), { "α = 1" }, "maz should resolve the syntax node under a unicode character")
+    end,
+  },
+  {
     name = "mm ignores plain backticks",
     run = function()
       reset_case({ "- Figure out `direnv` + `lorri` and add support" }, "text", 1, 14)
@@ -837,6 +845,32 @@ local cases = {
     end,
   },
   {
+    name = "ms preserves unicode-aware selection bounds",
+    run = function()
+      reset_case({ "∀x" }, "text", 1, 0)
+      run_keys("ms(")
+      assert_equal(current_lines(), { "(∀)x" }, "ms( should surround the complete unicode cell")
+      assert_equal(selection_texts(), { "(∀)" }, "ms( should select only the surrounded unicode cell")
+
+      reset_case({ "∀x" }, "text", 1, 3)
+      run_keys("ms[")
+      assert_equal(current_lines(), { "∀[x]" }, "ms[ should surround a cell after unicode text")
+      assert_equal(selection_texts(), { "[x]" }, "ms[ should keep selection bounds correct after unicode text")
+    end,
+  },
+  {
+    name = "surround edits use unicode-aware byte ranges",
+    run = function()
+      reset_case({ "∀(thing)" }, "text", 1, 4)
+      run_keys("md(")
+      assert_equal(current_lines(), { "∀thing" }, "md( should delete delimiters after unicode text")
+
+      reset_case({ "∀(thing)" }, "text", 1, 4)
+      run_keys("mr([")
+      assert_equal(current_lines(), { "∀[thing]" }, "mr([ should replace delimiters after unicode text")
+    end,
+  },
+  {
     name = "ms surrounds ranged and multiline selections while preserving direction",
     run = function()
       reset_case({ "alpha beta" }, "text", 1, 0)
@@ -846,8 +880,8 @@ local cases = {
       run_keys("ms[")
       assert_equal(current_lines(), { "[alpha] beta" }, "ms[ should surround the complete range")
       assert_equal(selection_texts(), { "[alpha]" }, "the surrounding pair should become selected")
-      local entry = helix.primary_selection_entry()
-      assert(entry.anchor_pos[2] > entry.cursor_pos[2], "surround add should preserve a backward range")
+      local entry = helix.primary_range()
+      assert(entry:anchor_cell()[2] > entry:cursor()[2], "surround add should preserve a backward range")
 
       reset_case({ "alpha", "beta" }, "text", 1, 0)
       helix.select_whole_buffer()
@@ -876,8 +910,8 @@ local cases = {
       run_keys("mdm")
       assert_equal(current_lines(), { "  " }, "mdm should remove the surrounding delimiters")
       assert_equal(selection_texts(), { "  " }, "mdm should preserve the selected contents")
-      local entry = helix.primary_selection_entry()
-      assert(entry.anchor_pos[2] > entry.cursor_pos[2], "mdm should preserve backward direction")
+      local entry = helix.primary_range()
+      assert(entry:anchor_cell()[2] > entry:cursor()[2], "mdm should preserve backward direction")
     end,
   },
 }

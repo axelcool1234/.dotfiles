@@ -1,232 +1,81 @@
 local M = {}
 local position = require("axelcool1234.helix.position")
+local range_module = require("axelcool1234.helix.range")
+local selection_module = require("axelcool1234.helix.selection")
+local transaction_module = require("axelcool1234.helix.transaction")
 
-local function pos_before(left, right)
-  return left[1] < right[1] or (left[1] == right[1] and left[2] < right[2])
+local function current_buffer()
+  return vim.api.nvim_get_current_buf()
 end
 
-local function pos_after(left, right)
-  return left[1] > right[1] or (left[1] == right[1] and left[2] > right[2])
-end
-
-local function pos_equal(left, right)
-  return left[1] == right[1] and left[2] == right[2]
-end
-
-local function normalize_bounds(start_pos, end_pos)
-  local start_copy = { math.max(1, start_pos[1]), math.max(1, start_pos[2]) }
-  local end_copy = { math.max(1, end_pos[1]), math.max(1, end_pos[2]) }
-
-  if pos_after(start_copy, end_copy) then
-    start_copy, end_copy = end_copy, start_copy
-  end
-
-  return start_copy, end_copy
-end
-
-function M.selection_entry(anchor_pos, cursor_pos)
-  local start_pos, end_pos = normalize_bounds(anchor_pos, cursor_pos)
-  return {
-    anchor_pos = { anchor_pos[1], anchor_pos[2] },
-    cursor_pos = { cursor_pos[1], cursor_pos[2] },
-    start_pos = start_pos,
-    end_pos = end_pos,
-  }
-end
-
-function M.entry_text_ranges(entry)
-  local buffer = vim.api.nvim_get_current_buf()
-  local start_row, start_col = position.before_boundary(buffer, entry.start_pos)
-  if entry.empty == true then
-    return start_row, start_col, start_row, start_col
-  end
-  local end_row, end_col = position.after_boundary(buffer, entry.end_pos)
-  return start_row, start_col, end_row, end_col
-end
-
-function M.get_entry_text(entry)
-  local start_row, start_col, end_row, end_col = M.entry_text_ranges(entry)
-  local pieces = vim.api.nvim_buf_get_text(0, start_row, start_col, end_row, end_col, {})
-  return table.concat(pieces, "\n")
-end
-
-function M.replace_entry_text(entry, replacement)
-  local start_row, start_col, end_row, end_col = M.entry_text_ranges(entry)
-
-  local lines
-  if type(replacement) == "table" then
-    lines = replacement
-  elseif replacement == "" then
-    lines = {}
-  else
-    lines = vim.split(replacement, "\n", { plain = true })
-  end
-
-  vim.api.nvim_buf_set_text(0, start_row, start_col, end_row, end_col, lines)
+local function current_window()
+  return vim.api.nvim_get_current_win()
 end
 
 function M.current_pos_1indexed()
   local row, col0 = unpack(vim.api.nvim_win_get_cursor(0))
   local line = position.line_text(0, row)
-  return { row, position.char_col_from_byte_col0(line, col0) }
-end
-
-local function buffer_cursor_max_column(buffer, row)
-  return position.cursor_max_column(buffer, row)
+  return { row, position.grapheme_col_from_byte_col0(line, col0) }
 end
 
 function M.move_cursor_to_pos(pos)
-  local buffer = vim.api.nvim_get_current_buf()
-  local row = math.max(1, math.min(pos[1], vim.api.nvim_buf_line_count(buffer)))
-  local col = math.max(1, math.min(pos[2], buffer_cursor_max_column(buffer, row)))
+  local buffer = current_buffer()
+  local row = math.max(1, math.min(pos[1], position.line_count(buffer)))
+  local col = math.max(1, math.min(pos[2], position.cursor_max_column(buffer, row)))
   local line = position.line_text(buffer, row)
-  vim.api.nvim_win_set_cursor(0, { row, position.byte_col0_from_char_col(line, col) })
+  vim.api.nvim_win_set_cursor(0, { row, position.byte_col0_from_grapheme_col(line, col) })
 end
 
 local function cursor_preview_cell(buffer, pos)
-  local line = vim.api.nvim_buf_get_lines(buffer, pos[1] - 1, pos[1], false)[1] or ""
+  local line = position.line_text(buffer, pos[1])
   local col = pos[2]
-  local byte_col0 = position.byte_col0_from_char_col(line, col)
+  local byte_col0 = position.byte_col0_from_grapheme_col(line, col)
 
-  if line ~= "" and col >= 1 and col <= position.char_count(line) then
+  if line ~= "" and col >= 1 and col <= position.grapheme_count(line) then
     return {
-      text = position.char_at(line, col),
+      text = position.grapheme_at(line, col),
       extmark_col = byte_col0,
-      end_col = position.byte_col0_from_char_col(line, col + 1),
+      end_col = position.byte_col0_from_grapheme_col(line, col + 1),
     }
   end
 
   return {
     text = " ",
     extmark_col = math.max(math.min(byte_col0, #line), 0),
-    win_col = vim.fn.strdisplaywidth(position.prefix_by_char_count(line, math.max(col - 1, 0))),
+    win_col = vim.fn.strdisplaywidth(position.prefix_by_grapheme_count(line, math.max(col - 1, 0))),
   }
 end
 
-local function entries_overlap(left, right)
-  local left_start, left_end = left.start_pos, left.end_pos
-  local right_start, right_end = right.start_pos, right.end_pos
-
-  if pos_before(right_start, left_start) then
-    left_start, left_end, right_start, right_end = right_start, right_end, left_start, left_end
+local function ordered_ranges(selection)
+  if not selection then
+    return {}
   end
-
-  return pos_after(left_end, right_start) or pos_equal(left_end, right_start)
-end
-
-local function entry_direction(entry)
-  if pos_before(entry.anchor_pos, entry.cursor_pos) then
-    return 1
-  end
-
-  if pos_after(entry.anchor_pos, entry.cursor_pos) then
-    return -1
-  end
-
-  return 0
-end
-
-local function merged_entry_direction(left, right)
-  local left_direction = entry_direction(left)
-  local right_direction = entry_direction(right)
-
-  if left_direction == right_direction then
-    return left_direction
-  end
-
-  if left_direction == 0 then
-    return right_direction
-  end
-
-  if right_direction == 0 then
-    return left_direction
-  end
-
-  return right_direction
-end
-
-local function merge_two_entries(left, right)
-  local start_pos = pos_before(left.start_pos, right.start_pos) and left.start_pos or right.start_pos
-  local end_pos = pos_after(left.end_pos, right.end_pos) and left.end_pos or right.end_pos
-  local direction = merged_entry_direction(left, right)
-
-  local merged
-  if direction < 0 then
-    merged = M.selection_entry(end_pos, start_pos)
-  else
-    merged = M.selection_entry(start_pos, end_pos)
-  end
-  merged.empty = left.empty == true and right.empty == true
-  return merged
-end
-
-local function sort_preview_items(items)
-  table.sort(items, function(left, right)
-    if pos_before(left.entry.start_pos, right.entry.start_pos) then
-      return true
-    end
-    if pos_before(right.entry.start_pos, left.entry.start_pos) then
-      return false
-    end
-    return pos_before(left.entry.end_pos, right.entry.end_pos)
-  end)
-end
-
-local function merge_preview_items(items)
-  if #items <= 1 then
-    return items
-  end
-
-  local merged = {}
-  for _, item in ipairs(items) do
-    local merged_index = nil
-    for index = #merged, 1, -1 do
-      if entries_overlap(merged[index].entry, item.entry) then
-        merged_index = index
-        break
-      end
-    end
-
-    if merged_index then
-      local existing = merged[merged_index]
-      merged[merged_index] = {
-        entry = merge_two_entries(existing.entry, item.entry),
-        cursor_pos = existing.is_primary and existing.cursor_pos or item.cursor_pos,
-        preferred_col = existing.is_primary and existing.preferred_col or item.preferred_col,
-        is_primary = existing.is_primary or item.is_primary,
-      }
-    else
-      table.insert(merged, item)
+  local ranges = { selection.ranges[selection.primary_index] }
+  for index, range in ipairs(selection.ranges) do
+    if index ~= selection.primary_index then
+      ranges[#ranges + 1] = range
     end
   end
-
-  return merged
+  return ranges
 end
 
-local function promote_primary_item(items)
-  for index, item in ipairs(items) do
-    if item.is_primary then
-      if index ~= 1 then
-        table.remove(items, index)
-        table.insert(items, 1, item)
-      end
-      return
-    end
+local function copied_ordered_ranges(selection)
+  local ranges = {}
+  for index, range in ipairs(ordered_ranges(selection)) do
+    ranges[index] = range:copy()
   end
+  return ranges
 end
 
 function M.new(opts)
   local state = {
     preview = {
       buffer = nil,
-      entries = {},
-      cursor_positions = nil,
-      preferred_columns = nil,
-      primary_index = nil,
       updating = false,
       selection_namespace = vim.api.nvim_create_namespace("axelcool1234-helix-selection"),
       cursor_namespace = vim.api.nvim_create_namespace("axelcool1234-helix-cursor"),
     },
+    view_selections = {},
     extend_mode = false,
     insert_mode = false,
     consume_escape_once = false,
@@ -235,6 +84,75 @@ function M.new(opts)
   }
 
   vim.g.helix_mode_label = vim.g.helix_mode_label or "NORMAL"
+
+  local function view_bucket(win, create)
+    win = win or current_window()
+    local bucket = state.view_selections[win]
+    if not bucket and create then
+      bucket = {}
+      state.view_selections[win] = bucket
+    end
+    return bucket
+  end
+
+  local function view_selection(win, buffer)
+    local bucket = view_bucket(win, false)
+    local saved = bucket and bucket[buffer or current_buffer()] or nil
+    if not saved or not vim.api.nvim_buf_is_valid(saved.buffer) then
+      return nil
+    end
+    return saved
+  end
+
+  local function clear_tracking(saved)
+    if saved and saved.tracker then
+      saved.tracker:clear()
+    end
+  end
+
+  local function store_selection(win, selection)
+    local buffer = selection.buffer
+    local bucket = view_bucket(win, true)
+    clear_tracking(bucket[buffer])
+    local saved = {
+      buffer = buffer,
+      primary_index = selection.primary_index,
+      changedtick = vim.api.nvim_buf_get_changedtick(buffer),
+      tracker = transaction_module.track_ranges(buffer, selection.ranges, { affinity = "inside" }),
+    }
+    bucket[buffer] = saved
+    return saved
+  end
+
+  local function resolve_selection(saved)
+    if not saved then
+      return nil
+    end
+    local changed = saved.changedtick ~= vim.api.nvim_buf_get_changedtick(saved.buffer)
+    local ranges = saved.tracker:resolve({ keep = true, strict = true })
+    if not ranges or #ranges == 0 then
+      return nil
+    end
+    if changed then
+      for _, range in ipairs(ranges) do
+        range.goal_display_col = nil
+      end
+    end
+    return selection_module.new(saved.buffer, ranges, math.min(saved.primary_index, #ranges))
+  end
+
+  local function active_selection()
+    local saved = view_selection()
+    return resolve_selection(saved)
+  end
+
+  local function clear_render()
+    if state.preview.buffer and vim.api.nvim_buf_is_valid(state.preview.buffer) then
+      vim.api.nvim_buf_clear_namespace(state.preview.buffer, state.preview.selection_namespace, 0, -1)
+      vim.api.nvim_buf_clear_namespace(state.preview.buffer, state.preview.cursor_namespace, 0, -1)
+    end
+    state.preview.buffer = nil
+  end
 
   local function refresh_mode_label()
     if state.insert_mode then
@@ -283,13 +201,39 @@ function M.new(opts)
     if not state.consume_escape_once then
       return false
     end
-
     state.consume_escape_once = false
     return true
   end
 
   function state.preview_active()
-    return state.preview.buffer == vim.api.nvim_get_current_buf() and #state.preview.entries > 0
+    local selection = active_selection()
+    return selection ~= nil and #selection.ranges > 0
+  end
+
+  function state.selection_for_view(win)
+    local saved = view_selection(win)
+    return resolve_selection(saved)
+  end
+
+  function state.current_selection()
+    local selection = active_selection()
+    if selection then
+      return selection:copy()
+    end
+    local pos = M.current_pos_1indexed()
+    return selection_module.single(current_buffer(), range_module.from_cells(current_buffer(), pos, pos))
+  end
+
+  function state.preview_ranges()
+    return copied_ordered_ranges(active_selection())
+  end
+
+  function state.preview_range(index)
+    return state.preview_ranges()[index]
+  end
+
+  function state.preview_primary_index()
+    return active_selection() and 1 or nil
   end
 
   function state.set_history_sync(callback)
@@ -298,17 +242,12 @@ function M.new(opts)
 
   function state.clear_preview(config)
     config = config or {}
-
-    if state.preview.buffer and vim.api.nvim_buf_is_valid(state.preview.buffer) then
-      vim.api.nvim_buf_clear_namespace(state.preview.buffer, state.preview.selection_namespace, 0, -1)
-      vim.api.nvim_buf_clear_namespace(state.preview.buffer, state.preview.cursor_namespace, 0, -1)
+    clear_render()
+    local bucket = view_bucket(nil, false)
+    if bucket then
+      clear_tracking(bucket[current_buffer()])
+      bucket[current_buffer()] = nil
     end
-
-    state.preview.buffer = nil
-    state.preview.entries = {}
-    state.preview.cursor_positions = nil
-    state.preview.preferred_columns = nil
-    state.preview.primary_index = nil
 
     if config.keep_extend_mode ~= true then
       state.extend_mode = false
@@ -320,36 +259,29 @@ function M.new(opts)
   end
 
   function state.refresh_preview()
-    if not state.preview_active() then
+    local selection = active_selection()
+    clear_render()
+    if not selection then
       return
     end
 
-    vim.api.nvim_buf_clear_namespace(state.preview.buffer, state.preview.selection_namespace, 0, -1)
-    vim.api.nvim_buf_clear_namespace(state.preview.buffer, state.preview.cursor_namespace, 0, -1)
-
-    for index, entry in ipairs(state.preview.entries) do
-      local is_point = entry.start_pos[1] == entry.end_pos[1] and entry.start_pos[2] == entry.end_pos[2]
-      local render_selection = not is_point or entry.force_highlight == true
-      if render_selection then
-        local start_row, start_col, end_row, end_col = M.entry_text_ranges(entry)
-        vim.api.nvim_buf_set_extmark(
-          state.preview.buffer,
-          state.preview.selection_namespace,
-          start_row,
-          start_col,
-          {
-            end_row = end_row,
-            end_col = end_col,
-            hl_group = "Visual",
-          }
-        )
+    local buffer = selection.buffer
+    state.preview.buffer = buffer
+    for index, range in ipairs(selection.ranges) do
+      if not range.point and not range:is_empty() then
+        local start_row, start_col, end_row, end_col = range:byte_range()
+        vim.api.nvim_buf_set_extmark(buffer, state.preview.selection_namespace, start_row, start_col, {
+          end_row = end_row,
+          end_col = end_col,
+          hl_group = "Visual",
+        })
       end
 
-      if index > 1 then
-        local cursor_pos = state.preview.cursor_positions and state.preview.cursor_positions[index] or entry.cursor_pos
-        local cursor_cell = cursor_preview_cell(state.preview.buffer, cursor_pos)
+      if index ~= selection.primary_index then
+        local cursor_pos = range:cursor()
+        local cursor_cell = cursor_preview_cell(buffer, cursor_pos)
         vim.api.nvim_buf_set_extmark(
-          state.preview.buffer,
+          buffer,
           state.preview.cursor_namespace,
           cursor_pos[1] - 1,
           cursor_cell.extmark_col,
@@ -368,72 +300,88 @@ function M.new(opts)
     end
   end
 
-  function state.current_entries()
-    if state.preview_active() then
-      return vim.deepcopy(state.preview.entries)
+  function state.activate_view(win)
+    win = win or current_window()
+    if win == current_window() then
+      local selection = active_selection()
+      if selection then
+        M.move_cursor_to_pos(selection:primary():cursor())
+      end
+      state.refresh_preview()
     end
+  end
 
+  function state.deactivate_view()
+    clear_render()
+  end
+
+  function state.clone_view(source_win, target_win)
+    local source = view_bucket(source_win, false)
+    if not source then
+      return
+    end
+    for _, saved in pairs(source) do
+      local selection = resolve_selection(saved)
+      if selection then
+        store_selection(target_win, selection)
+      end
+    end
+  end
+
+  function state.forget_view(win)
+    local bucket = view_bucket(win, false)
+    for _, saved in pairs(bucket or {}) do
+      clear_tracking(saved)
+    end
+    state.view_selections[win] = nil
+    if win == current_window() then
+      clear_render()
+    end
+  end
+
+  function state.forget_buffer(buffer)
+    for _, bucket in pairs(state.view_selections) do
+      local saved = bucket[buffer]
+      if saved then
+        clear_tracking(saved)
+        bucket[buffer] = nil
+      end
+    end
+    if state.preview.buffer == buffer then
+      clear_render()
+    end
+  end
+
+  function state.current_ranges()
+    local entries = state.preview_ranges()
+    if #entries > 0 then
+      return entries
+    end
     local pos = M.current_pos_1indexed()
-    return { M.selection_entry(pos, pos) }
+    return { range_module.from_cells(current_buffer(), pos, pos) }
   end
 
-  function state.primary_entry()
-    if state.preview_active() then
-      return state.preview.entries[state.preview.primary_index or 1]
+  function state.primary_range()
+    local selection = active_selection()
+    if selection then
+      return selection:primary()
     end
-
-    return state.current_entries()[1]
+    return state.current_ranges()[1]
   end
 
-  function state.current_preferred_columns()
-    if state.preview_active() and state.preview.preferred_columns then
-      return vim.deepcopy(state.preview.preferred_columns)
-    end
-
-    local pos = M.current_pos_1indexed()
-    return { position.display_col(vim.api.nvim_get_current_buf(), pos) }
-  end
-
-  -- Preview entries are the single source of truth for Helix-style selections.
-  -- The primary cursor is the real Neovim cursor; secondary cursors are rendered
-  -- from the selection entries.
-  function state.set_preview_entries(buffer, entries, config)
+  function state.set_preview_selection(selection, config)
     config = config or {}
-
-    local preview_items = {}
-    for index, entry in ipairs(entries) do
-      preview_items[index] = {
-        entry = vim.deepcopy(entry),
-        cursor_pos = config.cursor_positions and config.cursor_positions[index] or entry.cursor_pos,
-        preferred_col = config.preferred_columns and config.preferred_columns[index]
-          or position.display_col(buffer, entry.cursor_pos),
-        is_primary = index == 1,
-      }
-    end
-
-    sort_preview_items(preview_items)
-    preview_items = merge_preview_items(preview_items)
-    promote_primary_item(preview_items)
-
-    state.clear_preview({ keep_extend_mode = true, keep_insert_mode = true })
-    if #preview_items == 0 then
+    if not selection or #selection.ranges == 0 then
       return false
     end
 
+    clear_render()
     state.preview.updating = true
-    if config.keep_cursor ~= true and preview_items[1] then
-      M.move_cursor_to_pos(preview_items[1].cursor_pos)
-    end
+    store_selection(current_window(), selection)
 
-    state.preview.buffer = buffer
-    state.preview.entries = {}
-    state.preview.cursor_positions = {}
-    state.preview.preferred_columns = {}
-    state.preview.primary_index = 1
-    for index, item in ipairs(preview_items) do
-      state.preview.entries[index] = item.entry
-      state.preview.cursor_positions[index] = vim.deepcopy(item.cursor_pos)
-      state.preview.preferred_columns[index] = item.preferred_col
+    local primary = selection:primary()
+    if config.keep_cursor ~= true then
+      M.move_cursor_to_pos(primary:cursor())
     end
     state.refresh_preview()
 
@@ -445,6 +393,22 @@ function M.new(opts)
       state.preview.updating = false
     end)
     return true
+  end
+
+  function state.set_preview_ranges(buffer, entries, config)
+    config = config or {}
+    if #entries == 0 then
+      state.clear_preview({ keep_extend_mode = true, keep_insert_mode = true })
+      return false
+    end
+
+    local ranges = {}
+    for index, entry in ipairs(entries) do
+      ranges[index] = range_module.copy(buffer, entry)
+    end
+
+    local selection = selection_module.new(buffer, ranges, 1)
+    return state.set_preview_selection(selection, config)
   end
 
   return state

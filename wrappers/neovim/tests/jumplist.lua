@@ -1,5 +1,6 @@
 local jumplist_module = require("axelcool1234.helix.jumplist")
 local state_module = require("axelcool1234.helix.state")
+local range_module = require("axelcool1234.helix.range")
 
 local function assert_equal(actual, expected, label)
   if not vim.deep_equal(actual, expected) then
@@ -14,18 +15,13 @@ local function fresh_buffer(lines)
 end
 
 local function snapshot(buffer, row, entries)
-  entries = entries or { state_module.selection_entry({ row, 1 }, { row, 1 }) }
-  local cursor_positions = {}
-  local preferred_columns = {}
-  for index, entry in ipairs(entries) do
-    cursor_positions[index] = vim.deepcopy(entry.cursor_pos)
-    preferred_columns[index] = entry.cursor_pos[2]
+  entries = entries or { range_module.from_cells(buffer, { row, 1 }, { row, 1 }) }
+  for _, entry in ipairs(entries) do
+    entry.goal_display_col = entry.goal_display_col or entry:cursor()[2]
   end
   return {
     buffer = buffer,
     entries = entries,
-    cursor_positions = cursor_positions,
-    preferred_columns = preferred_columns,
     had_preview = #entries > 1,
   }
 end

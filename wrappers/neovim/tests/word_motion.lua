@@ -19,8 +19,8 @@ end
 
 local function selection_texts()
   local texts = {}
-  for _, entry in ipairs(helix.current_selection_entries()) do
-    texts[#texts + 1] = state.get_entry_text(entry)
+  for _, entry in ipairs(helix.current_selection_ranges()) do
+    texts[#texts + 1] = entry:text()
   end
   return texts
 end
@@ -73,12 +73,12 @@ do
   for _, case in ipairs(counted_cases) do
     reset({ text }, 1, case.col0)
     helix.apply_word_motion(case.target, 2)
-    local counted = helix.current_selection_entries()
+    local counted = helix.current_selection_ranges()
 
     reset({ text }, 1, case.col0)
     helix.apply_word_motion(case.target)
     helix.apply_word_motion(case.target)
-    assert_equal(helix.current_selection_entries(), counted, case.target .. " count should match two successive motions")
+    assert_equal(helix.current_selection_ranges(), counted, case.target .. " count should match two successive motions")
   end
 end
 
@@ -92,30 +92,30 @@ do
     "prev_long_word_start",
   }) do
     reset({ "" })
-    local before = helix.current_selection_entries()
+    local before = helix.current_selection_ranges()
     helix.apply_word_motion(target)
-    assert_equal(helix.current_selection_entries(), before, target .. " should be a no-op in an empty buffer")
+    assert_equal(helix.current_selection_ranges(), before, target .. " should be a no-op in an empty buffer")
   end
 
   reset({ "last" }, 1, 3)
-  local before = helix.current_selection_entries()
+  local before = helix.current_selection_ranges()
   helix.apply_word_motion("next_word_start")
-  assert_equal(helix.current_selection_entries(), before, "a failed forward motion should preserve the selection")
+  assert_equal(helix.current_selection_ranges(), before, "a failed forward motion should preserve the selection")
 
   reset({ "first" }, 1, 0)
-  before = helix.current_selection_entries()
+  before = helix.current_selection_ranges()
   helix.apply_word_motion("prev_word_start")
-  assert_equal(helix.current_selection_entries(), before, "a failed backward motion should preserve the selection")
+  assert_equal(helix.current_selection_ranges(), before, "a failed backward motion should preserve the selection")
 end
 
 do
   reset({ "one", "", "", "   two" })
   helix.apply_word_motion("next_word_start", 2)
-  assert_equal(helix.primary_selection_entry().cursor_pos, { 4, 3 }, "w should bridge newline groups and leading whitespace")
+  assert_equal(helix.primary_range():cursor(), { 4, 3 }, "w should bridge newline groups and leading whitespace")
 
   reset({ "", "", "" })
   helix.apply_word_motion("next_word_start")
-  assert_equal(helix.primary_selection_entry().cursor_pos, { 3, 1 }, "w should traverse an all-newline buffer")
+  assert_equal(helix.primary_range():cursor(), { 3, 1 }, "w should traverse an all-newline buffer")
 
   reset({ "ヒーリクス 次" })
   helix.apply_word_motion("next_word_start")
@@ -135,9 +135,9 @@ do
 
   reset({ "one two three" })
   helix.toggle_select_mode()
-  local anchor = vim.deepcopy(helix.primary_selection_entry().anchor_pos)
+  local anchor = vim.deepcopy(helix.primary_range():anchor_cell())
   helix.apply_word_motion("next_word_start", 2)
-  assert_equal(helix.primary_selection_entry().anchor_pos, anchor, "select-mode w should retain its original anchor")
+  assert_equal(helix.primary_range():anchor_cell(), anchor, "select-mode w should retain its original anchor")
   assert_equal(selection_texts(), { "one two " }, "select-mode counted w should extend through every segment")
 end
 

@@ -8,7 +8,9 @@ local registers_module = require("axelcool1234.helix.registers")
 local match_module = require("axelcool1234.helix.match")
 local flash_module = require("axelcool1234.helix.flash")
 local window_module = require("axelcool1234.helix.window")
+local transaction_module = require("axelcool1234.helix.transaction")
 local position = require("axelcool1234.helix.position")
+local range_module = require("axelcool1234.helix.range")
 
 local M = {}
 local selected_register_clear_ns = vim.api.nvim_create_namespace("axelcool1234-helix-selected-register")
@@ -17,7 +19,7 @@ local macro_transport_register = "z"
 local function refresh_lualine()
   local ok, lualine = pcall(require, "lualine")
   if ok then
-    lualine.refresh({
+    pcall(lualine.refresh, {
       force = true,
       place = { "statusline" },
       trigger = "autocmd",
@@ -90,8 +92,6 @@ local replaying_last_motion = false
 local macro_recording_target = nil
 local macro_recording_saved = nil
 local macro_replaying = {}
-local view_selection_snapshots = {}
-local view_transition = {}
 local incremental_search = {
   active = nil,
   ignore_cursor_moved = 0,
@@ -100,23 +100,16 @@ local incremental_search = {
 history.attach()
 
 local current_buffer
+local range_from_cells
 local line_text
 local line_cursor_max_column
 local line_supports_column
 local pos_is_newline
-local extmark_pos_1indexed
 local capture_selection_state_snapshot
 local restore_selection_state_snapshot
 local selection_state_snapshots_equal
 local push_jump_snapshot
 local push_jump_if_moved
-
-local function entry_ends_after(left, right)
-  if left.end_pos[1] == right.end_pos[1] then
-    return left.end_pos[2] > right.end_pos[2]
-  end
-  return left.end_pos[1] > right.end_pos[1]
-end
 
 local replacement_lines
 
@@ -236,16 +229,16 @@ local function sync_cursors_to_points(points, config)
   end
   local entries = {}
   for _, point in ipairs(points) do
-    table.insert(entries, state_module.selection_entry(point, point))
+    table.insert(entries, range_from_cells(point, point))
   end
-  state.set_preview_entries(vim.api.nvim_get_current_buf(), entries, config)
+  state.set_preview_ranges(vim.api.nvim_get_current_buf(), entries, config)
 end
 
 local function sync_cursors_to_entries(entries, config)
   if #entries == 0 then
     return
   end
-  state.set_preview_entries(vim.api.nvim_get_current_buf(), entries, config)
+  state.set_preview_ranges(vim.api.nvim_get_current_buf(), entries, config)
 end
 
 local function match_lines(lines, pattern)
@@ -284,166 +277,50 @@ local function match_lines(lines, pattern)
   return matches
 end
 
--- Selection edits are applied from extmark snapshots so buffer changes do not
--- invalidate later ranges. The returned start points are the post-edit insert
--- locations used by both `d` and `c`.
-local function delete_preview_entries(entries)
+local function delete_preview_ranges(entries)
   if #entries == 0 then
     return {}
   end
 
   local buffer = vim.api.nvim_get_current_buf()
-  local namespace = vim.api.nvim_create_namespace("axelcool1234-delete-preview")
-  local marks = {}
-
-  local function delete_entry_range(entry)
-    if entry.start_pos[1] == entry.end_pos[1] and entry.start_pos[2] == entry.end_pos[2] then
-      local row = entry.cursor_pos[1]
-      local line = line_text(row)
-      local cursor_is_on_newline = position.is_newline_pos(buffer, entry.cursor_pos)
-
-      if cursor_is_on_newline then
-        return row - 1, #line, row, 0
-      end
-    end
-
-    return state_module.entry_text_ranges(entry)
+  local transaction = transaction_module.new(buffer)
+  for _, entry in ipairs(entries) do
+    transaction:track_range(entry)
+    transaction:replace(entry, "")
   end
-
-  for index, entry in ipairs(entries) do
-    local start_row, start_col, end_row, end_col = delete_entry_range(entry)
-    marks[index] = {
-      index = index,
-      start_id = vim.api.nvim_buf_set_extmark(buffer, namespace, start_row, start_col, {
-        right_gravity = false,
-      }),
-      end_id = vim.api.nvim_buf_set_extmark(buffer, namespace, end_row, end_col, {
-        right_gravity = true,
-      }),
-    }
-  end
-
-  table.sort(marks, function(left, right)
-    local left_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, left.end_id, {})
-    local right_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, right.end_id, {})
-    if left_pos[1] == right_pos[1] then
-      return left_pos[2] > right_pos[2]
-    end
-    return left_pos[1] > right_pos[1]
-  end)
-
-  for _, mark in ipairs(marks) do
-    local start_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, mark.start_id, {})
-    local end_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, mark.end_id, {})
-    if #start_pos > 0 and #end_pos > 0 then
-      vim.api.nvim_buf_set_text(buffer, start_pos[1], start_pos[2], end_pos[1], end_pos[2], {})
-    end
-  end
-
+  local result = transaction:apply()
   local start_points = {}
-  for _, mark in ipairs(marks) do
-    local start_pos = extmark_pos_1indexed(buffer, namespace, mark.start_id)
-    if start_pos then
-      start_points[mark.index] = start_pos
-    end
+  for index, range in ipairs(result.ranges) do
+    start_points[index] = range:start_cell()
   end
-
-  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
   return start_points
 end
 
-local function yank_preview_entries(entries)
-  if #entries == 0 then
-    return
-  end
-
-  local parts = {}
-  for _, entry in ipairs(entries) do
-    table.insert(parts, state_module.get_entry_text(entry))
-  end
-
-  vim.fn.setreg('"', table.concat(parts, "\n"))
-end
-
-local function replace_preview_entries_with_char(entries, replacement)
+local function replace_preview_ranges_with_char(entries, replacement)
   if #entries == 0 then
     return {}
   end
 
   local buffer = vim.api.nvim_get_current_buf()
-  local namespace = vim.api.nvim_create_namespace("axelcool1234-replace-preview-char")
-  local sorted = vim.deepcopy(entries)
-  local marks = {}
-
-  local function replacement_end_pos(start_pos, lines)
-    if #lines == 0 then
-      return start_pos
-    end
-
-    if #lines == 1 then
-      return { start_pos[1], start_pos[2] + position.char_count(lines[1]) - 1 }
-    end
-
-    return { start_pos[1] + #lines - 1, position.char_count(lines[#lines]) }
-  end
-
-  for index, entry in ipairs(entries) do
-    local text = state_module.get_entry_text(entry)
-    local count = vim.fn.strchars(text)
+  local transaction = transaction_module.new(buffer)
+  for _, entry in ipairs(entries) do
+    local text = entry:text()
+    local count = position.grapheme_count(text)
     if count < 1 then
       count = 1
     end
-    local start_row, start_col, end_row, end_col = state_module.entry_text_ranges(entry)
-    marks[index] = {
-      index = index,
-      entry = entry,
-      count = count,
-      start_id = vim.api.nvim_buf_set_extmark(buffer, namespace, start_row, start_col, {
-        right_gravity = false,
-      }),
-    }
+    transaction:track_range(entry)
+    transaction:replace(entry, replacement:rep(count))
   end
-
-  table.sort(sorted, function(left, right)
-    return entry_ends_after(left, right)
-  end)
-
-  for _, entry in ipairs(sorted) do
-    local text = state_module.get_entry_text(entry)
-    local count = vim.fn.strchars(text)
-    if count < 1 then
-      count = 1
-    end
-    state_module.replace_entry_text(entry, replacement:rep(count))
-  end
-
-  local updated = {}
-  for _, mark in ipairs(marks) do
-    local start_1indexed = extmark_pos_1indexed(buffer, namespace, mark.start_id)
-    if start_1indexed then
-      local lines = replacement_lines(replacement:rep(mark.count))
-      local end_pos = replacement_end_pos(start_1indexed, lines)
-      local original = mark.entry
-      if original.start_pos[1] == original.end_pos[1] and original.start_pos[2] == original.end_pos[2] then
-        updated[mark.index] = state_module.selection_entry(start_1indexed, start_1indexed)
-      elseif original.anchor_pos[1] == original.start_pos[1] and original.anchor_pos[2] == original.start_pos[2] then
-        updated[mark.index] = state_module.selection_entry(start_1indexed, end_pos)
-      else
-        updated[mark.index] = state_module.selection_entry(end_pos, start_1indexed)
-      end
-    end
-  end
-
-  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
-  return updated
+  return transaction:apply().ranges
 end
 
-local function current_preview_entries()
+local function current_preview_ranges()
   if not state.preview_active() then
     return {}
   end
 
-  return vim.deepcopy(state.preview.entries)
+  return state.preview_ranges()
 end
 
 replacement_lines = function(text)
@@ -454,28 +331,17 @@ replacement_lines = function(text)
   return vim.split(text, "\n", { plain = true })
 end
 
-local function current_preview_history_config()
-  if not state.preview_active() then
-    return {}
-  end
-
-  return {
-    cursor_positions = vim.deepcopy(state.preview.cursor_positions or {}),
-    preferred_columns = vim.deepcopy(state.preview.preferred_columns or {}),
-  }
-end
-
 local function text_cell_at_pos(pos)
   if pos_is_newline(pos[1], pos[2]) then
     return "\n"
   end
 
   local line = line_text(pos[1])
-  if pos[2] > position.char_count(line) then
+  if pos[2] > position.grapheme_count(line) then
     return nil
   end
 
-  return position.char_at(line, pos[2])
+  return position.grapheme_at(line, pos[2])
 end
 
 local function char_is_word(ch)
@@ -483,7 +349,7 @@ local function char_is_word(ch)
 end
 
 local function selection_search_fragment(entry, detect_word_boundaries)
-  local text = state_module.get_entry_text(entry)
+  local text = entry:text()
   if text == "" then
     return nil
   end
@@ -497,16 +363,16 @@ local function selection_search_fragment(entry, detect_word_boundaries)
   end
 
   local buffer = current_buffer()
-  local start_char = text_cell_at_pos(entry.start_pos)
-  local end_char = text_cell_at_pos(entry.end_pos)
-  local prev_pos = position.prev_pos(buffer, entry.start_pos)
-  local next_pos = position.next_pos(buffer, entry.end_pos)
+  local start_char = text_cell_at_pos(entry:start_cell())
+  local end_char = text_cell_at_pos(entry:end_cell())
+  local prev_pos = position.prev_pos(buffer, entry:start_cell())
+  local next_pos = position.next_pos(buffer, entry:end_cell())
   local prev_char = nil
   local next_char = nil
-  if not (prev_pos[1] == entry.start_pos[1] and prev_pos[2] == entry.start_pos[2]) then
+  if not (prev_pos[1] == entry:start_cell()[1] and prev_pos[2] == entry:start_cell()[2]) then
     prev_char = text_cell_at_pos(prev_pos)
   end
-  if not (next_pos[1] == entry.end_pos[1] and next_pos[2] == entry.end_pos[2]) then
+  if not (next_pos[1] == entry:end_cell()[1] and next_pos[2] == entry:end_cell()[2]) then
     next_char = text_cell_at_pos(next_pos)
   end
 
@@ -522,20 +388,20 @@ local function selection_search_fragment(entry, detect_word_boundaries)
 end
 
 local function get_preview_lines(entry)
-  local lines = vim.api.nvim_buf_get_lines(0, entry.start_pos[1] - 1, entry.end_pos[1], false)
+  local lines = vim.api.nvim_buf_get_lines(0, entry:start_cell()[1] - 1, entry:end_cell()[1], false)
   if #lines == 0 then
     return {}
   end
 
-  lines[1] = position.suffix_from_char_col(lines[1], entry.start_pos[2])
-  lines[#lines] = position.slice_by_char_range(lines[#lines], 1, entry.end_pos[2])
+  lines[1] = position.suffix_from_grapheme_col(lines[1], entry:start_cell()[2])
+  lines[#lines] = position.slice_by_grapheme_range(lines[#lines], 1, entry:end_cell()[2])
   return lines
 end
 
 local function find_trimmed_edge(entry, forward)
   local buffer = current_buffer()
-  local pos = vim.deepcopy(forward and entry.start_pos or entry.end_pos)
-  local limit = forward and entry.end_pos or entry.start_pos
+  local pos = vim.deepcopy(forward and entry:start_cell() or entry:end_cell())
+  local limit = forward and entry:end_cell() or entry:start_cell()
 
   while true do
     local cell = text_cell_at_pos(pos)
@@ -605,7 +471,7 @@ end
 
 local function bytecol_to_charcol(row, bytecol)
   local line = line_text(row)
-  return position.char_col_from_byte_col0(line, math.max(bytecol - 1, 0))
+  return position.grapheme_col_from_byte_col0(line, math.max(bytecol - 1, 0))
 end
 
 local function first_register_value(register_name)
@@ -643,8 +509,8 @@ local function search_match_entry(entry, pattern, direction)
   local buffer = current_buffer()
   direction = direction or "forward"
   local start_pos = direction == "backward"
-    and position.prev_pos(buffer, entry.start_pos)
-    or position.next_pos(buffer, entry.end_pos)
+    and position.prev_pos(buffer, entry:start_cell())
+    or position.next_pos(buffer, entry:end_cell())
   local saved_view = vim.fn.winsaveview()
   local flags = direction == "backward" and "bnw" or "nw"
 
@@ -672,13 +538,17 @@ local function search_match_entry(entry, pattern, direction)
   local start_charcol = bytecol_to_charcol(start_match[1], start_match[2])
   local end_bytecol = match.byteidx + #match.text
   local end_charcol = bytecol_to_charcol(start_match[1], end_bytecol)
-  return state_module.selection_entry({ start_match[1], start_charcol }, { start_match[1], end_charcol })
+  return range_from_cells(
+    { start_match[1], start_charcol },
+    { start_match[1], end_charcol },
+    { point = false }
+  )
 end
 
 local function apply_search_match(pattern, direction, config)
   config = config or {}
 
-  local source_entries = config.source_entries or (state.preview_active() and current_preview_entries() or state.current_entries())
+  local source_entries = config.source_entries or (state.preview_active() and current_preview_ranges() or state.current_ranges())
   local had_preview = config.had_preview
   if had_preview == nil then
     had_preview = state.preview_active()
@@ -701,7 +571,7 @@ local function apply_search_match(pattern, direction, config)
     for _, entry in ipairs(source_entries) do
       table.insert(entries, entry)
     end
-    state.set_preview_entries(current_buffer(), entries, {
+    state.set_preview_ranges(current_buffer(), entries, {
       sync_history = config.sync_history,
     })
     return true
@@ -713,7 +583,7 @@ local function apply_search_match(pattern, direction, config)
     end
   end
 
-  state.set_preview_entries(current_buffer(), entries, {
+  state.set_preview_ranges(current_buffer(), entries, {
     sync_history = config.sync_history,
   })
   state.exit_extend_mode()
@@ -734,10 +604,8 @@ local function restore_search_snapshot(session)
   end
 
   if session.had_preview then
-    state.set_preview_entries(session.buffer, vim.deepcopy(session.entries), {
+    state.set_preview_ranges(session.buffer, vim.deepcopy(session.entries), {
       sync_history = false,
-      cursor_positions = vim.deepcopy(session.cursor_positions or {}),
-      preferred_columns = vim.deepcopy(session.preferred_columns or {}),
     })
   else
     state_module.move_cursor_to_pos(session.cursor_pos)
@@ -820,8 +688,6 @@ local function finish_incremental_search(session, confirmed)
     entries = vim.deepcopy(session.entries),
     extend_mode = session.extend_mode,
     had_preview = session.had_preview,
-    cursor_positions = vim.deepcopy(session.cursor_positions or {}),
-    preferred_columns = vim.deepcopy(session.preferred_columns or {}),
   }, "search")
 
   if not apply_incremental_search(session, session.pattern, true, nil) then
@@ -887,7 +753,7 @@ vim.api.nvim_create_autocmd("CmdlineLeave", {
 local function start_incremental_search(direction)
   local cmdtype = direction == "backward" and "?" or "/"
   local register_name = resolve_search_register('/')
-  local source_entries = state.preview_active() and current_preview_entries() or state.current_entries()
+  local source_entries = state.preview_active() and current_preview_ranges() or state.current_ranges()
 
   incremental_search.active = {
     buffer = current_buffer(),
@@ -895,11 +761,9 @@ local function start_incremental_search(direction)
     cursor_pos = state_module.current_pos_1indexed(),
     direction = direction,
     entries = vim.deepcopy(source_entries),
-    cursor_positions = state.preview_active() and vim.deepcopy(state.preview.cursor_positions or {}) or nil,
     extend_mode = state.extend_mode_active(),
     had_preview = state.preview_active(),
     pattern = "",
-    preferred_columns = state.current_preferred_columns(),
     register_name = register_name,
     saved_incsearch = vim.o.incsearch,
     saved_search_register = save_vim_register("/"),
@@ -936,7 +800,7 @@ end
 
 local function search_selection_impl(detect_word_boundaries)
   local register_name = resolve_search_register('/')
-  local source_entries = state.current_entries()
+  local source_entries = state.current_ranges()
   local fragments = {}
   local seen = {}
 
@@ -966,7 +830,7 @@ function M.search_selection_detect_word_boundaries()
   search_selection_impl(true)
 end
 
-local function preview_entry_matches(entry, pattern)
+local function preview_range_matches(entry, pattern)
   local lines = get_preview_lines(entry)
   local matches = match_lines(lines, pattern)
   return #matches > 0
@@ -982,12 +846,12 @@ local function entry_regex_matches(entry, pattern)
   local entries = {}
 
   for _, match in ipairs(matches) do
-    local row = entry.start_pos[1] + match.idx
-    local start_char = position.char_col_from_byte_col0(lines[match.idx + 1], match.byteidx)
-    local start_col = match.idx == 0 and (entry.start_pos[2] + start_char - 1) or start_char
-    local width = math.max(position.char_count(match.text), 1)
+    local row = entry:start_cell()[1] + match.idx
+    local start_char = position.grapheme_col_from_byte_col0(lines[match.idx + 1], match.byteidx)
+    local start_col = match.idx == 0 and (entry:start_cell()[2] + start_char - 1) or start_char
+    local width = math.max(position.grapheme_count(match.text), 1)
     local end_col = start_col + width - 1
-    table.insert(entries, state_module.selection_entry({ row, start_col }, { row, end_col }))
+    table.insert(entries, range_from_cells({ row, start_col }, { row, end_col }, { point = false }))
   end
 
   return entries
@@ -995,6 +859,10 @@ end
 
 function current_buffer()
   return vim.api.nvim_get_current_buf()
+end
+
+range_from_cells = function(anchor, cursor, opts)
+  return range_module.from_cells(current_buffer(), anchor, cursor, opts)
 end
 
 function line_text(row)
@@ -1014,11 +882,11 @@ function pos_is_newline(row, col)
 end
 
 local function point_entry(pos)
-  return state_module.selection_entry(pos, pos)
+  return range_from_cells(pos, pos)
 end
 
 local function after_entry_point(entry)
-  return position.next_pos(current_buffer(), entry.end_pos)
+  return position.next_pos(current_buffer(), entry:end_cell())
 end
 
 local function repeated_register_values(values, count)
@@ -1333,8 +1201,8 @@ end
 
 local function toggled_case_text(text)
   local toggled = {}
-  for char_col = 1, position.char_count(text) do
-    local grapheme = position.char_at(text, char_col)
+  for char_col = 1, position.grapheme_count(text) do
+    local grapheme = position.grapheme_at(text, char_col)
     local lower = unicode_lower_text(grapheme)
     local upper = unicode_upper_text(grapheme)
     if grapheme == lower and grapheme ~= upper then
@@ -1356,61 +1224,13 @@ local function insert_points_with_text(points, replacements)
   end
 
   local buffer = vim.api.nvim_get_current_buf()
-  local namespace = vim.api.nvim_create_namespace("axelcool1234-insert-points")
-  local marks = {}
-
+  local transaction = transaction_module.new(buffer)
   for index, point in ipairs(points) do
-    local row, col = position.before_boundary(buffer, point)
-    marks[index] = {
-      index = index,
-      start_id = vim.api.nvim_buf_set_extmark(buffer, namespace, row, col, {
-        right_gravity = false,
-      }),
-      end_id = vim.api.nvim_buf_set_extmark(buffer, namespace, row, col, {
-        right_gravity = true,
-      }),
-      replacement = replacements[index],
-    }
+    local boundary = position.boundary_before_cell(buffer, point)
+    transaction:track_insertion(boundary)
+    transaction:insert(boundary, replacements[math.min(index, #replacements)])
   end
-
-  table.sort(marks, function(left, right)
-    local left_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, left.end_id, {})
-    local right_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, right.end_id, {})
-    if left_pos[1] == right_pos[1] then
-      return left_pos[2] > right_pos[2]
-    end
-    return left_pos[1] > right_pos[1]
-  end)
-
-  for _, mark in ipairs(marks) do
-    local start_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, mark.start_id, {})
-    if #start_pos > 0 then
-      vim.api.nvim_buf_set_text(
-        buffer,
-        start_pos[1],
-        start_pos[2],
-        start_pos[1],
-        start_pos[2],
-        replacement_lines(mark.replacement)
-      )
-    end
-  end
-
-  local updated = {}
-  for _, mark in ipairs(marks) do
-    local start_1indexed = extmark_pos_1indexed(buffer, namespace, mark.start_id)
-    local end_1indexed = extmark_pos_1indexed(buffer, namespace, mark.end_id)
-    if start_1indexed and end_1indexed then
-      if start_1indexed[1] == end_1indexed[1] and start_1indexed[2] == end_1indexed[2] then
-        updated[mark.index] = state_module.selection_entry(start_1indexed, start_1indexed)
-      else
-        updated[mark.index] = state_module.selection_entry(start_1indexed, position.prev_pos(buffer, end_1indexed))
-      end
-    end
-  end
-
-  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
-  return updated
+  return transaction:apply().ranges
 end
 
 local function register_values_are_linewise(values)
@@ -1475,52 +1295,49 @@ local function insertion_entries_and_selection(entries, edge)
   local collapsed = {}
   local anchors = {}
   local has_selection = false
-  for _, entry in ipairs(entries) do
+  for index, entry in ipairs(entries) do
+    local selected = not entry.point
     if edge == "start" then
-      table.insert(collapsed, point_entry(entry.start_pos))
-      if entry.start_pos[1] ~= entry.end_pos[1] or entry.start_pos[2] ~= entry.end_pos[2] then
+      collapsed[index] = point_entry(entry:start_cell())
+      if selected then
         has_selection = true
-        table.insert(anchors, {
-          pos = entry.start_pos,
-          right_gravity = true,
-        })
-      else
-        table.insert(anchors, nil)
+        anchors[index] = {
+          pos = entry:start_cell(),
+          affinity = "after",
+        }
       end
     else
-      table.insert(collapsed, point_entry(after_entry_point(entry)))
-      if entry.start_pos[1] ~= entry.end_pos[1] or entry.start_pos[2] ~= entry.end_pos[2] then
+      collapsed[index] = point_entry(after_entry_point(entry))
+      if selected then
         has_selection = true
-        table.insert(anchors, {
-          pos = entry.start_pos,
-          right_gravity = false,
-        })
+        anchors[index] = {
+          pos = entry:start_cell(),
+          affinity = "before",
+        }
       else
-        table.insert(anchors, {
-          pos = entry.cursor_pos,
-          right_gravity = false,
-        })
+        anchors[index] = {
+          pos = entry:cursor(),
+          affinity = "before",
+        }
       end
     end
   end
 
   if edge == "start" then
     local ends = {}
-    for _, entry in ipairs(entries) do
-      if entry.start_pos[1] ~= entry.end_pos[1] or entry.start_pos[2] ~= entry.end_pos[2] then
-        table.insert(ends, {
-          pos = entry.end_pos,
-          right_gravity = true,
-        })
-      else
-        table.insert(ends, nil)
+    for index, entry in ipairs(entries) do
+      if not entry.point then
+        ends[index] = {
+          pos = entry:end_cell(),
+          affinity = "after",
+        }
       end
     end
 
     return collapsed, {
-      selection_anchors = anchors,
-      selection_ends = ends,
-      preview_entries = has_selection and "between_anchors" or nil,
+      selection_anchors = has_selection and anchors or nil,
+      selection_ends = has_selection and ends or nil,
+      preview_ranges = has_selection and "between_anchors" or nil,
     }
   end
 
@@ -1531,11 +1348,11 @@ local function insertion_entries_and_selection(entries, edge)
 end
 
 local function preview_or_cursor_entries()
-  return state.current_entries()
+  return state.current_ranges()
 end
 
-local function set_preview_entries(entries, config)
-  return state.set_preview_entries(vim.api.nvim_get_current_buf(), entries, config)
+local function set_preview_ranges(entries, config)
+  return state.set_preview_ranges(vim.api.nvim_get_current_buf(), entries, config)
 end
 
 capture_selection_state_snapshot = function()
@@ -1546,9 +1363,7 @@ capture_selection_state_snapshot = function()
     entries = preview_or_cursor_entries(),
     extend_mode = state.extend_mode_active(),
     had_preview = state.preview_active(),
-    cursor_positions = state.preview_active() and vim.deepcopy(state.preview.cursor_positions or {}) or { vim.deepcopy(cursor_pos) },
-    preferred_columns = state.current_preferred_columns(),
-    primary_entry = vim.deepcopy(state.primary_entry()),
+    primary_range = vim.deepcopy(state.primary_range()),
   }
 end
 
@@ -1571,10 +1386,8 @@ restore_selection_state_snapshot = function(snapshot)
       vim.api.nvim_win_set_buf(0, buffer)
     end
 
-    state.set_preview_entries(buffer, vim.deepcopy(snapshot.entries), {
+    state.set_preview_ranges(buffer, vim.deepcopy(snapshot.entries), {
       sync_history = false,
-      cursor_positions = vim.deepcopy(snapshot.cursor_positions or {}),
-      preferred_columns = vim.deepcopy(snapshot.preferred_columns or {}),
     })
     if not snapshot.extend_mode then
       state.exit_extend_mode()
@@ -1593,141 +1406,17 @@ jumplist = jumplist_module.new({
   restore = restore_selection_state_snapshot,
 })
 
-local function selection_view_key(win, buffer)
-  return string.format("%d:%d", win, buffer)
-end
-
-local function saved_selections_for(win)
-  local saved = view_selection_snapshots[win]
-  if not saved then
-    saved = {}
-    view_selection_snapshots[win] = saved
-  end
-  return saved
-end
-
-local saved_selection_namespace = vim.api.nvim_create_namespace("axelcool1234-helix-saved-selections")
-
-local function clear_saved_selection(saved)
-  if not saved or not saved.buffer or not vim.api.nvim_buf_is_valid(saved.buffer) then
-    return
-  end
-  for _, marks in ipairs(saved.marks or {}) do
-    pcall(vim.api.nvim_buf_del_extmark, saved.buffer, saved_selection_namespace, marks.anchor)
-    pcall(vim.api.nvim_buf_del_extmark, saved.buffer, saved_selection_namespace, marks.cursor)
-  end
-end
-
-local function save_selection_snapshot(snapshot)
-  local buffer = snapshot.buffer
-  local saved = {
-    buffer = buffer,
-    snapshot = vim.deepcopy(snapshot),
-    marks = {},
-  }
-  for index, entry in ipairs(snapshot.entries or {}) do
-    local anchor_row, anchor_col = position.before_boundary(buffer, entry.anchor_pos)
-    local cursor_row, cursor_col = position.before_boundary(buffer, entry.cursor_pos)
-    local anchor_at_start = entry.anchor_pos[1] == entry.start_pos[1] and entry.anchor_pos[2] == entry.start_pos[2]
-    local cursor_at_start = entry.cursor_pos[1] == entry.start_pos[1] and entry.cursor_pos[2] == entry.start_pos[2]
-    saved.marks[index] = {
-      anchor = vim.api.nvim_buf_set_extmark(buffer, saved_selection_namespace, anchor_row, anchor_col, {
-        right_gravity = anchor_at_start,
-      }),
-      cursor = vim.api.nvim_buf_set_extmark(buffer, saved_selection_namespace, cursor_row, cursor_col, {
-        right_gravity = cursor_at_start,
-      }),
-    }
-  end
-  return saved
-end
-local function resolve_saved_selection(saved)
-  if not saved or not saved.snapshot or not vim.api.nvim_buf_is_valid(saved.buffer) then
-    return nil
-  end
-  local snapshot = vim.deepcopy(saved.snapshot)
-  local entries = {}
-  for index, marks in ipairs(saved.marks or {}) do
-    local anchor = extmark_pos_1indexed(saved.buffer, saved_selection_namespace, marks.anchor)
-    local cursor = extmark_pos_1indexed(saved.buffer, saved_selection_namespace, marks.cursor)
-    if anchor and cursor then
-      entries[index] = state_module.selection_entry(anchor, cursor)
-      entries[index].empty = saved.snapshot.entries[index] and saved.snapshot.entries[index].empty == true
-    end
-  end
-  if #entries == 0 then
-    return snapshot
-  end
-
-  snapshot.entries = entries
-  snapshot.cursor_pos = vim.deepcopy(entries[1].cursor_pos)
-  snapshot.primary_entry = vim.deepcopy(entries[1])
-  snapshot.cursor_positions = {}
-  for index, entry in ipairs(entries) do
-    snapshot.cursor_positions[index] = vim.deepcopy(entry.cursor_pos)
-  end
-  return snapshot
-end
-
-local function replace_saved_selection(win, buffer, snapshot)
-  local saved = saved_selections_for(win)
-  clear_saved_selection(saved[buffer])
-  saved[buffer] = snapshot and save_selection_snapshot(snapshot) or nil
-end
-
 local function save_current_view_selection()
-  local win = vim.api.nvim_get_current_win()
-  local buffer = current_buffer()
-  local key = selection_view_key(win, buffer)
-  if view_transition.leave_key == key then
-    return
-  end
-
-  view_transition.leave_key = key
-  view_transition.enter_key = nil
-  local saved = saved_selections_for(win)
-  if state.preview_active() then
-    local snapshot = capture_selection_state_snapshot()
-    snapshot.extend_mode = false
-    replace_saved_selection(win, buffer, snapshot)
-  else
-    clear_saved_selection(saved[buffer])
-    saved[buffer] = nil
-  end
-  state.clear_preview({ keep_insert_mode = true })
+  state.deactivate_view()
 end
 
 local function restore_current_view_selection()
-  local win = vim.api.nvim_get_current_win()
-  local buffer = current_buffer()
-  local key = selection_view_key(win, buffer)
-  if view_transition.enter_key == key then
-    return
-  end
-
-  view_transition.enter_key = key
-  view_transition.leave_key = nil
-  local saved = view_selection_snapshots[win] and view_selection_snapshots[win][buffer]
-  if not saved then
-    state.clear_preview({ keep_insert_mode = true })
-    state.exit_extend_mode()
-    return
-  end
-
-  local snapshot = resolve_saved_selection(saved)
-  if not snapshot then
-    return
-  end
-  snapshot.extend_mode = false
-  restore_selection_state_snapshot(snapshot)
+  state.activate_view()
   state.exit_extend_mode()
 end
 
 local function forget_saved_buffer(buffer)
-  for _, saved in pairs(view_selection_snapshots) do
-    clear_saved_selection(saved[buffer])
-    saved[buffer] = nil
-  end
+  state.forget_buffer(buffer)
 end
 
 selection_state_snapshots_equal = function(left, right)
@@ -1738,38 +1427,19 @@ selection_state_snapshots_equal = function(left, right)
   if left.buffer ~= right.buffer
     or left.extend_mode ~= right.extend_mode
     or left.had_preview ~= right.had_preview
-    or #left.entries ~= #right.entries
-    or #left.preferred_columns ~= #right.preferred_columns then
+    or #left.entries ~= #right.entries then
     return false
   end
 
   for index, entry in ipairs(left.entries) do
     local other = right.entries[index]
     if not other
-      or entry.anchor_pos[1] ~= other.anchor_pos[1]
-      or entry.anchor_pos[2] ~= other.anchor_pos[2]
-      or entry.cursor_pos[1] ~= other.cursor_pos[1]
-      or entry.cursor_pos[2] ~= other.cursor_pos[2]
-      or (entry.empty == true) ~= (other.empty == true) then
-      return false
-    end
-  end
-
-  local left_cursor_positions = left.cursor_positions or {}
-  local right_cursor_positions = right.cursor_positions or {}
-  if #left_cursor_positions ~= #right_cursor_positions then
-    return false
-  end
-
-  for index, pos in ipairs(left_cursor_positions) do
-    local other = right_cursor_positions[index]
-    if not other or pos[1] ~= other[1] or pos[2] ~= other[2] then
-      return false
-    end
-  end
-
-  for index, preferred in ipairs(left.preferred_columns or {}) do
-    if preferred ~= right.preferred_columns[index] then
+      or entry:anchor_cell()[1] ~= other:anchor_cell()[1]
+      or entry:anchor_cell()[2] ~= other:anchor_cell()[2]
+      or entry:cursor()[1] ~= other:cursor()[1]
+      or entry:cursor()[2] ~= other:cursor()[2]
+      or entry.goal_display_col ~= other.goal_display_col
+      or entry:is_empty() ~= other:is_empty() then
       return false
     end
   end
@@ -1791,19 +1461,19 @@ push_jump_if_moved = function(before, reason)
 end
 
 local function collapse_to_primary_for_flash(snapshot)
-  if not snapshot or not snapshot.primary_entry then
+  if not snapshot or not snapshot.primary_range then
     return
   end
 
   if snapshot.extend_mode then
     state.enter_extend_mode()
-    state.set_preview_entries(current_buffer(), { vim.deepcopy(snapshot.primary_entry) }, { sync_history = false })
+    state.set_preview_ranges(current_buffer(), { vim.deepcopy(snapshot.primary_range) }, { sync_history = false })
     return
   end
 
   state.clear_preview({ keep_insert_mode = true })
   state.exit_extend_mode()
-  state_module.move_cursor_to_pos(snapshot.primary_entry.cursor_pos)
+  state_module.move_cursor_to_pos(snapshot.primary_range:cursor())
 end
 
 local function selected_or_explicit_register(register_name)
@@ -1813,7 +1483,7 @@ end
 local function store_yanked_entries(entries, register_name)
   local parts = {}
   for _, entry in ipairs(entries) do
-    table.insert(parts, state_module.get_entry_text(entry))
+    table.insert(parts, entry:text())
   end
 
   if #parts == 0 then
@@ -1837,158 +1507,44 @@ local function echo_yank_status(count, register_name)
   vim.api.nvim_echo({ { string.format("yanked %d %s to register %s", count, selection_label, resolved_register), "ModeMsg" } }, false, {})
 end
 
-local function replace_preview_entries_with_text(entries, replacements)
+local function replace_preview_ranges_with_text(entries, replacements)
   if #entries == 0 or #replacements == 0 then
     return {}
   end
 
-  local function replacement_end_pos(start_pos, text)
-    local lines = replacement_lines(text)
-    if #lines == 0 then
-      return start_pos
-    end
-
-    if #lines == 1 then
-      return { start_pos[1], start_pos[2] + position.char_count(lines[1]) - 1 }
-    end
-
-    return { start_pos[1] + #lines - 1, position.char_count(lines[#lines]) }
-  end
-
   local buffer = vim.api.nvim_get_current_buf()
-  local namespace = vim.api.nvim_create_namespace("axelcool1234-replace-preview")
-  local marks = {}
-
+  local transaction = transaction_module.new(buffer)
   for index, entry in ipairs(entries) do
-    local start_row, start_col, end_row, end_col = state_module.entry_text_ranges(entry)
-    marks[index] = {
-      index = index,
-      entry = entry,
-      replacement = replacements[math.min(index, #replacements)],
-      start_id = vim.api.nvim_buf_set_extmark(buffer, namespace, start_row, start_col, {
-        right_gravity = false,
-      }),
-      end_id = vim.api.nvim_buf_set_extmark(buffer, namespace, end_row, end_col, {
-        right_gravity = true,
-      }),
-    }
+    transaction:track_range(entry)
+    transaction:replace(entry, replacements[math.min(index, #replacements)])
   end
-
-  table.sort(marks, function(left, right)
-    local left_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, left.end_id, {})
-    local right_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, right.end_id, {})
-    if left_pos[1] == right_pos[1] then
-      return left_pos[2] > right_pos[2]
-    end
-    return left_pos[1] > right_pos[1]
-  end)
-
-  for _, mark in ipairs(marks) do
-    local start_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, mark.start_id, {})
-    local end_pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, mark.end_id, {})
-    if #start_pos > 0 and #end_pos > 0 then
-      vim.api.nvim_buf_set_text(
-        buffer,
-        start_pos[1],
-        start_pos[2],
-        end_pos[1],
-        end_pos[2],
-        replacement_lines(mark.replacement)
-      )
-    end
-  end
-
-  local updated_entries = {}
-  for _, mark in ipairs(marks) do
-    local start_1indexed = extmark_pos_1indexed(buffer, namespace, mark.start_id)
-    if start_1indexed then
-      local end_selected = replacement_end_pos(start_1indexed, mark.replacement)
-      if start_1indexed[1] == end_selected[1] and start_1indexed[2] == end_selected[2] then
-        updated_entries[mark.index] = state_module.selection_entry(start_1indexed, start_1indexed)
-        updated_entries[mark.index].force_highlight = true
-      else
-        if mark.entry.anchor_pos[1] > mark.entry.cursor_pos[1]
-          or (mark.entry.anchor_pos[1] == mark.entry.cursor_pos[1] and mark.entry.anchor_pos[2] > mark.entry.cursor_pos[2]) then
-          updated_entries[mark.index] = state_module.selection_entry(end_selected, start_1indexed)
-        else
-          updated_entries[mark.index] = state_module.selection_entry(start_1indexed, end_selected)
-        end
-      end
-    end
-  end
-
-  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
-  return updated_entries
+  return transaction:apply().ranges
 end
 
 full_line_entry = function(row_start, row_end)
   row_end = row_end or row_start
-  return state_module.selection_entry({ row_start, 1 }, { row_end, line_cursor_max_column(row_end) })
+  return range_from_cells({ row_start, 1 }, { row_end, line_cursor_max_column(row_end) })
 end
 
 local function linewise_entries(entries)
   local line_entries = {}
   for _, entry in ipairs(entries) do
-    line_entries[#line_entries + 1] = full_line_entry(entry.start_pos[1], entry.end_pos[1])
+    line_entries[#line_entries + 1] = full_line_entry(entry:start_cell()[1], entry:end_cell()[1])
   end
 
   return line_entries
 end
 
-local function create_entry_marks(buffer, entries, namespace)
-  local marks = {}
-  for index, entry in ipairs(entries) do
-    local anchor_row, anchor_col = position.before_boundary(buffer, entry.anchor_pos)
-    local cursor_row, cursor_col = position.before_boundary(buffer, entry.cursor_pos)
-    marks[index] = {
-      anchor_id = vim.api.nvim_buf_set_extmark(buffer, namespace, anchor_row, anchor_col, {
-        right_gravity = true,
-      }),
-      cursor_id = vim.api.nvim_buf_set_extmark(buffer, namespace, cursor_row, cursor_col, {
-        right_gravity = true,
-      }),
-    }
-  end
-
-  return marks
-end
-
-extmark_pos_1indexed = function(buffer, namespace, mark_id)
-  local pos = vim.api.nvim_buf_get_extmark_by_id(buffer, namespace, mark_id, {})
-  if #pos == 0 then
-    return nil
-  end
-
-  local row = pos[1] + 1
-  return { row, position.char_col_from_byte_col0(position.line_text(buffer, row), pos[2]) }
-end
-
-local function restore_entries_from_marks(buffer, entries, namespace, marks)
-  local restored = {}
-  for index, entry in ipairs(entries) do
-    local mark = marks[index]
-    local anchor_pos = extmark_pos_1indexed(buffer, namespace, mark.anchor_id) or entry.anchor_pos
-    local cursor_pos = extmark_pos_1indexed(buffer, namespace, mark.cursor_id) or entry.cursor_pos
-    restored[index] = state_module.selection_entry(anchor_pos, cursor_pos)
-  end
-
-  return restored
-end
-
-local function insert_around_entries_preserving_selections(entries, points, replacements)
+local function insert_around_entries_preserving_selections(entries, points, replacements, affinity)
   if #entries == 0 or #points == 0 or #replacements == 0 then
     return {}
   end
 
   local buffer = vim.api.nvim_get_current_buf()
-  local namespace = vim.api.nvim_create_namespace("axelcool1234-paste-restore-selection")
-  local marks = create_entry_marks(buffer, entries, namespace)
+  local tracker = transaction_module.track_ranges(buffer, entries, { affinity = affinity })
 
   insert_points_with_text(points, replacements)
-  local restored = restore_entries_from_marks(buffer, entries, namespace, marks)
-
-  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
-  return restored
+  return tracker:resolve()
 end
 
 local function insert_linewise_rows_preserving_selections(entries, target_rows, replacements)
@@ -1997,20 +1553,16 @@ local function insert_linewise_rows_preserving_selections(entries, target_rows, 
   end
 
   local buffer = vim.api.nvim_get_current_buf()
-  local namespace = vim.api.nvim_create_namespace("axelcool1234-paste-linewise-restore-selection")
-  local marks = create_entry_marks(buffer, entries, namespace)
+  local tracker = transaction_module.track_ranges(buffer, entries, { affinity = "after" })
 
   insert_linewise_rows_with_text(target_rows, replacements)
-  local restored = restore_entries_from_marks(buffer, entries, namespace, marks)
-
-  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
-  return restored
+  return tracker:resolve()
 end
 
 local function merged_line_ranges(entries)
   local ranges = {}
   for _, entry in ipairs(entries) do
-    ranges[#ranges + 1] = { start_row = entry.start_pos[1], end_row = entry.end_pos[1] }
+    ranges[#ranges + 1] = { start_row = entry:start_cell()[1], end_row = entry:end_cell()[1] }
   end
 
   table.sort(ranges, function(left, right)
@@ -2104,28 +1656,6 @@ local function matching_line_comment_token(content, tokens)
   return nil
 end
 
-local function entry_pos_equal(left, right)
-  return left[1] == right[1] and left[2] == right[2]
-end
-
-local function create_directional_entry_marks(buffer, entries, namespace)
-  local marks = {}
-  for index, entry in ipairs(entries) do
-    local anchor_row, anchor_col = position.before_boundary(buffer, entry.anchor_pos)
-    local cursor_row, cursor_col = position.before_boundary(buffer, entry.cursor_pos)
-    marks[index] = {
-      anchor_id = vim.api.nvim_buf_set_extmark(buffer, namespace, anchor_row, anchor_col, {
-        right_gravity = entry_pos_equal(entry.anchor_pos, entry.start_pos),
-      }),
-      cursor_id = vim.api.nvim_buf_set_extmark(buffer, namespace, cursor_row, cursor_col, {
-        right_gravity = entry_pos_equal(entry.cursor_pos, entry.start_pos),
-      }),
-    }
-  end
-
-  return marks
-end
-
 local function line_is_commented(line, prefix, suffix)
   local _, content = line_indent_and_content(line)
   if content == "" then
@@ -2181,8 +1711,7 @@ local function toggle_comments_for_entries(entries)
   end
 
   local buffer = current_buffer()
-  local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-toggle-comments")
-  local marks = create_entry_marks(buffer, entries, namespace)
+  local tracker = transaction_module.track_ranges(buffer, entries, { affinity = "after" })
   local edits = {}
 
   for _, range in ipairs(ranges) do
@@ -2226,16 +1755,9 @@ local function toggle_comments_for_entries(entries)
     end
   end
 
-  table.sort(edits, function(left, right)
-    if left.row == right.row then
-      return left.start_col > right.start_col
-    end
-    return left.row > right.row
-  end)
-
+  local edit_transaction = transaction_module.new(buffer)
   for _, edit in ipairs(edits) do
-    vim.api.nvim_buf_set_text(
-      buffer,
+    edit_transaction:replace_bytes(
       edit.row - 1,
       edit.start_col,
       edit.row - 1,
@@ -2243,15 +1765,13 @@ local function toggle_comments_for_entries(entries)
       edit.replacement
     )
   end
+  edit_transaction:apply()
 
-  local restored = restore_entries_from_marks(buffer, entries, namespace, marks)
-  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
-
-  return restored, has_nonblank
+  return tracker:resolve(), has_nonblank
 end
 
 local function entry_is_block_commented(buffer, entry, prefix, suffix)
-  local start_row, start_col, end_row, end_col = state_module.entry_text_ranges(entry)
+  local start_row, start_col, end_row, end_col = entry:byte_range()
   if start_col < #prefix then
     return false
   end
@@ -2293,8 +1813,7 @@ local function toggle_block_comments_for_entries(entries)
   end
 
   local buffer = current_buffer()
-  local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-toggle-block-comments")
-  local marks = create_directional_entry_marks(buffer, entries, namespace)
+  local tracker = transaction_module.track_ranges(buffer, entries, { affinity = "inside" })
   local all_commented = true
   local edits = {}
 
@@ -2306,7 +1825,7 @@ local function toggle_block_comments_for_entries(entries)
   end
 
   for _, entry in ipairs(entries) do
-    local start_row, start_col, end_row, end_col = state_module.entry_text_ranges(entry)
+    local start_row, start_col, end_row, end_col = entry:byte_range()
     if all_commented then
       edits[#edits + 1] = {
         row = end_row,
@@ -2336,16 +1855,9 @@ local function toggle_block_comments_for_entries(entries)
     end
   end
 
-  table.sort(edits, function(left, right)
-    if left.row == right.row then
-      return left.start_col > right.start_col
-    end
-    return left.row > right.row
-  end)
-
+  local edit_transaction = transaction_module.new(buffer)
   for _, edit in ipairs(edits) do
-    vim.api.nvim_buf_set_text(
-      buffer,
+    edit_transaction:replace_bytes(
       edit.row,
       edit.start_col,
       edit.row,
@@ -2353,52 +1865,50 @@ local function toggle_block_comments_for_entries(entries)
       edit.replacement
     )
   end
+  edit_transaction:apply()
 
-  local restored = restore_entries_from_marks(buffer, entries, namespace, marks)
-  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
-
-  return restored, true
+  return tracker:resolve(), true
 end
 
 local function linewise_entry_from_entry(entry, end_row)
-  local start_pos = { entry.start_pos[1], 1 }
+  local start_pos = { entry:start_cell()[1], 1 }
   local end_pos = { end_row, line_cursor_max_column(end_row) }
 
-  if entry.anchor_pos[1] > entry.cursor_pos[1]
-    or (entry.anchor_pos[1] == entry.cursor_pos[1] and entry.anchor_pos[2] > entry.cursor_pos[2]) then
-    return state_module.selection_entry(end_pos, start_pos)
+  if entry:anchor_cell()[1] > entry:cursor()[1]
+    or (entry:anchor_cell()[1] == entry:cursor()[1] and entry:anchor_cell()[2] > entry:cursor()[2]) then
+    return range_from_cells(end_pos, start_pos)
   end
 
-  return state_module.selection_entry(start_pos, end_pos)
+  return range_from_cells(start_pos, end_pos)
 end
 
 local function entry_starts_before(left, right)
-  if left.start_pos[1] == right.start_pos[1] then
-    if left.start_pos[2] == right.start_pos[2] then
-      if left.end_pos[1] == right.end_pos[1] then
-        return left.end_pos[2] < right.end_pos[2]
+  if left:start_cell()[1] == right:start_cell()[1] then
+    if left:start_cell()[2] == right:start_cell()[2] then
+      if left:end_cell()[1] == right:end_cell()[1] then
+        return left:end_cell()[2] < right:end_cell()[2]
       end
 
-      return left.end_pos[1] < right.end_pos[1]
+      return left:end_cell()[1] < right:end_cell()[1]
     end
 
-    return left.start_pos[2] < right.start_pos[2]
+    return left:start_cell()[2] < right:start_cell()[2]
   end
 
-  return left.start_pos[1] < right.start_pos[1]
+  return left:start_cell()[1] < right:start_cell()[1]
 end
 
 local function visual_column_at_pos(pos)
   local line = line_text(pos[1])
-  return vim.fn.strdisplaywidth(position.prefix_by_char_count(line, math.max(pos[2] - 1, 0)))
+  return vim.fn.strdisplaywidth(position.prefix_by_grapheme_count(line, math.max(pos[2] - 1, 0)))
 end
 
-local function sorted_selection_items(entries, preferred_columns)
+local function sorted_selection_items(entries)
   local items = {}
   for index, entry in ipairs(entries) do
     items[index] = {
       entry = vim.deepcopy(entry),
-      preferred_col = preferred_columns and preferred_columns[index] or entry.cursor_pos[2],
+      preferred_col = entry.goal_display_col or position.display_col(current_buffer(), entry:cursor()),
       is_primary = index == 1,
     }
   end
@@ -2422,26 +1932,25 @@ end
 
 local function entries_from_sorted_items(items, primary_index)
   local entries = {}
-  local preferred_columns = {}
 
   if #items == 0 then
-    return entries, preferred_columns
+    return entries
   end
 
   local primary_item = items[primary_index]
   entries[1] = vim.deepcopy(primary_item.entry)
-  preferred_columns[1] = primary_item.preferred_col
+  entries[1].goal_display_col = primary_item.preferred_col
 
   local write_index = 2
   for index, item in ipairs(items) do
     if index ~= primary_index then
       entries[write_index] = vim.deepcopy(item.entry)
-      preferred_columns[write_index] = item.preferred_col
+      entries[write_index].goal_display_col = item.preferred_col
       write_index = write_index + 1
     end
   end
 
-  return entries, preferred_columns
+  return entries
 end
 
 local function rotate_primary_index(index, len, direction, count)
@@ -2483,21 +1992,21 @@ local function rotate_values(values, direction, count)
 end
 
 local function entry_is_full_line(entry)
-  return entry.start_pos[2] == 1 and entry.end_pos[2] == line_cursor_max_column(entry.end_pos[1])
+  return entry:start_cell()[2] == 1 and entry:end_cell()[2] == line_cursor_max_column(entry:end_cell()[1])
 end
 
 local function entry_is_point(entry)
-  return entry.anchor_pos[1] == entry.cursor_pos[1] and entry.anchor_pos[2] == entry.cursor_pos[2]
+  return entry:anchor_cell()[1] == entry:cursor()[1] and entry:anchor_cell()[2] == entry:cursor()[2]
 end
 
 local function clone_entry_to_supported_line(entry, delta, preferred_cursor_col)
   local cursor_row_delta = delta > 0 and 1 or -1
-  local row_offset = entry.anchor_pos[1] - entry.cursor_pos[1]
-  local target_cursor_row = entry.cursor_pos[1] + delta
+  local row_offset = entry:anchor_cell()[1] - entry:cursor()[1]
+  local target_cursor_row = entry:cursor()[1] + delta
   local last_row = position.line_count(current_buffer())
 
   if entry_is_point(entry) then
-    local preferred_display_col = preferred_cursor_col or position.display_col(current_buffer(), entry.cursor_pos)
+    local preferred_display_col = preferred_cursor_col or position.display_col(current_buffer(), entry:cursor())
 
     while target_cursor_row >= 1 and target_cursor_row <= last_row do
       local max_display_col = position.display_col(current_buffer(), {
@@ -2505,8 +2014,8 @@ local function clone_entry_to_supported_line(entry, delta, preferred_cursor_col)
         line_cursor_max_column(target_cursor_row),
       })
       if preferred_display_col <= max_display_col then
-        local target_col = position.char_col_at_display_col(current_buffer(), target_cursor_row, preferred_display_col)
-        return state_module.selection_entry({ target_cursor_row, target_col }, { target_cursor_row, target_col })
+        local target_col = position.grapheme_col_at_display_col(current_buffer(), target_cursor_row, preferred_display_col)
+        return range_from_cells({ target_cursor_row, target_col }, { target_cursor_row, target_col })
       end
 
       target_cursor_row = target_cursor_row + cursor_row_delta
@@ -2519,11 +2028,11 @@ local function clone_entry_to_supported_line(entry, delta, preferred_cursor_col)
     local target_anchor_row = target_cursor_row + row_offset
     if target_anchor_row >= 1
       and target_anchor_row <= last_row
-      and line_supports_column(target_anchor_row, entry.anchor_pos[2])
-      and line_supports_column(target_cursor_row, entry.cursor_pos[2]) then
-      return state_module.selection_entry(
-        { target_anchor_row, entry.anchor_pos[2] },
-        { target_cursor_row, entry.cursor_pos[2] }
+      and line_supports_column(target_anchor_row, entry:anchor_cell()[2])
+      and line_supports_column(target_cursor_row, entry:cursor()[2]) then
+      return range_from_cells(
+        { target_anchor_row, entry:anchor_cell()[2] },
+        { target_cursor_row, entry:cursor()[2] }
       )
     end
 
@@ -2535,32 +2044,32 @@ end
 
 local function selection_segments_by_line(entry)
   local function shift_cursor_off_newline(segment)
-    if not position.is_newline_pos(current_buffer(), segment.cursor_pos) then
+    if not position.is_newline_pos(current_buffer(), segment:cursor()) then
       return segment
     end
 
-    if line_text(segment.cursor_pos[1]) == "" then
+    if line_text(segment:cursor()[1]) == "" then
       return segment
     end
 
-    local shifted_cursor = position.prev_pos(current_buffer(), segment.cursor_pos)
-    if segment.anchor_pos[1] == segment.cursor_pos[1] and segment.anchor_pos[2] == segment.cursor_pos[2] then
-      return state_module.selection_entry(shifted_cursor, shifted_cursor)
+    local shifted_cursor = position.prev_pos(current_buffer(), segment:cursor())
+    if segment:anchor_cell()[1] == segment:cursor()[1] and segment:anchor_cell()[2] == segment:cursor()[2] then
+      return range_from_cells(shifted_cursor, shifted_cursor)
     end
 
-    return state_module.selection_entry(segment.anchor_pos, shifted_cursor)
+    return range_from_cells(segment:anchor_cell(), shifted_cursor)
   end
 
   local segments = {}
 
-  for row = entry.start_pos[1], entry.end_pos[1] do
-    local start_col = row == entry.start_pos[1] and entry.start_pos[2] or 1
-    local end_col = row == entry.end_pos[1] and entry.end_pos[2] or line_cursor_max_column(row)
+  for row = entry:start_cell()[1], entry:end_cell()[1] do
+    local start_col = row == entry:start_cell()[1] and entry:start_cell()[2] or 1
+    local end_col = row == entry:end_cell()[1] and entry:end_cell()[2] or line_cursor_max_column(row)
     if start_col > end_col then
       start_col = end_col
     end
 
-    table.insert(segments, shift_cursor_off_newline(state_module.selection_entry({ row, start_col }, { row, end_col })))
+    table.insert(segments, shift_cursor_off_newline(range_from_cells({ row, start_col }, { row, end_col })))
   end
 
   return segments
@@ -2605,12 +2114,12 @@ end
 
 function M.flash_jump()
   local snapshot = capture_selection_state_snapshot()
-  if not snapshot.primary_entry then
+  if not snapshot.primary_range then
     return
   end
 
   collapse_to_primary_for_flash(snapshot)
-  local target = flash.pick_visible_word_target(snapshot.primary_entry.cursor_pos, {
+  local target = flash.pick_visible_word_target(snapshot.primary_range:cursor(), {
     multi_window = not snapshot.extend_mode,
   })
   if not target then
@@ -2629,7 +2138,7 @@ function M.flash_jump()
       vim.api.nvim_set_current_win(target.win)
     end
     state.enter_extend_mode()
-    set_preview_entries({ state_module.selection_entry(snapshot.primary_entry.anchor_pos, target.pos) }, { sync_history = false })
+    set_preview_ranges({ range_from_cells(snapshot.primary_range:anchor_cell(), target.pos) }, { sync_history = false })
     return
   end
 
@@ -2643,12 +2152,12 @@ end
 
 function M.flash_treesitter()
   local snapshot = capture_selection_state_snapshot()
-  if not snapshot.primary_entry then
+  if not snapshot.primary_range then
     return
   end
 
   collapse_to_primary_for_flash(snapshot)
-  local target = flash.pick_treesitter_target(snapshot.primary_entry.cursor_pos, snapshot.primary_entry)
+  local target = flash.pick_treesitter_target(snapshot.primary_range:cursor(), snapshot.primary_range)
   if not target then
     restore_selection_state_snapshot(snapshot)
     return
@@ -2658,8 +2167,8 @@ function M.flash_treesitter()
     vim.api.nvim_set_current_win(target.win)
   end
 
-  state.set_preview_entries(current_buffer(), {
-    state_module.selection_entry(target.start_pos, target.end_pos),
+  state.set_preview_ranges(current_buffer(), {
+    range_from_cells(target.start_pos, target.end_pos),
   }, { sync_history = false })
   if snapshot.extend_mode then
     state.enter_extend_mode()
@@ -2796,25 +2305,25 @@ function M.goto_file_start()
   local target_row = vim.v.count > 0 and vim.v.count or 1
   local buffer = current_buffer()
   local last_row = position.line_count(buffer)
-  local source_entries = state.current_entries()
+  local source_entries = state.current_ranges()
   local entries = {}
-  local preferred_columns = {}
 
   target_row = math.max(1, math.min(target_row, last_row))
 
   for index, source_entry in ipairs(source_entries) do
     local target = { target_row, 1 }
     if state.extend_mode_active() then
-      local anchor = state.preview.entries[index] and state.preview.entries[index].anchor_pos or source_entry.anchor_pos
-      entries[index] = state_module.selection_entry(anchor, target)
+      local preview_range = state.preview_range(index)
+      local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
+      entries[index] = range_from_cells(anchor, target)
     else
-      entries[index] = state_module.selection_entry(target, target)
+      entries[index] = range_from_cells(target, target)
     end
-    preferred_columns[index] = 1
+    entries[index].goal_display_col = 1
   end
 
   if #source_entries > 1 or state.extend_mode_active() or state.preview_active() then
-    state.set_preview_entries(buffer, entries, { preferred_columns = preferred_columns })
+    state.set_preview_ranges(buffer, entries)
     if not state.extend_mode_active() then
       state.exit_extend_mode()
     end
@@ -2822,7 +2331,7 @@ function M.goto_file_start()
     return
   end
 
-  state_module.move_cursor_to_pos(entries[1].cursor_pos)
+  state_module.move_cursor_to_pos(entries[1]:cursor())
   push_jump_if_moved(before, "goto-file-start")
 end
 
@@ -2834,30 +2343,30 @@ end
 
 function M.goto_line_start()
   local buffer = current_buffer()
-  local source_entries = state.current_entries()
+  local source_entries = state.current_ranges()
   local entries = {}
-  local preferred_columns = {}
 
   for index, source_entry in ipairs(source_entries) do
-    local target = { source_entry.cursor_pos[1], 1 }
+    local target = { source_entry:cursor()[1], 1 }
     if state.extend_mode_active() then
-      local anchor = state.preview.entries[index] and state.preview.entries[index].anchor_pos or source_entry.anchor_pos
-      entries[index] = state_module.selection_entry(anchor, target)
+      local preview_range = state.preview_range(index)
+      local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
+      entries[index] = range_from_cells(anchor, target)
     else
-      entries[index] = state_module.selection_entry(target, target)
+      entries[index] = range_from_cells(target, target)
     end
-    preferred_columns[index] = 1
+    entries[index].goal_display_col = 1
   end
 
   if #source_entries > 1 or state.extend_mode_active() or state.preview_active() then
-    state.set_preview_entries(buffer, entries, { preferred_columns = preferred_columns })
+    state.set_preview_ranges(buffer, entries)
     if not state.extend_mode_active() then
       state.exit_extend_mode()
     end
     return
   end
 
-  state_module.move_cursor_to_pos(entries[1].cursor_pos)
+  state_module.move_cursor_to_pos(entries[1]:cursor())
 end
 
 function M.goto_line_end()
@@ -2937,7 +2446,7 @@ end
 
 local function diagnostic_pos_from_byte(row1, byte_col0)
   local line = line_text(row1)
-  return { row1, position.char_col_from_byte_col0(line, byte_col0) }
+  return { row1, position.grapheme_col_from_byte_col0(line, byte_col0) }
 end
 
 local function sorted_buffer_diagnostics()
@@ -2963,9 +2472,9 @@ local function diagnostic_entry(diag, direction)
   end
 
   if direction == "backward" then
-    return state_module.selection_entry(end_pos, start_pos)
+    return range_from_cells(end_pos, start_pos)
   end
-  return state_module.selection_entry(start_pos, end_pos)
+  return range_from_cells(start_pos, end_pos)
 end
 
 local function pos_before(left, right)
@@ -3005,7 +2514,7 @@ local function find_relative_diagnostic(diagnostics, cursor_pos, direction, coun
     end
 
     current = best
-    current_pos = diagnostic_entry(best, direction).cursor_pos
+    current_pos = diagnostic_entry(best, direction):cursor()
   end
 
   return current
@@ -3031,15 +2540,16 @@ function M.goto_diagnostic(direction)
   local in_extend_mode = state.extend_mode_active()
 
   for index, entry in ipairs(source_entries) do
-    local diag = find_relative_diagnostic(diagnostics, entry.cursor_pos, direction, count)
+    local diag = find_relative_diagnostic(diagnostics, entry:cursor(), direction, count)
     if not diag then
       entries[#entries + 1] = entry
     else
       moved_any = true
       local target_entry = diagnostic_entry(diag, direction)
       if in_extend_mode then
-        local anchor = (state.preview_active() and state.preview.entries[index] and state.preview.entries[index].anchor_pos) or entry.anchor_pos
-        entries[#entries + 1] = state_module.selection_entry(anchor, target_entry.cursor_pos)
+        local preview_range = state.preview_active() and state.preview_range(index) or nil
+        local anchor = (preview_range and preview_range:anchor_cell()) or entry:anchor_cell()
+        entries[#entries + 1] = range_from_cells(anchor, target_entry:cursor())
       else
         entries[#entries + 1] = target_entry
       end
@@ -3050,7 +2560,7 @@ function M.goto_diagnostic(direction)
     return
   end
 
-  set_preview_entries(entries)
+  set_preview_ranges(entries)
   if not in_extend_mode then
     state.exit_extend_mode()
   end
@@ -3079,7 +2589,7 @@ function M.goto_edge_diagnostic(edge)
   end)
 
   local diagnostic = edge == "last" and diagnostics[#diagnostics] or diagnostics[1]
-  set_preview_entries({ diagnostic_entry(diagnostic, "forward") })
+  set_preview_ranges({ diagnostic_entry(diagnostic, "forward") })
   state.exit_extend_mode()
   vim.diagnostic.open_float(0, { scope = "cursor", focusable = false })
   push_jump_if_moved(before, "diagnostic-edge")
@@ -3092,9 +2602,9 @@ local function change_entry_from_hunk(hunk, direction)
   local start_pos = { start_row, 1 }
   local end_pos = { end_row, line_cursor_max_column(end_row) }
   if direction == "backward" then
-    return state_module.selection_entry(end_pos, start_pos)
+    return range_from_cells(end_pos, start_pos)
   end
-  return state_module.selection_entry(start_pos, end_pos)
+  return range_from_cells(start_pos, end_pos)
 end
 
 function M.goto_change(kind)
@@ -3121,19 +2631,20 @@ function M.goto_change(kind)
   local in_extend_mode = state.extend_mode_active()
 
   for entry_index, entry in ipairs(source_entries) do
-    local row = (state.preview_active() and state.preview.cursor_positions[entry_index] or entry.cursor_pos)[1]
+    local row = entry:cursor()[1]
     local hunk_index = find_nearest_hunk(row, hunks, kind, false)
     if hunk_index then
       local direction = (kind == "prev" or kind == "first") and "backward" or "forward"
       local hunk_entry = change_entry_from_hunk(hunks[hunk_index], direction)
       if in_extend_mode then
-        local anchor = (state.preview_active() and state.preview.entries[entry_index] and state.preview.entries[entry_index].anchor_pos) or entry.anchor_pos
-        local target_pos = hunk_entry.end_pos
-        if hunk_entry.end_pos[1] < anchor[1]
-          or (hunk_entry.end_pos[1] == anchor[1] and hunk_entry.end_pos[2] < anchor[2]) then
-          target_pos = hunk_entry.start_pos
+        local preview_range = state.preview_active() and state.preview_range(entry_index) or nil
+        local anchor = (preview_range and preview_range:anchor_cell()) or entry:anchor_cell()
+        local target_pos = hunk_entry:end_cell()
+        if hunk_entry:end_cell()[1] < anchor[1]
+          or (hunk_entry:end_cell()[1] == anchor[1] and hunk_entry:end_cell()[2] < anchor[2]) then
+          target_pos = hunk_entry:start_cell()
         end
-        entries[#entries + 1] = state_module.selection_entry(anchor, target_pos)
+        entries[#entries + 1] = range_from_cells(anchor, target_pos)
       else
         entries[#entries + 1] = hunk_entry
       end
@@ -3142,7 +2653,7 @@ function M.goto_change(kind)
     end
   end
 
-  set_preview_entries(entries)
+  set_preview_ranges(entries)
   if not in_extend_mode then
     state.exit_extend_mode()
   end
@@ -3277,12 +2788,12 @@ function M.goto_paragraph(direction)
 
   local source_entries = preview_or_cursor_entries()
   local entries = {}
-  local cursor_positions = {}
   local in_extend_mode = state.extend_mode_active()
   for index, entry in ipairs(source_entries) do
-    local cursor = state.preview_active() and state.preview.cursor_positions[index] or entry.cursor_pos
+    local cursor = entry:cursor()
     local row = cursor[1]
-    local anchor = (state.preview_active() and state.preview.entries[index] and state.preview.entries[index].anchor_pos) or entry.anchor_pos
+    local preview_range = state.preview_active() and state.preview_range(index) or nil
+    local anchor = (preview_range and preview_range:anchor_cell()) or entry:anchor_cell()
     local normal_entry
     local target_cursor_pos
     if direction == "forward" then
@@ -3291,12 +2802,12 @@ function M.goto_paragraph(direction)
         if not state.preview_active() then
           local blank_end = blank_block_end(row)
           target_cursor_pos = { blank_end, line_cursor_max_column(blank_end) }
-          normal_entry = state_module.selection_entry(cursor, target_cursor_pos)
+          normal_entry = range_from_cells(cursor, target_cursor_pos)
         else
           local start_row = paragraph_start_after(row)
           if start_row == last_row and not line_is_blank_text(start_row) then
             target_cursor_pos = { start_row, line_cursor_max_column(start_row) }
-            normal_entry = state_module.selection_entry({ start_row, 1 }, target_cursor_pos)
+            normal_entry = range_from_cells({ start_row, 1 }, target_cursor_pos)
           else
             local target = paragraph_start_after(start_row)
             if target == last_row and not line_is_blank_text(target) and not line_is_blank_text(target - 1) then
@@ -3304,22 +2815,22 @@ function M.goto_paragraph(direction)
             else
               target_cursor_pos = position.prev_pos(buffer, { target, 1 })
             end
-            normal_entry = state_module.selection_entry({ start_row, 1 }, target_cursor_pos)
+            normal_entry = range_from_cells({ start_row, 1 }, target_cursor_pos)
           end
         end
       elseif row == end_row and cursor[2] == line_cursor_max_column(row) then
         local start_row = paragraph_start_after(row)
         local object_entry = match.select_textobject_at_point({ start_row, 1 }, "p", false)
         normal_entry = object_entry
-        target_cursor_pos = object_entry.cursor_pos
+        target_cursor_pos = object_entry:cursor()
       else
         local target = paragraph_start_after(row)
         if target == last_row and not line_is_blank_text(target) then
           target_cursor_pos = { target, line_cursor_max_column(target) }
-          normal_entry = state_module.selection_entry(cursor, target_cursor_pos)
+          normal_entry = range_from_cells(cursor, target_cursor_pos)
         else
           target_cursor_pos = position.prev_pos(buffer, { target, 1 })
-          normal_entry = state_module.selection_entry(cursor, target_cursor_pos)
+          normal_entry = range_from_cells(cursor, target_cursor_pos)
         end
       end
     else
@@ -3332,25 +2843,23 @@ function M.goto_paragraph(direction)
         else
           target_cursor_pos = position.prev_pos(buffer, { target, 1 })
         end
-        normal_entry = state_module.selection_entry({ start_row, 1 }, target_cursor_pos)
+        normal_entry = range_from_cells({ start_row, 1 }, target_cursor_pos)
         target_cursor_pos = { start_row, 1 }
       else
         local target_row = paragraph_start_at_or_before(math.max(row - 1, 1))
         target_cursor_pos = { target_row, 1 }
-        normal_entry = state_module.selection_entry(position.prev_pos(buffer, cursor), target_cursor_pos)
+        normal_entry = range_from_cells(position.prev_pos(buffer, cursor), target_cursor_pos)
       end
     end
 
-    if in_extend_mode then
-      entries[#entries + 1] = state_module.selection_entry(anchor, target_cursor_pos)
-      cursor_positions[#cursor_positions + 1] = target_cursor_pos
-    else
-      entries[#entries + 1] = normal_entry
-      cursor_positions[#cursor_positions + 1] = target_cursor_pos
+    local added = in_extend_mode and range_from_cells(anchor, target_cursor_pos) or normal_entry
+    if not vim.deep_equal(added:cursor(), target_cursor_pos) then
+      added.visual_cursor = vim.deepcopy(target_cursor_pos)
     end
+    entries[#entries + 1] = added
   end
 
-  set_preview_entries(entries, { cursor_positions = cursor_positions })
+  set_preview_ranges(entries)
   if not in_extend_mode then
     state.exit_extend_mode()
   end
@@ -3367,14 +2876,13 @@ function M.add_newline_relative(direction, count_override)
   local entries = preview_or_cursor_entries()
   local buffer = current_buffer()
   local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-add-newline")
-  local history_config = current_preview_history_config()
-  local transaction = history.transaction(entries, history_config)
-  local selection_marks = create_entry_marks(buffer, entries, namespace)
+  local transaction = history.transaction(entries)
+  local selection_tracker = transaction_module.track_ranges(buffer, entries, { affinity = "after" })
   local had_preview = state.preview_active()
   local marks = {}
 
   for index, entry in ipairs(entries) do
-    local row = direction > 0 and entry.end_pos[1] or entry.start_pos[1] - 1
+    local row = direction > 0 and entry:end_cell()[1] or entry:start_cell()[1] - 1
     marks[index] = {
       id = vim.api.nvim_buf_set_extmark(buffer, namespace, math.max(row, 0), 0, {
         right_gravity = false,
@@ -3403,15 +2911,12 @@ function M.add_newline_relative(direction, count_override)
     end
   end
 
-  local updated = restore_entries_from_marks(buffer, entries, namespace, selection_marks)
+  local updated = selection_tracker:resolve()
   vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
   if had_preview then
-    set_preview_entries(updated, {
-      preferred_columns = history_config.preferred_columns,
-      sync_history = false,
-    })
+    set_preview_ranges(updated, { sync_history = false })
   elseif updated[1] then
-    state_module.move_cursor_to_pos(updated[1].cursor_pos)
+    state_module.move_cursor_to_pos(updated[1]:cursor())
   end
   transaction.commit_now()
 end
@@ -3448,7 +2953,7 @@ function M.goto_file_targets()
   end
 
   local function entry_is_single_cell(entry)
-    return entry.start_pos[1] == entry.end_pos[1] and entry.start_pos[2] == entry.end_pos[2]
+    return entry:start_cell()[1] == entry:end_cell()[1] and entry:start_cell()[2] == entry:end_cell()[2]
   end
 
   local function looks_like_path_or_url(text)
@@ -3501,13 +3006,13 @@ function M.goto_file_targets()
     local best_text = nil
     local best_length = -1
     local best_start = nil
-    local span_len = position.char_count(span_text)
+    local span_len = position.grapheme_count(span_text)
 
     for start_col = 1, span_len do
       if start_col <= cursor_col + 1 then
         for end_col = start_col, span_len do
           if cursor_col <= end_col + 1 then
-            local text = position.slice_by_char_range(span_text, start_col, end_col)
+            local text = position.slice_by_grapheme_range(span_text, start_col, end_col)
             if looks_like_path_or_url(text) then
               local length = end_col - start_col + 1
               if length > best_length or (length == best_length and (not best_start or start_col < best_start)) then
@@ -3525,15 +3030,15 @@ function M.goto_file_targets()
   end
 
   local function detect_target_near_cursor(entry)
-    local cursor = entry.cursor_pos
+    local cursor = entry:cursor()
     local line = line_text(cursor[1])
     local cursor_col = cursor[2]
     local spans = {}
     local span_start = nil
-    local line_len = position.char_count(line)
+    local line_len = position.grapheme_count(line)
 
     for col = 1, line_len do
-      local char = position.char_at(line, col)
+      local char = position.grapheme_at(line, col)
       if not path_token_char(char) then
         if span_start then
           spans[#spans + 1] = { start_col = span_start, end_col = col - 1 }
@@ -3550,7 +3055,7 @@ function M.goto_file_targets()
 
     for _, span in ipairs(spans) do
       if span.start_col <= cursor_col + 1 and cursor_col <= span.end_col + 1 then
-        local span_text = position.slice_by_char_range(line, span.start_col, span.end_col)
+        local span_text = position.slice_by_grapheme_range(line, span.start_col, span.end_col)
         local target = best_span_target(span_text, cursor_col - span.start_col + 1)
         if target then
           return target
@@ -3562,10 +3067,10 @@ function M.goto_file_targets()
   end
 
   if #entries == 1 and entry_is_single_cell(entries[1]) then
-    targets[1] = detect_target_near_cursor(entries[1]) or state_module.get_entry_text(entries[1])
+    targets[1] = detect_target_near_cursor(entries[1]) or entries[1]:text()
   else
     for _, entry in ipairs(entries) do
-      local target = vim.trim(state_module.get_entry_text(entry))
+      local target = vim.trim(entry:text())
       if target ~= "" then
         targets[#targets + 1] = target
       end
@@ -3606,7 +3111,7 @@ local function first_non_whitespace_column(line)
     return 1
   end
 
-  return position.char_col_from_byte_col0(line, byte_col0)
+  return position.grapheme_col_from_byte_col0(line, byte_col0)
 end
 
 local function indentation_width_for_empty_line(row)
@@ -3651,7 +3156,7 @@ local function indentation_text(width)
 end
 
 local function line_boundary_point(entry, edge)
-  local row = entry.cursor_pos[1]
+  local row = entry:cursor()[1]
   local text = line_text(row)
   if edge == "start" then
     return { row, first_non_whitespace_column(text) }
@@ -3666,13 +3171,9 @@ local function line_boundary_insert(edge)
   local entries = {}
   local snapshot_entries = {}
   local empty_line_indents = {}
-  local snapshot_config = {
-    cursor_positions = {},
-    preferred_columns = {},
-  }
 
   for index, entry in ipairs(source_entries) do
-    local row = entry.cursor_pos[1]
+    local row = entry:cursor()[1]
     local point
     if line_text(row) == "" then
       local indent = empty_line_indents[row]
@@ -3680,7 +3181,7 @@ local function line_boundary_insert(edge)
         indent = indentation_text(indentation_width_for_empty_line(row))
         empty_line_indents[row] = indent
       end
-      point = { row, position.char_count(indent) + 1 }
+      point = { row, position.grapheme_count(indent) + 1 }
     else
       point = line_boundary_point(entry, edge)
     end
@@ -3688,11 +3189,10 @@ local function line_boundary_insert(edge)
     entries[index] = point_entry(point)
     local snapshot_point = line_text(row) == "" and { row, 1 } or point
     snapshot_entries[index] = point_entry(snapshot_point)
-    snapshot_config.cursor_positions[index] = vim.deepcopy(snapshot_point)
-    snapshot_config.preferred_columns[index] = snapshot_point[2]
+    snapshot_entries[index].goal_display_col = position.display_col(buffer, snapshot_point)
   end
 
-  local transaction = history.transaction(snapshot_entries, snapshot_config)
+  local transaction = history.transaction(snapshot_entries)
   if state.preview_active() then
     state.clear_preview({ keep_extend_mode = true })
   end
@@ -3720,7 +3220,7 @@ end
 local function open_line(delta)
   local buffer = vim.api.nvim_get_current_buf()
   local source_entries = preview_or_cursor_entries()
-  local transaction = history.transaction(source_entries, current_preview_history_config())
+  local transaction = history.transaction(source_entries)
   local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-open-line")
   local marks = {}
 
@@ -3729,7 +3229,7 @@ local function open_line(delta)
   end
 
   for index, entry in ipairs(source_entries) do
-    local insert_row0 = delta > 0 and entry.cursor_pos[1] or entry.cursor_pos[1] - 1
+    local insert_row0 = delta > 0 and entry:cursor()[1] or entry:cursor()[1] - 1
     marks[index] = {
       index = index,
       insert_row0 = insert_row0,
@@ -3786,19 +3286,19 @@ end
 
 function M.change_selection(register_name)
   register_name = selected_or_explicit_register(register_name)
-  local entries = state.preview_active() and current_preview_entries() or preview_or_cursor_entries()
+  local entries = state.preview_active() and current_preview_ranges() or preview_or_cursor_entries()
   if register_name ~= '_' and not store_yanked_entries(entries, register_name) then
     return
   end
 
-  local transaction = history.transaction(entries, current_preview_history_config())
+  local transaction = history.transaction(entries)
   if state.preview_active() then
     state.clear_preview()
   end
 
-  local start_points = delete_preview_entries(entries)
+  local start_points = delete_preview_ranges(entries)
   sync_cursors_to_points(start_points, { sync_history = false })
-  insert.start(state.current_entries(), {
+  insert.start(state.current_ranges(), {
     lifecycle = transaction.lifecycle(true),
     track_endpoint = true,
   })
@@ -3807,8 +3307,8 @@ end
 function M.insert_mode()
   local source_entries = preview_or_cursor_entries()
   local entries, selection_config = insertion_entries_and_selection(source_entries, "start")
-  local snapshot_entries, snapshot_config = insert_preview.build_snapshot(entries, selection_config)
-  local transaction = history.transaction(snapshot_entries, snapshot_config)
+  local snapshot_entries = insert_preview.build_snapshot(entries, selection_config)
+  local transaction = history.transaction(snapshot_entries)
   insert.start(entries, {
     selection = selection_config,
     lifecycle = transaction.lifecycle(false),
@@ -3818,8 +3318,8 @@ end
 function M.append_mode()
   local source_entries = preview_or_cursor_entries()
   local entries, selection_config = insertion_entries_and_selection(source_entries, "end")
-  local snapshot_entries, snapshot_config = insert_preview.build_snapshot(entries, selection_config)
-  local transaction = history.transaction(snapshot_entries, snapshot_config)
+  local snapshot_entries = insert_preview.build_snapshot(entries, selection_config)
+  local transaction = history.transaction(snapshot_entries)
   insert.start(entries, {
     selection = selection_config,
     lifecycle = transaction.lifecycle(false),
@@ -3845,27 +3345,27 @@ function M.paste_after(register_name)
   local target_rows = {}
   for index, entry in ipairs(entries) do
     if linewise then
-      target_rows[index] = entry.end_pos[1] + 1
+      target_rows[index] = entry:end_cell()[1] + 1
     else
       points[index] = after_entry_point(entry)
     end
   end
 
-  local transaction = history.transaction(entries, current_preview_history_config())
+  local transaction = history.transaction(entries)
   local updated
   if linewise and state.preview_active() and state.extend_mode_active() then
     updated = insert_linewise_rows_preserving_selections(entries, target_rows, repeated)
   elseif linewise then
     updated = insert_linewise_rows_with_text(target_rows, repeated)
   elseif state.preview_active() and state.extend_mode_active() then
-    updated = insert_around_entries_preserving_selections(entries, points, repeated)
+    updated = insert_around_entries_preserving_selections(entries, points, repeated, "before")
   else
     updated = insert_points_with_text(points, repeated)
   end
 
   if #updated > 0 then
     if state.preview_active() and state.extend_mode_active() then
-      set_preview_entries(updated, { sync_history = false })
+      set_preview_ranges(updated, { sync_history = false })
       state.exit_extend_mode()
     else
       sync_cursors_to_entries(updated, { sync_history = false })
@@ -3893,27 +3393,27 @@ function M.paste_before(register_name)
   local target_rows = {}
   for index, entry in ipairs(entries) do
     if linewise then
-      target_rows[index] = entry.start_pos[1]
+      target_rows[index] = entry:start_cell()[1]
     else
-      points[index] = entry.start_pos
+      points[index] = entry:start_cell()
     end
   end
 
-  local transaction = history.transaction(entries, current_preview_history_config())
+  local transaction = history.transaction(entries)
   local updated
   if linewise and state.preview_active() and state.extend_mode_active() then
     updated = insert_linewise_rows_preserving_selections(entries, target_rows, repeated)
   elseif linewise then
     updated = insert_linewise_rows_with_text(target_rows, repeated)
   elseif state.preview_active() and state.extend_mode_active() then
-    updated = insert_around_entries_preserving_selections(entries, points, repeated)
+    updated = insert_around_entries_preserving_selections(entries, points, repeated, "after")
   else
     updated = insert_points_with_text(points, repeated)
   end
 
   if #updated > 0 then
     if state.preview_active() and state.extend_mode_active() then
-      set_preview_entries(updated, { sync_history = false })
+      set_preview_ranges(updated, { sync_history = false })
       state.exit_extend_mode()
     else
       sync_cursors_to_entries(updated, { sync_history = false })
@@ -3925,7 +3425,7 @@ end
 function M.yank_selection(register_name)
   register_name = selected_or_explicit_register(register_name)
   if state.preview_active() then
-    local entries = current_preview_entries()
+    local entries = current_preview_ranges()
     if store_yanked_entries(entries, register_name) then
       echo_yank_status(#entries, register_name)
       if state.extend_mode_active() then
@@ -3946,7 +3446,7 @@ end
 
 function M.yank_primary_selection(register_name)
   register_name = selected_or_explicit_register(register_name)
-  local entry = state.primary_entry()
+  local entry = state.primary_range()
   if not entry then
     return
   end
@@ -3956,12 +3456,12 @@ function M.yank_primary_selection(register_name)
   end
 end
 
-function M.current_selection_entries()
-  return state.current_entries()
+function M.current_selection_ranges()
+  return state.current_ranges()
 end
 
-function M.primary_selection_entry()
-  return state.primary_entry()
+function M.primary_range()
+  return state.primary_range()
 end
 
 function M.replace_selection_with_char()
@@ -3971,34 +3471,33 @@ function M.replace_selection_with_char()
   end
 
   if state.preview_active() then
-    local entries = current_preview_entries()
-    local preferred_columns = state.current_preferred_columns()
-    local transaction = history.transaction(entries, current_preview_history_config())
+    local entries = current_preview_ranges()
+    local transaction = history.transaction(entries)
     state.clear_preview()
-    local updated = replace_preview_entries_with_char(entries, replacement)
+    local updated = replace_preview_ranges_with_char(entries, replacement)
     if #updated > 0 then
-      sync_cursors_to_entries(updated, { preferred_columns = preferred_columns, sync_history = false })
+      sync_cursors_to_entries(updated, { sync_history = false })
     end
     transaction.commit_now()
     return
   end
 
   local pos = state_module.current_pos_1indexed()
-  local entry = state_module.selection_entry(pos, pos)
-  if state_module.get_entry_text(entry) == "" then
+  local entry = range_from_cells(pos, pos)
+  if entry:text() == "" then
     return
   end
 
-  local transaction = history.transaction({ entry }, {})
-  replace_preview_entries_with_char({ entry }, replacement)
+  local transaction = history.transaction({ entry })
+  replace_preview_ranges_with_char({ entry }, replacement)
   state_module.move_cursor_to_pos(pos)
   transaction.commit_now()
 end
 
 function M.replace_selection_with_yank(register_name)
   register_name = selected_or_explicit_register(register_name)
-  local entries = state.preview_active() and current_preview_entries() or preview_or_cursor_entries()
-  local transaction = history.transaction(entries, current_preview_history_config())
+  local entries = state.preview_active() and current_preview_ranges() or preview_or_cursor_entries()
+  local transaction = history.transaction(entries)
   local replacements = repeated_register_values(registers.read(register_name), #entries)
   if #replacements == 0 then
     return
@@ -4012,20 +3511,22 @@ function M.replace_selection_with_yank(register_name)
   if state.preview_active() then
     state.clear_preview()
   end
-  local updated_entries = replace_preview_entries_with_text(entries, replacements)
+  local updated_entries = replace_preview_ranges_with_text(entries, replacements)
+  for _, entry in ipairs(updated_entries) do
+    entry:as_selection()
+  end
   sync_cursors_to_entries(updated_entries)
   transaction.commit_now()
 end
 
 function M.toggle_selection_case()
   local had_preview = state.preview_active()
-  local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
-  local preferred_columns = had_preview and state.current_preferred_columns() or nil
+  local entries = had_preview and current_preview_ranges() or preview_or_cursor_entries()
   local replacements = {}
   local changed = false
 
   for index, entry in ipairs(entries) do
-    local text = state_module.get_entry_text(entry)
+    local text = entry:text()
     replacements[index] = toggled_case_text(text)
     if replacements[index] ~= text then
       changed = true
@@ -4036,13 +3537,13 @@ function M.toggle_selection_case()
     return
   end
 
-  local transaction = history.transaction(entries, current_preview_history_config())
-  local updated = replace_preview_entries_with_text(entries, replacements)
+  local transaction = history.transaction(entries)
+  local updated = replace_preview_ranges_with_text(entries, replacements)
 
   if had_preview then
-    set_preview_entries(updated, { preferred_columns = preferred_columns, sync_history = false })
+    set_preview_ranges(updated, { sync_history = false })
   else
-    state_module.move_cursor_to_pos(updated[1].cursor_pos)
+    state_module.move_cursor_to_pos(updated[1]:cursor())
   end
 
   transaction.commit_now()
@@ -4050,14 +3551,13 @@ end
 
 function M.set_selection_case(kind)
   local had_preview = state.preview_active()
-  local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
-  local preferred_columns = had_preview and state.current_preferred_columns() or nil
+  local entries = had_preview and current_preview_ranges() or preview_or_cursor_entries()
   local replacements = {}
   local changed = false
   local transform = kind == "upper" and unicode_upper_text or unicode_lower_text
 
   for index, entry in ipairs(entries) do
-    local text = state_module.get_entry_text(entry)
+    local text = entry:text()
     replacements[index] = transform(text)
     changed = changed or replacements[index] ~= text
   end
@@ -4065,12 +3565,12 @@ function M.set_selection_case(kind)
     return
   end
 
-  local transaction = history.transaction(entries, current_preview_history_config())
-  local updated = replace_preview_entries_with_text(entries, replacements)
+  local transaction = history.transaction(entries)
+  local updated = replace_preview_ranges_with_text(entries, replacements)
   if had_preview then
-    set_preview_entries(updated, { preferred_columns = preferred_columns, sync_history = false })
+    set_preview_ranges(updated, { sync_history = false })
   else
-    state_module.move_cursor_to_pos(entries[1].cursor_pos)
+    state_module.move_cursor_to_pos(entries[1]:cursor())
   end
   state.exit_extend_mode()
   transaction.commit_now()
@@ -4082,14 +3582,14 @@ function M.trim_current_preview_selection()
   end
 
   local entries = {}
-  for _, entry in ipairs(state.preview.entries) do
+  for _, entry in ipairs(state.preview_ranges()) do
     local trimmed_start, trimmed_end = compute_trimmed_bounds_from_entry(entry)
     if trimmed_start and trimmed_end then
-      if entry.anchor_pos[1] > entry.cursor_pos[1]
-        or (entry.anchor_pos[1] == entry.cursor_pos[1] and entry.anchor_pos[2] > entry.cursor_pos[2]) then
-        table.insert(entries, state_module.selection_entry(trimmed_end, trimmed_start))
+      if entry:anchor_cell()[1] > entry:cursor()[1]
+        or (entry:anchor_cell()[1] == entry:cursor()[1] and entry:anchor_cell()[2] > entry:cursor()[2]) then
+        table.insert(entries, range_from_cells(trimmed_end, trimmed_start))
       else
-        table.insert(entries, state_module.selection_entry(trimmed_start, trimmed_end))
+        table.insert(entries, range_from_cells(trimmed_start, trimmed_end))
       end
     end
   end
@@ -4099,7 +3599,7 @@ function M.trim_current_preview_selection()
     return
   end
 
-  state.set_preview_entries(vim.api.nvim_get_current_buf(), entries)
+  state.set_preview_ranges(vim.api.nvim_get_current_buf(), entries)
 end
 
 function M.filter_selections_by_regex(keep_matches)
@@ -4113,8 +3613,8 @@ function M.filter_selections_by_regex(keep_matches)
   jumplist.push_snapshot(before, keep_matches and "keep-selections" or "remove-selections")
 
   local kept = {}
-  for _, entry in ipairs(state.preview.entries) do
-    local matches = preview_entry_matches(entry, compiled)
+  for _, entry in ipairs(state.preview_ranges()) do
+    local matches = preview_range_matches(entry, compiled)
     if matches == keep_matches then
       table.insert(kept, entry)
     end
@@ -4125,7 +3625,7 @@ function M.filter_selections_by_regex(keep_matches)
     return
   end
 
-  state.set_preview_entries(vim.api.nvim_get_current_buf(), kept)
+  state.set_preview_ranges(vim.api.nvim_get_current_buf(), kept)
 end
 
 function M.select_regex_matches(pattern)
@@ -4149,7 +3649,7 @@ function M.select_regex_matches(pattern)
   if not state.preview_active() then
     local last_row = vim.fn.line("$")
     source_entries = {
-      state_module.selection_entry({ 1, 1 }, { last_row, line_cursor_max_column(last_row) }),
+      range_from_cells({ 1, 1 }, { last_row, line_cursor_max_column(last_row) }),
     }
   end
 
@@ -4165,16 +3665,16 @@ function M.select_regex_matches(pattern)
     return
   end
 
-  set_preview_entries(matches)
+  set_preview_ranges(matches)
   state.exit_extend_mode()
 end
 
 function M.keep_primary_selection_or_cursor()
   if state.preview_active() then
-    local first = state.primary_entry()
+    local first = state.primary_range()
     state.clear_preview()
     if first then
-      state_module.move_cursor_to_pos(first.cursor_pos)
+      state_module.move_cursor_to_pos(first:cursor())
     end
     return
   end
@@ -4184,7 +3684,7 @@ function M.keep_primary_selection_or_cursor()
     return
   end
 
-  sync_cursors_to_entries({ state.primary_entry() })
+  sync_cursors_to_entries({ state.primary_range() })
 end
 
 function M.flip_selection_direction()
@@ -4193,44 +3693,45 @@ function M.flip_selection_direction()
   end
 
   local flipped = {}
-  for _, entry in ipairs(current_preview_entries()) do
-    table.insert(flipped, state_module.selection_entry(entry.cursor_pos, entry.anchor_pos))
+  for _, entry in ipairs(current_preview_ranges()) do
+    table.insert(flipped, entry:reversed())
   end
 
-  set_preview_entries(flipped)
+  set_preview_ranges(flipped)
 end
 
 function M.ensure_forward_selection_direction()
-  local entries = state.preview_active() and current_preview_entries() or preview_or_cursor_entries()
+  local entries = state.preview_active() and current_preview_ranges() or preview_or_cursor_entries()
   if #entries == 0 then
     return
   end
 
   local forward = {}
   for _, entry in ipairs(entries) do
-    if entry.anchor_pos[1] > entry.cursor_pos[1]
-      or (entry.anchor_pos[1] == entry.cursor_pos[1] and entry.anchor_pos[2] > entry.cursor_pos[2]) then
-      table.insert(forward, state_module.selection_entry(entry.cursor_pos, entry.anchor_pos))
+    if entry:anchor_cell()[1] > entry:cursor()[1]
+      or (entry:anchor_cell()[1] == entry:cursor()[1] and entry:anchor_cell()[2] > entry:cursor()[2]) then
+      table.insert(forward, entry:reversed())
     else
       table.insert(forward, entry)
     end
   end
 
   if state.preview_active() or #forward > 1 then
-    set_preview_entries(forward)
+    set_preview_ranges(forward)
   else
-    state_module.move_cursor_to_pos(forward[1].cursor_pos)
+    state_module.move_cursor_to_pos(forward[1]:cursor())
   end
 end
 
 function M.collapse_selections_to_cursors()
   if state.preview_active() then
-    local preferred_columns = state.current_preferred_columns()
     local entries = {}
-    for _, entry in ipairs(current_preview_entries()) do
-      table.insert(entries, point_entry(entry.cursor_pos))
+    for _, entry in ipairs(current_preview_ranges()) do
+      local collapsed = point_entry(entry:cursor())
+      collapsed.goal_display_col = entry.goal_display_col
+      table.insert(entries, collapsed)
     end
-    sync_cursors_to_entries(entries, { preferred_columns = preferred_columns })
+    sync_cursors_to_entries(entries)
     return
   end
 end
@@ -4243,23 +3744,23 @@ function M.delete(register_name)
   end
 
   if #entries > 1 or state.preview_active() then
-    local transaction = history.transaction(entries, current_preview_history_config())
+    local transaction = history.transaction(entries)
     if state.preview_active() then
       state.clear_preview()
     end
-    local start_points = delete_preview_entries(entries)
+    local start_points = delete_preview_ranges(entries)
     sync_cursors_to_points(start_points)
     transaction.commit_now()
     return
   end
 
   local pos = state_module.current_pos_1indexed()
-  local transaction = history.transaction(entries, {})
+  local transaction = history.transaction(entries)
   local cursor_is_on_newline = pos_is_newline(pos[1], pos[2])
   if cursor_is_on_newline then
     local line = line_text(pos[1])
     vim.api.nvim_buf_set_text(0, pos[1] - 1, #line, pos[1], 0, {})
-    state_module.move_cursor_to_pos({ pos[1], position.char_count(line) + 1 })
+    state_module.move_cursor_to_pos({ pos[1], position.grapheme_count(line) + 1 })
     transaction.commit_now()
     return
   end
@@ -4346,8 +3847,8 @@ function M.select_picker_location(item, whole_line)
   local buffer = current_buffer()
   local row = math.max(1, math.min(tonumber(item.lnum) or 1, position.line_count(buffer)))
   if whole_line then
-    set_preview_entries({
-      state_module.selection_entry({ row, 1 }, { row, position.cursor_max_column(buffer, row) }),
+    set_preview_ranges({
+      range_from_cells({ row, 1 }, { row, position.cursor_max_column(buffer, row) }),
     }, { sync_history = false })
     state.exit_extend_mode()
     return true
@@ -4356,7 +3857,7 @@ function M.select_picker_location(item, whole_line)
   local start_byte0 = math.max((tonumber(item.col) or 1) - 1, 0)
   local start_pos = {
     row,
-    position.char_col_from_byte_col0(position.line_text(buffer, row), start_byte0),
+    position.grapheme_col_from_byte_col0(position.line_text(buffer, row), start_byte0),
   }
   local end_row = math.max(1, math.min(tonumber(item.end_lnum) or row, position.line_count(buffer)))
   local end_col = tonumber(item.end_col)
@@ -4365,7 +3866,7 @@ function M.select_picker_location(item, whole_line)
   if end_col then
     local end_boundary = {
       end_row,
-      position.char_col_from_byte_col0(position.line_text(buffer, end_row), math.max(end_col - 1, 0)),
+      position.grapheme_col_from_byte_col0(position.line_text(buffer, end_row), math.max(end_col - 1, 0)),
     }
     if end_boundary[1] == start_pos[1] and end_boundary[2] == start_pos[2] then
       empty = true
@@ -4375,9 +3876,8 @@ function M.select_picker_location(item, whole_line)
   end
 
   -- Helix flips LSP ranges so the cursor rests at the start of the symbol.
-  local entry = state_module.selection_entry(end_pos, start_pos)
-  entry.empty = empty
-  set_preview_entries({ entry }, { sync_history = false })
+  local entry = range_from_cells(end_pos, start_pos, { empty = empty })
+  set_preview_ranges({ entry }, { sync_history = false })
   state.exit_extend_mode()
   return true
 end
@@ -4391,8 +3891,7 @@ function M.split_current_view(direction)
 
   jumplist.clone_view(source_win, target_win)
   snapshot.extend_mode = false
-  replace_saved_selection(source_win, snapshot.buffer, snapshot)
-  replace_saved_selection(target_win, snapshot.buffer, snapshot)
+  state.clone_view(source_win, target_win)
   restore_selection_state_snapshot(snapshot)
   state.exit_extend_mode()
 end
@@ -4508,18 +4007,18 @@ function M.extend_line_below()
   for _, entry in ipairs(preview_or_cursor_entries()) do
     if state.extend_mode_active() then
       local extra_rows = entry_is_full_line(entry) and vim.v.count1 or (vim.v.count1 - 1)
-      local end_row = math.min(entry.end_pos[1] + extra_rows, last_row)
+      local end_row = math.min(entry:end_cell()[1] + extra_rows, last_row)
       table.insert(entries, linewise_entry_from_entry(entry, end_row))
     elseif state.preview_active() then
       local extra_rows = entry_is_full_line(entry) and vim.v.count1 or (vim.v.count1 - 1)
-      local end_row = math.min(entry.end_pos[1] + extra_rows, last_row)
-      table.insert(entries, full_line_entry(entry.start_pos[1], end_row))
+      local end_row = math.min(entry:end_cell()[1] + extra_rows, last_row)
+      table.insert(entries, full_line_entry(entry:start_cell()[1], end_row))
     else
-      table.insert(entries, full_line_entry(entry.cursor_pos[1]))
+      table.insert(entries, full_line_entry(entry:cursor()[1]))
     end
   end
 
-  set_preview_entries(entries)
+  set_preview_ranges(entries)
   if not state.extend_mode_active() then
     state.exit_extend_mode()
   end
@@ -4527,13 +4026,12 @@ end
 
 local function shift_linewise(direction)
   local buffer = current_buffer()
-  local source_entries = state.preview_active() and current_preview_entries() or preview_or_cursor_entries()
+  local source_entries = state.preview_active() and current_preview_ranges() or preview_or_cursor_entries()
   local line_entries = linewise_entries(source_entries)
-  local transaction = history.transaction(source_entries, current_preview_history_config())
+  local transaction = history.transaction(source_entries)
   local count = vim.v.count1
   local command = direction == "right" and ">" or "<"
-  local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-shift-linewise")
-  local marks = create_entry_marks(buffer, source_entries, namespace)
+  local tracker = transaction_module.track_ranges(buffer, source_entries, { affinity = "after" })
   local ranges = merged_line_ranges(line_entries)
   local had_preview = state.preview_active()
 
@@ -4550,16 +4048,15 @@ local function shift_linewise(direction)
     end
   end
 
-  local updated = restore_entries_from_marks(buffer, source_entries, namespace, marks)
-  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
+  local updated = tracker:resolve()
 
   if had_preview or #updated > 1 then
-    state.set_preview_entries(buffer, updated, { sync_history = false })
+    state.set_preview_ranges(buffer, updated, { sync_history = false })
   else
     if state.preview_active() then
       state.clear_preview({ keep_extend_mode = true })
     end
-    state_module.move_cursor_to_pos(updated[1].cursor_pos)
+    state_module.move_cursor_to_pos(updated[1]:cursor())
   end
 
   state.exit_extend_mode()
@@ -4576,15 +4073,15 @@ end
 
 function M.toggle_comments()
   local had_preview = state.preview_active()
-  local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
-  local transaction = history.transaction(entries, current_preview_history_config())
+  local entries = had_preview and current_preview_ranges() or preview_or_cursor_entries()
+  local transaction = history.transaction(entries)
   local updated, changed = toggle_comments_for_entries(entries)
   if not updated then
     return
   end
 
   if had_preview then
-    set_preview_entries(updated, { sync_history = false })
+    set_preview_ranges(updated, { sync_history = false })
   else
     sync_cursors_to_entries(updated, { sync_history = false })
   end
@@ -4597,15 +4094,15 @@ end
 
 function M.toggle_line_comments()
   local had_preview = state.preview_active()
-  local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
-  local transaction = history.transaction(entries, current_preview_history_config())
+  local entries = had_preview and current_preview_ranges() or preview_or_cursor_entries()
+  local transaction = history.transaction(entries)
   local updated, changed = toggle_comments_for_entries(entries)
   if not updated then
     return
   end
 
   if had_preview then
-    set_preview_entries(updated, { sync_history = false })
+    set_preview_ranges(updated, { sync_history = false })
   else
     sync_cursors_to_entries(updated, { sync_history = false })
   end
@@ -4618,15 +4115,15 @@ end
 
 function M.toggle_block_comments()
   local had_preview = state.preview_active()
-  local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
-  local transaction = history.transaction(entries, current_preview_history_config())
+  local entries = had_preview and current_preview_ranges() or preview_or_cursor_entries()
+  local transaction = history.transaction(entries)
   local updated, changed = toggle_block_comments_for_entries(entries)
   if not updated then
     return
   end
 
   if had_preview then
-    set_preview_entries(updated, { sync_history = false })
+    set_preview_ranges(updated, { sync_history = false })
   else
     sync_cursors_to_entries(updated, { sync_history = false })
   end
@@ -4643,12 +4140,12 @@ local function increment_selections(direction)
   local amount = sign * vim.v.count1
   local increase_by = register_name == "#" and sign or 0
   local had_preview = state.preview_active()
-  local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
+  local entries = had_preview and current_preview_ranges() or preview_or_cursor_entries()
   local replacements = {}
   local changed = false
 
   for index, entry in ipairs(entries) do
-    local text = state_module.get_entry_text(entry)
+    local text = entry:text()
     local replacement = increment_integer_text(text, amount)
     replacements[index] = replacement or text
     if replacement and replacement ~= text then
@@ -4661,10 +4158,10 @@ local function increment_selections(direction)
     return
   end
 
-  local transaction = history.transaction(entries, current_preview_history_config())
-  local updated = replace_preview_entries_with_text(entries, replacements)
+  local transaction = history.transaction(entries)
+  local updated = replace_preview_ranges_with_text(entries, replacements)
   if had_preview then
-    set_preview_entries(updated, { sync_history = false })
+    set_preview_ranges(updated, { sync_history = false })
   else
     sync_cursors_to_entries(updated, { sync_history = false })
   end
@@ -4682,7 +4179,7 @@ end
 
 function M.format_selections()
   local had_preview = state.preview_active()
-  local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
+  local entries = had_preview and current_preview_ranges() or preview_or_cursor_entries()
   if #entries ~= 1 then
     vim.notify("format_selections only supports a single selection for now", vim.log.levels.WARN)
     return
@@ -4695,11 +4192,9 @@ function M.format_selections()
 
   local buffer = current_buffer()
   local entry = entries[1]
-  local start_row, start_col, end_row, end_col = state_module.entry_text_ranges(entry)
-  local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-format-selection")
-  local marks = create_entry_marks(buffer, entries, namespace)
-  local history_config = current_preview_history_config()
-  local transaction = history.transaction(entries, history_config)
+  local start_row, start_col, end_row, end_col = entry:byte_range()
+  local tracker = transaction_module.track_ranges(buffer, entries, { affinity = "after" })
+  local transaction = history.transaction(entries)
 
   vim.lsp.buf.format({
     async = false,
@@ -4711,13 +4206,12 @@ function M.format_selections()
     },
   })
 
-  local updated = restore_entries_from_marks(buffer, entries, namespace, marks)
-  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
+  local updated = tracker:resolve()
 
   if had_preview then
-    set_preview_entries(updated, { sync_history = false })
+    set_preview_ranges(updated, { sync_history = false })
   else
-    state_module.move_cursor_to_pos(updated[1].cursor_pos)
+    state_module.move_cursor_to_pos(updated[1]:cursor())
   end
 
   transaction.commit_now()
@@ -4731,10 +4225,12 @@ function M.select_whole_buffer()
 
   local entries = {}
   for _ = 1, #preview_or_cursor_entries() do
-    table.insert(entries, state_module.selection_entry({ 1, 1 }, { last_row, last_col }))
+    local entry = range_from_cells({ 1, 1 }, { last_row, last_col })
+    entry.visual_cursor = { last_row, last_col }
+    table.insert(entries, entry)
   end
 
-  state.set_preview_entries(buffer, entries)
+  state.set_preview_ranges(buffer, entries)
   if not keep_select_mode then
     state.exit_extend_mode()
   end
@@ -4743,39 +4239,38 @@ end
 function M.copy_selection_on_adjacent_line(delta, count_override)
   local count = count_override or vim.v.count1
   local function clone_once()
-    local source_entries = state.preview_active() and current_preview_entries() or preview_or_cursor_entries()
-    local source_preferred_columns = state.current_preferred_columns()
+    local source_entries = state.preview_active() and current_preview_ranges() or preview_or_cursor_entries()
     local combined_entries = {}
-    local combined_preferred_columns = {}
 
     local function append_entry(entry, preferred_col)
+      entry.goal_display_col = preferred_col or entry.goal_display_col
+        or position.display_col(current_buffer(), entry:cursor())
       table.insert(combined_entries, entry)
-      table.insert(combined_preferred_columns, preferred_col or position.display_col(current_buffer(), entry.cursor_pos))
     end
 
-    local primary_clone = clone_entry_to_supported_line(source_entries[1], delta, source_preferred_columns[1])
+    local primary_clone = clone_entry_to_supported_line(source_entries[1], delta, source_entries[1].goal_display_col)
 
     if not primary_clone then
       return false
     end
 
-    append_entry(primary_clone, source_preferred_columns[1])
+    append_entry(primary_clone, source_entries[1].goal_display_col)
 
     for index, entry in ipairs(source_entries) do
-      append_entry(vim.deepcopy(entry), source_preferred_columns[index])
+      append_entry(vim.deepcopy(entry), entry.goal_display_col)
     end
 
     for index = 2, #source_entries do
-      local clone = clone_entry_to_supported_line(source_entries[index], delta, source_preferred_columns[index])
+      local clone = clone_entry_to_supported_line(source_entries[index], delta, source_entries[index].goal_display_col)
       if clone then
-        append_entry(clone, source_preferred_columns[index])
+        append_entry(clone, source_entries[index].goal_display_col)
       end
     end
 
     if state.preview_active() then
-      set_preview_entries(combined_entries, { preferred_columns = combined_preferred_columns })
+      set_preview_ranges(combined_entries)
     else
-      sync_cursors_to_entries(combined_entries, { preferred_columns = combined_preferred_columns })
+      sync_cursors_to_entries(combined_entries)
     end
 
     return true
@@ -4794,24 +4289,24 @@ function M.split_selection_by_line()
   end
 
   local entries = {}
-  for _, entry in ipairs(current_preview_entries()) do
+  for _, entry in ipairs(current_preview_ranges()) do
     for _, segment in ipairs(selection_segments_by_line(entry)) do
       table.insert(entries, segment)
     end
   end
 
-  set_preview_entries(entries)
+  set_preview_ranges(entries)
 end
 
 local function entry_is_backward(entry)
-  return pos_before(entry.cursor_pos, entry.anchor_pos)
+  return pos_before(entry:cursor(), entry:anchor_cell())
 end
 
 local function directed_entry(source, start_pos, end_pos)
   if entry_is_backward(source) then
-    return state_module.selection_entry(end_pos, start_pos)
+    return range_from_cells(end_pos, start_pos)
   end
-  return state_module.selection_entry(start_pos, end_pos)
+  return range_from_cells(start_pos, end_pos)
 end
 
 function M.extend_to_line_bounds()
@@ -4819,21 +4314,21 @@ function M.extend_to_line_bounds()
   for _, entry in ipairs(preview_or_cursor_entries()) do
     entries[#entries + 1] = directed_entry(
       entry,
-      { entry.start_pos[1], 1 },
-      { entry.end_pos[1], line_cursor_max_column(entry.end_pos[1]) }
+      { entry:start_cell()[1], 1 },
+      { entry:end_cell()[1], line_cursor_max_column(entry:end_cell()[1]) }
     )
   end
-  set_preview_entries(entries)
+  set_preview_ranges(entries)
 end
 
 function M.shrink_to_line_bounds()
   local entries = {}
   for _, entry in ipairs(preview_or_cursor_entries()) do
-    if entry.start_pos[1] == entry.end_pos[1] then
+    if entry:start_cell()[1] == entry:end_cell()[1] then
       entries[#entries + 1] = entry
     else
-      local start_row = entry.start_pos[1] + (entry.start_pos[2] == 1 and 0 or 1)
-      local end_row = entry.end_pos[1] - (pos_is_newline(entry.end_pos[1], entry.end_pos[2]) and 0 or 1)
+      local start_row = entry:start_cell()[1] + (entry:start_cell()[2] == 1 and 0 or 1)
+      local end_row = entry:end_cell()[1] - (pos_is_newline(entry:end_cell()[1], entry:end_cell()[2]) and 0 or 1)
       if start_row <= end_row then
         entries[#entries + 1] = directed_entry(
           entry,
@@ -4845,7 +4340,7 @@ function M.shrink_to_line_bounds()
       end
     end
   end
-  set_preview_entries(entries)
+  set_preview_ranges(entries)
 end
 
 function M.merge_selections(consecutive)
@@ -4854,11 +4349,11 @@ function M.merge_selections(consecutive)
   end
 
   local items = {}
-  for index, entry in ipairs(current_preview_entries()) do
+  for index, entry in ipairs(current_preview_ranges()) do
     items[#items + 1] = { entry = entry, primary = index == 1 }
   end
   table.sort(items, function(left, right)
-    return pos_before(left.entry.start_pos, right.entry.start_pos)
+    return pos_before(left.entry:start_cell(), right.entry:start_cell())
   end)
 
   if not consecutive then
@@ -4869,23 +4364,23 @@ function M.merge_selections(consecutive)
         break
       end
     end
-    set_preview_entries({ directed_entry(primary, items[1].entry.start_pos, items[#items].entry.end_pos) })
+    set_preview_ranges({ directed_entry(primary, items[1].entry:start_cell(), items[#items].entry:end_cell()) })
     return
   end
 
   local merged = {}
   for _, item in ipairs(items) do
     local previous = merged[#merged]
-    local touches = previous and not pos_before(previous.entry.end_pos, item.entry.start_pos)
+    local touches = previous and not pos_before(previous.entry:end_cell(), item.entry:start_cell())
     if previous and not touches then
-      local next_pos = position.next_pos(current_buffer(), previous.entry.end_pos)
-      touches = next_pos[1] == item.entry.start_pos[1] and next_pos[2] == item.entry.start_pos[2]
+      local next_pos = position.next_pos(current_buffer(), previous.entry:end_cell())
+      touches = next_pos[1] == item.entry:start_cell()[1] and next_pos[2] == item.entry:start_cell()[2]
     end
 
     if touches then
       local primary = previous.primary or item.primary
       local source = previous.primary and previous.entry or item.entry
-      previous.entry = directed_entry(source, previous.entry.start_pos, item.entry.end_pos)
+      previous.entry = directed_entry(source, previous.entry:start_cell(), item.entry:end_cell())
       previous.primary = primary
     else
       merged[#merged + 1] = item
@@ -4900,7 +4395,7 @@ function M.merge_selections(consecutive)
       entries[#entries + 1] = item.entry
     end
   end
-  set_preview_entries(entries)
+  set_preview_ranges(entries)
 end
 
 function M.split_selection_by_regex(pattern)
@@ -4917,21 +4412,20 @@ function M.split_selection_by_regex(pattern)
   end
   local entries = {}
   for _, source in ipairs(preview_or_cursor_entries()) do
-    local cursor = vim.deepcopy(source.start_pos)
+    local cursor = vim.deepcopy(source:start_cell())
     for _, delimiter in ipairs(entry_regex_matches(source, compiled)) do
-      if pos_equal(cursor, delimiter.start_pos) and pos_equal(cursor, source.start_pos) then
-        local empty = state_module.selection_entry(cursor, cursor)
-        empty.empty = true
+      if pos_equal(cursor, delimiter:start_cell()) and pos_equal(cursor, source:start_cell()) then
+        local empty = range_from_cells(cursor, cursor, { empty = true })
         entries[#entries + 1] = empty
       end
-      if pos_before(cursor, delimiter.start_pos) then
-        entries[#entries + 1] = directed_entry(source, cursor, position.prev_pos(current_buffer(), delimiter.start_pos))
+      if pos_before(cursor, delimiter:start_cell()) then
+        entries[#entries + 1] = directed_entry(source, cursor, position.prev_pos(current_buffer(), delimiter:start_cell()))
       end
-      cursor = position.next_pos(current_buffer(), delimiter.end_pos)
+      cursor = position.next_pos(current_buffer(), delimiter:end_cell())
     end
-    if not pos_before(source.end_pos, cursor) then
-      local remainder = directed_entry(source, cursor, source.end_pos)
-      if state_module.get_entry_text(remainder) ~= "" then
+    if not pos_before(source:end_cell(), cursor) then
+      local remainder = directed_entry(source, cursor, source:end_cell())
+      if remainder:text() ~= "" then
         entries[#entries + 1] = remainder
       end
     end
@@ -4941,18 +4435,18 @@ function M.split_selection_by_regex(pattern)
     state.clear_preview()
     return
   end
-  set_preview_entries(entries)
+  set_preview_ranges(entries)
 end
 
 function M.remove_primary_selection()
-  if not state.preview_active() or #state.preview.entries <= 1 then
+  if not state.preview_active() or #state.preview_ranges() <= 1 then
     vim.notify("no selections remaining", vim.log.levels.WARN)
     return
   end
 
-  local entries = current_preview_entries()
+  local entries = current_preview_ranges()
   table.remove(entries, 1)
-  set_preview_entries(entries)
+  set_preview_ranges(entries)
 end
 
 function M.join_selections(select_spaces)
@@ -4962,14 +4456,14 @@ function M.join_selections(select_spaces)
   local boundaries = {}
   local removal_bytes = {}
   for _, entry in ipairs(entries) do
-    local last_row = entry.end_pos[1]
-    if entry.start_pos[1] == last_row then
+    local last_row = entry:end_cell()[1]
+    if entry:start_cell()[1] == last_row then
       last_row = math.min(last_row + 1, position.line_count(buffer))
     end
-    local first_line = position.line_text(buffer, entry.start_pos[1])
+    local first_line = position.line_text(buffer, entry:start_cell()[1])
     local first_content = first_line:sub(#(first_line:match("^[ \t]*") or "") + 1)
     local current_comment_token = matching_line_comment_token(first_content, comment_tokens)
-    for row = entry.start_pos[1], last_row - 1 do
+    for row = entry:start_cell()[1], last_row - 1 do
       boundaries[row] = true
       local right = position.line_text(buffer, row + 1)
       local indent_bytes = #(right:match("^[ \t]*") or "")
@@ -4987,59 +4481,42 @@ function M.join_selections(select_spaces)
     return
   end
 
-  local transaction = history.transaction(entries, current_preview_history_config())
-  local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-join")
-  local entry_marks = {}
-  for index, entry in ipairs(entries) do
-    local anchor_row, anchor_col = position.before_boundary(buffer, entry.anchor_pos)
-    local cursor_row, cursor_col = position.before_boundary(buffer, entry.cursor_pos)
-    entry_marks[index] = {
-      anchor = vim.api.nvim_buf_set_extmark(buffer, namespace, anchor_row, anchor_col, { right_gravity = false }),
-      cursor = vim.api.nvim_buf_set_extmark(buffer, namespace, cursor_row, cursor_col, { right_gravity = false }),
-    }
-  end
+  local transaction = history.transaction(entries)
+  local entry_tracker = transaction_module.track_ranges(buffer, entries, { affinity = "before" })
+  local edit_transaction = transaction_module.new(buffer)
 
   local rows = vim.tbl_keys(boundaries)
   table.sort(rows, function(left, right) return left > right end)
-  local inserted_space_marks = {}
+  local inserted_space_tracks = {}
   for _, row in ipairs(rows) do
     local left = position.line_text(buffer, row)
     local right = position.line_text(buffer, row + 1)
     local indent_bytes = #(right:match("^%s*") or "")
     indent_bytes = math.max(indent_bytes, removal_bytes[row] or 0)
     local separator = indent_bytes == #right and "" or " "
-    vim.api.nvim_buf_set_text(buffer, row - 1, #left, row, indent_bytes, { separator })
     if separator ~= "" then
-      inserted_space_marks[#inserted_space_marks + 1] = vim.api.nvim_buf_set_extmark(
-        buffer,
-        namespace,
-        row - 1,
-        #left,
-        { right_gravity = false }
+      inserted_space_tracks[#inserted_space_tracks + 1] = edit_transaction:track_insertion(
+        position.boundary_from_byte(buffer, row - 1, #left)
       )
     end
+    edit_transaction:replace_bytes(row - 1, #left, row, indent_bytes, separator)
   end
+  local edit_result = edit_transaction:apply()
 
   local updated = {}
-  if select_spaces and #inserted_space_marks > 0 then
-    for _, mark in ipairs(inserted_space_marks) do
-      local point = extmark_pos_1indexed(buffer, namespace, mark)
-      if point then
-        updated[#updated + 1] = state_module.selection_entry(point, point)
+  if select_spaces and #inserted_space_tracks > 0 then
+    for _, tracked_index in ipairs(inserted_space_tracks) do
+      local range = edit_result.ranges[tracked_index]
+      if range then
+        updated[#updated + 1] = range
       end
     end
   else
-    for _, marks in ipairs(entry_marks) do
-      local anchor = extmark_pos_1indexed(buffer, namespace, marks.anchor)
-      local cursor = extmark_pos_1indexed(buffer, namespace, marks.cursor)
-      if anchor and cursor then
-        updated[#updated + 1] = state_module.selection_entry(anchor, cursor)
-      end
-    end
+    updated = entry_tracker:resolve()
   end
-  vim.api.nvim_buf_clear_namespace(buffer, namespace, 0, -1)
+  entry_tracker:clear()
   if #updated > 0 then
-    set_preview_entries(updated, { sync_history = false })
+    set_preview_ranges(updated, { sync_history = false })
   end
   state.exit_extend_mode()
   transaction.commit_now()
@@ -5047,14 +4524,14 @@ end
 
 function M.align_selections()
   local had_preview = state.preview_active()
-  local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
+  local entries = had_preview and current_preview_ranges() or preview_or_cursor_entries()
   if #entries == 0 then
     state.exit_extend_mode()
     return
   end
 
   for _, entry in ipairs(entries) do
-    if entry.start_pos[1] ~= entry.end_pos[1] then
+    if entry:start_cell()[1] ~= entry:end_cell()[1] then
       vim.notify("align cannot work with multi line selections", vim.log.levels.ERROR)
       return
     end
@@ -5066,10 +4543,9 @@ function M.align_selections()
   end
 
   local buffer = current_buffer()
-  local transaction = history.transaction(entries, current_preview_history_config())
-  local selection_namespace = vim.api.nvim_create_namespace("axelcool1234-helix-align-selection")
+  local transaction = history.transaction(entries)
   local insert_namespace = vim.api.nvim_create_namespace("axelcool1234-helix-align-insert")
-  local selection_marks = create_entry_marks(buffer, entries, selection_namespace)
+  local selection_tracker = transaction_module.track_ranges(buffer, entries, { affinity = "after" })
   local sorted_entries = {}
   local row_groups = {}
   local row_offsets = {}
@@ -5088,7 +4564,7 @@ function M.align_selections()
   end)
 
   for _, item in ipairs(sorted_entries) do
-    local row = item.entry.start_pos[1]
+    local row = item.entry:start_cell()[1]
     local group = row_groups[#row_groups]
     if not group or group.row ~= row then
       group = { row = row, items = {} }
@@ -5096,9 +4572,9 @@ function M.align_selections()
       row_offsets[#row_groups] = 0
     end
 
-    local start_row, start_col = position.before_boundary(buffer, item.entry.start_pos)
+    local start_row, start_col = position.byte_before_cell(buffer, item.entry:start_cell())
     group.items[#group.items + 1] = {
-      head_col = visual_column_at_pos(item.entry.cursor_pos),
+      head_col = visual_column_at_pos(item.entry:cursor()),
       mark_id = vim.api.nvim_buf_set_extmark(buffer, insert_namespace, start_row, start_col, {
         right_gravity = false,
       }),
@@ -5146,55 +4622,54 @@ function M.align_selections()
   vim.api.nvim_buf_clear_namespace(buffer, insert_namespace, 0, -1)
 
   if inserted then
-    local updated = restore_entries_from_marks(buffer, entries, selection_namespace, selection_marks)
+    local updated = selection_tracker:resolve()
     if had_preview then
-      set_preview_entries(updated, { sync_history = false })
+      set_preview_ranges(updated, { sync_history = false })
     else
       sync_cursors_to_entries(updated, { sync_history = false })
     end
     transaction.commit_now()
+  else
+    selection_tracker:clear()
   end
 
-  vim.api.nvim_buf_clear_namespace(buffer, selection_namespace, 0, -1)
   state.exit_extend_mode()
 end
 
 function M.rotate_selections(direction)
-  local entries = state.preview_active() and current_preview_entries() or preview_or_cursor_entries()
+  local entries = state.preview_active() and current_preview_ranges() or preview_or_cursor_entries()
   if #entries <= 1 then
     return
   end
 
-  local preferred_columns = state.current_preferred_columns()
-  local items = sorted_selection_items(entries, preferred_columns)
+  local items = sorted_selection_items(entries)
   local primary_index = sorted_primary_index(items)
   local new_primary_index = rotate_primary_index(primary_index, #items, direction, vim.v.count1)
-  local reordered_entries, reordered_preferred_columns = entries_from_sorted_items(items, new_primary_index)
+  local reordered_entries = entries_from_sorted_items(items, new_primary_index)
 
-  set_preview_entries(reordered_entries, { preferred_columns = reordered_preferred_columns })
+  set_preview_ranges(reordered_entries)
 end
 
 function M.rotate_selection_contents(direction)
   local had_preview = state.preview_active()
-  local entries = had_preview and current_preview_entries() or preview_or_cursor_entries()
+  local entries = had_preview and current_preview_ranges() or preview_or_cursor_entries()
   if #entries <= 1 then
     return
   end
 
-  local preferred_columns = state.current_preferred_columns()
-  local items = sorted_selection_items(entries, preferred_columns)
+  local items = sorted_selection_items(entries)
   local sorted_entries = {}
   local contents = {}
   for index, item in ipairs(items) do
     sorted_entries[index] = item.entry
-    contents[index] = state_module.get_entry_text(item.entry)
+    contents[index] = item.entry:text()
   end
 
   local amount = math.min(vim.v.count1, #items)
   local rotated_contents = rotate_values(contents, direction, amount)
   local new_primary_index = rotate_primary_index(sorted_primary_index(items), #items, direction, amount)
-  local transaction = history.transaction(entries, current_preview_history_config())
-  local updated = replace_preview_entries_with_text(sorted_entries, rotated_contents)
+  local transaction = history.transaction(entries)
+  local updated = replace_preview_ranges_with_text(sorted_entries, rotated_contents)
   local updated_items = {}
 
   for index, item in ipairs(items) do
@@ -5205,11 +4680,11 @@ function M.rotate_selection_contents(direction)
     }
   end
 
-  local reordered_entries, reordered_preferred_columns = entries_from_sorted_items(updated_items, new_primary_index)
+  local reordered_entries = entries_from_sorted_items(updated_items, new_primary_index)
   if had_preview then
-    set_preview_entries(reordered_entries, { preferred_columns = reordered_preferred_columns, sync_history = false })
+    set_preview_ranges(reordered_entries, { sync_history = false })
   else
-    sync_cursors_to_entries(reordered_entries, { preferred_columns = reordered_preferred_columns, sync_history = false })
+    sync_cursors_to_entries(reordered_entries, { sync_history = false })
   end
   transaction.commit_now()
 end
@@ -5225,11 +4700,11 @@ function M.toggle_select_mode()
   state.enter_extend_mode()
 
   if state.preview_active() then
-    state.set_preview_entries(buffer, current_preview_entries(), { keep_cursor = true })
+    state.set_preview_ranges(buffer, current_preview_ranges(), { keep_cursor = true })
     return
   end
 
-  state.set_preview_entries(buffer, state.current_entries(), { keep_cursor = true })
+  state.set_preview_ranges(buffer, state.current_ranges(), { keep_cursor = true })
 end
 
 function M.setup_autocmds()
@@ -5286,12 +4761,9 @@ function M.setup_autocmds()
       end
 
       if state.preview.buffer and not state.preview.updating and not state.extend_mode_active() then
-        local primary_index = state.preview.primary_index or 1
-        local primary_entry = state.preview.entries[primary_index]
-        local expected_cursor = primary_entry and primary_entry.cursor_pos or nil
-        if state.preview.cursor_positions and state.preview.cursor_positions[primary_index] then
-          expected_cursor = state.preview.cursor_positions[primary_index]
-        end
+        local primary_index = state.preview_primary_index() or 1
+        local primary_range = state.preview_range(primary_index)
+        local expected_cursor = primary_range and primary_range:cursor() or nil
         if not expected_cursor or not vim.deep_equal(state_module.current_pos_1indexed(), expected_cursor) then
           state.clear_preview()
         end
@@ -5314,10 +4786,7 @@ function M.setup_autocmds()
       local win = tonumber(args.match)
       if win then
         jumplist.remove_view(win)
-        for _, saved in pairs(view_selection_snapshots[win] or {}) do
-          clear_saved_selection(saved)
-        end
-        view_selection_snapshots[win] = nil
+        state.forget_view(win)
       end
     end,
   })

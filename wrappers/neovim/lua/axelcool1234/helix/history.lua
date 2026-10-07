@@ -61,15 +61,11 @@ function M.new(opts)
     end
   end
 
-  local function snapshot_from(entries, config)
-    return {
-      entries = vim.deepcopy(entries),
-      cursor_positions = vim.deepcopy(config.cursor_positions or {}),
-      preferred_columns = vim.deepcopy(config.preferred_columns or {}),
-    }
+  local function snapshot_from(entries)
+    return { entries = vim.deepcopy(entries) }
   end
 
-  local function record_snapshot(buffer, seq, entries, config, branch_from_seq)
+  local function record_snapshot(buffer, seq, entries, branch_from_seq)
     if #entries == 0 then
       return false
     end
@@ -82,7 +78,7 @@ function M.new(opts)
 
     local existing_index = seq_index(buffer_history, seq)
 
-    buffer_history.snapshots[seq] = snapshot_from(entries, config)
+    buffer_history.snapshots[seq] = snapshot_from(entries)
     if not existing_index then
       table.insert(buffer_history.seqs, seq)
     end
@@ -91,22 +87,11 @@ function M.new(opts)
   end
 
   local function current_snapshot_entries()
-    local entries = state.current_entries()
-    local config = {}
-
-    if state.preview_active() then
-      config.cursor_positions = vim.deepcopy(state.preview.cursor_positions or {})
-      config.preferred_columns = vim.deepcopy(state.preview.preferred_columns or {})
-    end
-
-    return entries, config
+    return state.current_ranges()
   end
 
   local function materialize_snapshot(snapshot)
-    return vim.deepcopy(snapshot.entries or {}), {
-      cursor_positions = vim.deepcopy(snapshot.cursor_positions or {}),
-      preferred_columns = vim.deepcopy(snapshot.preferred_columns or {}),
-    }
+    return vim.deepcopy(snapshot.entries or {})
   end
 
   local function snapshot_for_seq(buffer, seq)
@@ -117,16 +102,15 @@ function M.new(opts)
     return seq_index(history_for_buffer(buffer), current_undo_seq())
   end
 
-  function history.begin_change(entries, config)
+  function history.begin_change(entries)
     local buffer = vim.api.nvim_get_current_buf()
     close_undo_block()
     local seq = current_undo_seq()
-    config = config or {}
     return {
       before_seq = seq,
-      before_snapshot = snapshot_from(entries, config),
+      before_snapshot = snapshot_from(entries),
       buffer = buffer,
-      stored = record_snapshot(buffer, seq, entries, config),
+      stored = record_snapshot(buffer, seq, entries),
     }
   end
 
@@ -144,15 +128,15 @@ function M.new(opts)
       return false
     end
 
-    local entries, config = current_snapshot_entries()
-    if not record_snapshot(change.buffer, after_seq, entries, config, change.before_seq) then
+    local entries = current_snapshot_entries()
+    if not record_snapshot(change.buffer, after_seq, entries, change.before_seq) then
       return false
     end
 
     history_for_buffer(change.buffer).transitions[after_seq] = {
       parent_seq = change.before_seq,
       before = change.before_snapshot,
-      after = snapshot_from(entries, config),
+      after = snapshot_from(entries),
     }
     return true
   end
@@ -163,8 +147,8 @@ function M.new(opts)
       return false
     end
 
-    local entries, config = current_snapshot_entries()
-    return record_snapshot(buffer, current_undo_seq(), entries, config)
+    local entries = current_snapshot_entries()
+    return record_snapshot(buffer, current_undo_seq(), entries)
   end
 
   function history.attach()
@@ -173,8 +157,8 @@ function M.new(opts)
     end)
   end
 
-  function history.transaction(entries, config)
-    local change = history.begin_change(entries, config)
+  function history.transaction(entries)
+    local change = history.begin_change(entries)
     local finished = false
 
     local function finish()
@@ -226,14 +210,13 @@ function M.new(opts)
       return false
     end
 
-    local entries, config = materialize_snapshot(snapshot)
+    local entries = materialize_snapshot(snapshot)
     if #entries == 0 then
       return false
     end
 
     state.exit_extend_mode()
-    config.sync_history = false
-    state.set_preview_entries(buffer, entries, config)
+    state.set_preview_ranges(buffer, entries, { sync_history = false })
     return true
   end
 

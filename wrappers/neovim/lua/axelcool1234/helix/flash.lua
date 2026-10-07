@@ -1,4 +1,5 @@
 local M = {}
+local range_module = require("axelcool1234.helix.range")
 
 local label_alphabet = "asdfjklghqwertyuiopzxcvbnmASDFJKLGHQWERTYUIOPZXCVBNM"
 local treesitter_label_alphabet = label_alphabet:gsub("n", ""):gsub("p", "")
@@ -17,10 +18,10 @@ end
 
 local function same_range(entry, start_pos, end_pos)
   return entry
-    and entry.start_pos
-    and entry.end_pos
-    and same_pos(entry.start_pos, start_pos)
-    and same_pos(entry.end_pos, end_pos)
+    and entry:start_cell()
+    and entry:end_cell()
+    and same_pos(entry:start_cell(), start_pos)
+    and same_pos(entry:end_cell(), end_pos)
 end
 
 local function pos_id(pos, win)
@@ -130,7 +131,7 @@ function M.new(opts)
               break
             end
 
-            local char_col = position.char_col_from_byte_col0(line, start_byte)
+            local char_col = position.grapheme_col_from_byte_col0(line, start_byte)
             local target_pos = { row, char_col }
             if win ~= current_win or not same_pos(target_pos, origin) then
               matches[#matches + 1] = {
@@ -138,7 +139,7 @@ function M.new(opts)
                 buffer = buffer,
                 pos = target_pos,
                 text = text,
-                next_char = position.char_at(line, position.char_col_from_byte_col0(line, end_byte)),
+                next_char = position.grapheme_at(line, position.grapheme_col_from_byte_col0(line, end_byte)),
                 distance = math.abs(row - origin[1]) * width + math.abs(char_col - origin[2]),
                 win_rank = win_info[win].rank,
                 current_window = win_info[win].is_current,
@@ -309,17 +310,17 @@ function M.new(opts)
 
     local function label_render_point(buffer, pos, style, side)
       if style == "overlay" and side then
-        return position.before_boundary(buffer, label_overlay_pos(buffer, pos, side))
+        return position.byte_before_cell(buffer, label_overlay_pos(buffer, pos, side))
       end
       if side == "after" then
-        return position.after_boundary(buffer, pos)
+        return position.byte_after_cell(buffer, pos)
       end
-      return position.before_boundary(buffer, pos)
+      return position.byte_before_cell(buffer, pos)
     end
 
     local function render_point_highlight(buffer, pos, hl_group, priority)
-      local point_row0, point_col = position.before_boundary(buffer, pos)
-      local point_end_row0, point_end_col = position.after_boundary(buffer, pos)
+      local point_row0, point_col = position.byte_before_cell(buffer, pos)
+      local point_end_row0, point_end_col = position.byte_after_cell(buffer, pos)
       vim.api.nvim_buf_set_extmark(buffer, namespace, point_row0, point_col, {
         end_row = point_end_row0,
         end_col = point_end_col,
@@ -332,8 +333,8 @@ function M.new(opts)
     for index, match in ipairs(matches) do
       local buffer = match.buffer
       local end_pos = match.end_pos or match.pos
-      local start_row0, start_col = position.before_boundary(buffer, match.pos)
-      local end_row0, end_col = position.after_boundary(buffer, end_pos)
+      local start_row0, start_col = position.byte_before_cell(buffer, match.pos)
+      local end_row0, end_col = position.byte_after_cell(buffer, end_pos)
       local hl_group = match.current and "HelixFlashCurrent" or (index == 1 and "HelixFlashCurrent" or "HelixFlashTarget")
       local should_highlight = match.highlight
       if should_highlight == nil then
@@ -378,7 +379,7 @@ function M.new(opts)
           if match.label_after then
             end_label_row0, end_label_col = label_render_point(buffer, end_pos, label_style, "after")
           else
-            end_label_row0, end_label_col = position.before_boundary(buffer, end_pos)
+            end_label_row0, end_label_col = position.byte_before_cell(buffer, end_pos)
           end
           queue_label_once(end_label_row0, end_label_col)
         end
@@ -444,30 +445,16 @@ function M.new(opts)
     return wins
   end
 
-  local function char_pos_from_byte_col0(buffer, row1, byte_col0)
-    local line = position.line_text(buffer, row1)
-    return { row1, position.char_col_from_byte_col0(line, byte_col0) }
-  end
-
   local function ts_node_range_positions(buffer, node)
     local start_row, start_col, end_row, end_col = node:range()
-    local start_pos = char_pos_from_byte_col0(buffer, start_row + 1, start_col)
-    local end_boundary = char_pos_from_byte_col0(buffer, end_row + 1, end_col)
-    local line_count = vim.api.nvim_buf_line_count(buffer)
-
-    if end_boundary[1] > line_count then
-      local last_row = line_count
-      return start_pos, { last_row, position.cursor_max_column(buffer, last_row) }
-    end
-
-    local end_pos = same_pos(start_pos, end_boundary) and start_pos or position.prev_pos(buffer, end_boundary)
-    return start_pos, end_pos
+    local range = range_module.from_byte_range(buffer, start_row, start_col, end_row, end_col)
+    return range:start_cell(), range:end_cell()
   end
 
   local function collect_treesitter_matches(win, origin)
     local buffer = vim.api.nvim_win_get_buf(win)
     local line = position.line_text(buffer, origin[1])
-    local byte_col0 = position.byte_col0_from_char_col(line, origin[2])
+    local byte_col0 = position.byte_col0_from_grapheme_col(line, origin[2])
     local ok, parser = pcall(vim.treesitter.get_parser, buffer)
     if not (ok and parser) then
       vim.notify(

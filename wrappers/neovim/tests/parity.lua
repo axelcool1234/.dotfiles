@@ -25,8 +25,8 @@ end
 
 local function selection_texts()
   local texts = {}
-  for _, entry in ipairs(helix.current_selection_entries()) do
-    texts[#texts + 1] = state_module.get_entry_text(entry)
+  for _, entry in ipairs(helix.current_selection_ranges()) do
+    texts[#texts + 1] = entry:text()
   end
   return texts
 end
@@ -57,6 +57,27 @@ local function feed(keys)
   vim.api.nvim_feedkeys(termcodes, "xt", false)
 end
 
+local function finish_headless_insert()
+  vim.api.nvim_exec_autocmds("InsertLeave", {
+    buffer = vim.api.nvim_get_current_buf(),
+    modeline = false,
+  })
+end
+
+local function simulate_headless_insert(text)
+  assert(not text:find("\n", 1, true), "the insert simulation accepts one line")
+  local text_width = position.grapheme_count(text)
+  assert(text_width > 0, "the insert simulation requires nonempty text")
+  local buffer = vim.api.nvim_get_current_buf()
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local insertion_col = position.grapheme_col_from_byte_col0(position.line_text(buffer, cursor[1]), cursor[2])
+  vim.api.nvim_buf_set_text(buffer, cursor[1] - 1, cursor[2], cursor[1] - 1, cursor[2], { text })
+  local updated_line = position.line_text(buffer, cursor[1])
+  local escape_col = insertion_col + text_width - 1
+  vim.api.nvim_win_set_cursor(0, { cursor[1], position.byte_col0_from_grapheme_col(updated_line, escape_col) })
+  finish_headless_insert()
+end
+
 local function start_treesitter(filetype)
   vim.bo.filetype = filetype
   assert(pcall(vim.treesitter.start, 0, filetype), "Tree-sitter parser unavailable for " .. filetype)
@@ -73,9 +94,9 @@ local cases = {
         { text = "👍🏽x", next_byte = 8 },
       }
       for _, sample in ipairs(samples) do
-        assert_equal(position.char_count(sample.text), 2, sample.text .. " should contain two graphemes")
-        assert_equal(position.byte_col0_from_char_col(sample.text, 2), sample.next_byte, "second grapheme byte boundary")
-        assert_equal(position.char_col_from_byte_col0(sample.text, sample.next_byte), 2, "byte boundary round trip")
+        assert_equal(position.grapheme_count(sample.text), 2, sample.text .. " should contain two graphemes")
+        assert_equal(position.byte_col0_from_grapheme_col(sample.text, 2), sample.next_byte, "second grapheme byte boundary")
+        assert_equal(position.grapheme_col_from_byte_col0(sample.text, sample.next_byte), 2, "byte boundary round trip")
       end
     end,
   },
@@ -106,9 +127,9 @@ local cases = {
       end
       helix.toggle_select_mode()
       helix.normal_motion("j")()
-      assert_equal(helix.primary_selection_entry().cursor_pos, { 2, 9 }, "j should preserve the kana cursor's visual column")
+      assert_equal(helix.primary_range():cursor(), { 2, 9 }, "j should preserve the kana cursor's visual column")
       helix.normal_motion("k")()
-      assert_equal(helix.primary_selection_entry().cursor_pos, { 1, 5 }, "k should restore the original grapheme column")
+      assert_equal(helix.primary_range():cursor(), { 1, 5 }, "k should restore the original grapheme column")
     end,
   },
   {
@@ -144,7 +165,7 @@ local cases = {
       helix.select_whole_buffer()
       helix.split_selection_by_regex("^ ")
       assert_equal(selection_texts(), { "", "ab" }, "a leading delimiter should leave a leading empty selection")
-      assert_equal(helix.current_selection_entries()[1].empty, true, "the leading point should be semantically empty")
+      assert_equal(helix.current_selection_ranges()[1]:is_empty(), true, "the leading point should be semantically empty")
 
       reset_case({ "ab " })
       helix.select_whole_buffer()
@@ -166,8 +187,8 @@ local cases = {
       helix.flip_selection_direction()
       helix.merge_selections(true)
       assert_equal(selection_texts(), { "abcd", "efgh" }, "adjacent groups should merge independently")
-      for _, entry in ipairs(helix.current_selection_entries()) do
-        assert(entry.anchor_pos[2] > entry.cursor_pos[2], "merged reverse selections should remain reverse")
+      for _, entry in ipairs(helix.current_selection_ranges()) do
+        assert(entry:anchor_cell()[2] > entry:cursor()[2], "merged reverse selections should remain reverse")
       end
       helix.merge_selections(true)
       assert_equal(selection_texts(), { "abcd", "efgh" }, "merging should be idempotent")
@@ -200,7 +221,7 @@ local cases = {
       reset_case({ "alpha beta" }, 1, 6)
       helix.apply_word_motion("prev_word_start")
       assert_equal(selection_texts(), { "alpha " }, "previous word start should produce a reverse selection")
-      assert(helix.primary_selection_entry().anchor_pos[2] > helix.primary_selection_entry().cursor_pos[2], "b should face backward")
+      assert(helix.primary_range():anchor_cell()[2] > helix.primary_range():cursor()[2], "b should face backward")
     end,
   },
   {
@@ -216,13 +237,13 @@ local cases = {
 
       reset_case({ "one", "", "  two" })
       helix.apply_word_motion("next_word_start", 2)
-      assert_equal(helix.primary_selection_entry().cursor_pos, { 3, 2 }, "word motion should bridge newline groups and leading space")
+      assert_equal(helix.primary_range():cursor(), { 3, 2 }, "word motion should bridge newline groups and leading space")
 
       reset_case({ "one two three" })
       helix.toggle_select_mode()
-      local anchor = vim.deepcopy(helix.primary_selection_entry().anchor_pos)
+      local anchor = vim.deepcopy(helix.primary_range():anchor_cell())
       helix.apply_word_motion("next_word_start", 2)
-      assert_equal(helix.primary_selection_entry().anchor_pos, anchor, "word motion in select mode should retain its anchor")
+      assert_equal(helix.primary_range():anchor_cell(), anchor, "word motion in select mode should retain its anchor")
       assert_equal(selection_texts(), { "one two " }, "select-mode word motion should extend through the count")
     end,
   },
@@ -233,13 +254,13 @@ local cases = {
       with_getchar("\r", function()
         helix.find_char_motion("f")()
       end)
-      assert_equal(helix.primary_selection_entry().cursor_pos, { 1, 6 }, "f<ret> should land on the newline")
+      assert_equal(helix.primary_range():cursor(), { 1, 6 }, "f<ret> should land on the newline")
 
       reset_case({ "hello", "world" })
       with_getchar("\r", function()
         helix.find_char_motion("t")()
       end)
-      assert_equal(helix.primary_selection_entry().cursor_pos, { 1, 5 }, "t<ret> should stop before the newline")
+      assert_equal(helix.primary_range():cursor(), { 1, 5 }, "t<ret> should stop before the newline")
     end,
   },
   {
@@ -255,8 +276,8 @@ local cases = {
       helix.undo()
       assert_equal(current_lines(), { "Alpha Beta" }, "undo should restore text")
       assert_equal(selection_texts(), { "Beta", "Alpha" }, "undo should restore selections and primary identity")
-      for _, entry in ipairs(helix.current_selection_entries()) do
-        assert(entry.anchor_pos[2] > entry.cursor_pos[2], "undo should restore backward selection direction")
+      for _, entry in ipairs(helix.current_selection_ranges()) do
+        assert(entry:anchor_cell()[2] > entry:cursor()[2], "undo should restore backward selection direction")
       end
       helix.redo()
       assert_equal(current_lines(), { "ALPHA BETA" }, "redo should restore text")
@@ -264,14 +285,14 @@ local cases = {
       helix.earlier()
       assert_equal(current_lines(), { "Alpha Beta" }, "earlier should navigate native history")
       assert_equal(selection_texts(), { "Beta", "Alpha" }, "earlier should restore multicursors and primary identity")
-      for _, entry in ipairs(helix.current_selection_entries()) do
-        assert(entry.anchor_pos[2] > entry.cursor_pos[2], "earlier should restore selection direction")
+      for _, entry in ipairs(helix.current_selection_ranges()) do
+        assert(entry:anchor_cell()[2] > entry:cursor()[2], "earlier should restore selection direction")
       end
       helix.later()
       assert_equal(current_lines(), { "ALPHA BETA" }, "later should navigate native history")
       assert_equal(selection_texts(), { "BETA", "ALPHA" }, "later should restore multicursors and primary identity")
-      for _, entry in ipairs(helix.current_selection_entries()) do
-        assert(entry.anchor_pos[2] > entry.cursor_pos[2], "later should restore selection direction")
+      for _, entry in ipairs(helix.current_selection_ranges()) do
+        assert(entry:anchor_cell()[2] > entry:cursor()[2], "later should restore selection direction")
       end
 
       helix.undo()
@@ -307,14 +328,14 @@ local cases = {
           reset_case({ "abcdef", "中", "abcdef" }, 1, 1)
           helix.toggle_select_mode()
           helix.normal_motion("j")()
-          assert_equal(helix.primary_selection_entry().cursor_pos, { 2, 1 }, "j should land within the wide cell")
+          assert_equal(helix.primary_range():cursor(), { 2, 1 }, "j should land within the wide cell")
           helix.toggle_select_mode()
           helix.collapse_selections_to_cursors()
           with_getchar("X", helix.replace_selection_with_char)
           case.navigate()
-          assert_equal(helix.primary_selection_entry().cursor_pos, { 2, 1 }, case.name .. " should restore the wide-cell cursor")
+          assert_equal(helix.primary_range():cursor(), { 2, 1 }, case.name .. " should restore the wide-cell cursor")
           helix.normal_motion("j")()
-          assert_equal(helix.primary_selection_entry().cursor_pos, { 3, 2 }, case.name .. " should restore the preferred column")
+          assert_equal(helix.primary_range():cursor(), { 3, 2 }, case.name .. " should restore the preferred column")
         end)
       end
     end,
@@ -429,9 +450,7 @@ local cases = {
     run = function()
       reset_case({ "abc" }, 1, 1)
       helix.open_line_above()
-      vim.wait(50)
-      vim.api.nvim_buf_set_text(0, 0, 0, 0, 0, { "up" })
-      vim.cmd("stopinsert")
+      simulate_headless_insert("up")
       vim.wait(100)
       assert_equal(current_lines(), { "up", "abc" }, "open line should insert text on its new line")
 
@@ -460,7 +479,7 @@ local cases = {
         vim.api.nvim_win_set_cursor(0, { 1, 0 })
         helix.jump_backward()
         assert_equal(selection_texts(), { "beta" }, "the saved selection should remain valid through undo and redo")
-        assert_equal(helix.primary_selection_entry().cursor_pos[1], 3, "the jump should track the inserted line")
+        assert_equal(helix.primary_range():cursor()[1], 3, "the jump should track the inserted line")
       end)
     end,
   },
@@ -517,8 +536,8 @@ local cases = {
         helix.jump_backward()
         assert_equal(vim.api.nvim_get_current_buf(), first, "C-o should restore the source buffer")
         assert_equal(selection_texts(), { "alpha", "beta" }, "C-o should restore every selection")
-        for _, entry in ipairs(helix.current_selection_entries()) do
-          assert(entry.anchor_pos[2] > entry.cursor_pos[2], "C-o should restore selection direction")
+        for _, entry in ipairs(helix.current_selection_ranges()) do
+          assert(entry:anchor_cell()[2] > entry:cursor()[2], "C-o should restore selection direction")
         end
         helix.jump_forward()
         assert_equal(vim.api.nvim_get_current_buf(), second, "C-i should restore the live destination buffer")
@@ -562,24 +581,24 @@ local cases = {
         vim.api.nvim_set_current_win(source)
         vim.api.nvim_buf_set_lines(0, 0, 1, false, {})
         vim.api.nvim_set_current_win(target)
-        assert_equal(helix.primary_selection_entry().cursor_pos[1], 2, "the inactive split should track a deletion")
+        assert_equal(helix.primary_range():cursor()[1], 2, "the inactive split should track a deletion")
         assert_equal(selection_texts(), { "three" }, "the deleted-prefix edit should preserve selection text")
 
         vim.api.nvim_set_current_win(source)
         vim.cmd("undo")
         vim.api.nvim_set_current_win(target)
-        assert_equal(helix.primary_selection_entry().cursor_pos[1], 3, "the inactive split should track undo")
+        assert_equal(helix.primary_range():cursor()[1], 3, "the inactive split should track undo")
 
         vim.api.nvim_set_current_win(source)
         vim.cmd("redo")
         vim.api.nvim_set_current_win(target)
-        assert_equal(helix.primary_selection_entry().cursor_pos[1], 2, "the inactive split should track redo")
+        assert_equal(helix.primary_range():cursor()[1], 2, "the inactive split should track redo")
 
         vim.api.nvim_set_current_win(source)
         vim.cmd("undo")
         vim.api.nvim_buf_set_lines(0, 0, 0, false, { "zero", "zero again" })
         vim.api.nvim_set_current_win(target)
-        assert_equal(helix.primary_selection_entry().cursor_pos[1], 5, "the inactive split should follow a new history branch")
+        assert_equal(helix.primary_range():cursor()[1], 5, "the inactive split should follow a new history branch")
         assert_equal(selection_texts(), { "three" }, "branching should preserve the inactive selection")
 
         vim.api.nvim_win_close(source, true)
@@ -597,9 +616,9 @@ local cases = {
       helix.select_picker_location({ lnum = 1, col = 2, end_lnum = 2, end_col = 4 })
       assert_equal(selection_texts(), { "é中z\n尾" }, "picker ranges should preserve exclusive multiline ends")
       helix.select_picker_location({ lnum = 99, col = 99, end_lnum = 99, end_col = 99 })
-      assert_equal(helix.primary_selection_entry().cursor_pos, { 2, 3 }, "out-of-range locations should clamp to EOF")
+      assert_equal(helix.primary_range():cursor(), { 2, 3 }, "out-of-range locations should clamp to EOF")
       assert_equal(selection_texts(), { "" }, "an explicit empty range should remain semantically empty")
-      assert_equal(helix.primary_selection_entry().empty, true, "an empty picker range should retain its empty marker")
+      assert_equal(helix.primary_range():is_empty(), true, "an empty picker range should retain its empty marker")
     end,
   },
   {
@@ -857,8 +876,8 @@ local cases = {
       helix.flip_selection_direction()
       helix.select_all_treesitter_siblings()
       assert_equal(selection_texts(), { "bar", "baz" }, "all siblings should be selected")
-      for _, entry in ipairs(helix.current_selection_entries()) do
-        assert(entry.anchor_pos[2] > entry.cursor_pos[2], "sibling direction should be preserved")
+      for _, entry in ipairs(helix.current_selection_ranges()) do
+        assert(entry:anchor_cell()[2] > entry:cursor()[2], "sibling direction should be preserved")
       end
       helix.select_all_treesitter_siblings()
       assert_equal(selection_texts(), { "bar", "baz" }, "selecting all siblings twice should be stable")
@@ -882,8 +901,8 @@ local cases = {
       helix.flip_selection_direction()
       helix.select_all_treesitter_children()
       assert_equal(selection_texts(), { "foo", "(bar, baz)" }, "all named children should be selected")
-      for _, entry in ipairs(helix.current_selection_entries()) do
-        assert(entry.anchor_pos[2] > entry.cursor_pos[2], "child direction should be preserved")
+      for _, entry in ipairs(helix.current_selection_ranges()) do
+        assert(entry:anchor_cell()[2] > entry:cursor()[2], "child direction should be preserved")
       end
     end,
   },
@@ -900,11 +919,11 @@ local cases = {
       reset_case({ "return foo(bar)" }, 1, 11)
       start_treesitter("lua")
       helix.toggle_select_mode()
-      local anchor = vim.deepcopy(helix.primary_selection_entry().anchor_pos)
+      local anchor = vim.deepcopy(helix.primary_range():anchor_cell())
       helix.move_parent_node_boundary("end")
       helix.move_parent_node_boundary("end")
-      assert_equal(helix.primary_selection_entry().anchor_pos, anchor, "parent boundary motion should retain the select-mode anchor")
-      assert(helix.primary_selection_entry().cursor_pos[2] > anchor[2], "parent boundary motion should extend the selection")
+      assert_equal(helix.primary_range():anchor_cell(), anchor, "parent boundary motion should retain the select-mode anchor")
+      assert(helix.primary_range():cursor()[2] > anchor[2], "parent boundary motion should extend the selection")
 
       reset_case({ "plain text" })
       helix.select_all_treesitter_children()
@@ -918,16 +937,16 @@ local cases = {
       start_treesitter("lua")
       helix.select_whole_buffer()
       helix.select_regex_matches("1")
-      local leaf = helix.current_selection_entries()
+      local leaf = helix.current_selection_ranges()
       helix.select_all_treesitter_children()
-      assert_equal(helix.current_selection_entries(), leaf, "a leaf node with no named children should stay unchanged")
+      assert_equal(helix.current_selection_ranges(), leaf, "a leaf node with no named children should stay unchanged")
 
       reset_case({ "return foo(1)" })
       start_treesitter("lua")
       helix.select_whole_buffer()
-      local root = helix.current_selection_entries()
+      local root = helix.current_selection_ranges()
       helix.select_all_treesitter_siblings()
-      assert_equal(helix.current_selection_entries(), root, "a root selection with no siblings should stay unchanged")
+      assert_equal(helix.current_selection_ranges(), root, "a root selection with no siblings should stay unchanged")
     end,
   },
   {
@@ -939,9 +958,9 @@ local cases = {
       helix.select_regex_matches("[{]1, 2[}]|[{]3, 4[}]")
       helix.select_all_treesitter_children()
       assert_equal(selection_texts(), { "1", "2", "3", "4" }, "each parent should contribute its own named children")
-      local once = helix.current_selection_entries()
+      local once = helix.current_selection_ranges()
       helix.select_all_treesitter_children()
-      assert_equal(helix.current_selection_entries(), once, "selecting children again at leaf nodes should be idempotent")
+      assert_equal(helix.current_selection_ranges(), once, "selecting children again at leaf nodes should be idempotent")
     end,
   },
   {
@@ -952,15 +971,15 @@ local cases = {
       helix.select_whole_buffer()
       helix.select_regex_matches("1|3, 4")
       helix.select_all_treesitter_siblings()
-      local entries = helix.current_selection_entries()
+      local entries = helix.current_selection_ranges()
       for left_index = 1, #entries do
         for right_index = left_index + 1, #entries do
           local left = entries[left_index]
           local right = entries[right_index]
-          local disjoint = left.end_pos[1] < right.start_pos[1]
-            or right.end_pos[1] < left.start_pos[1]
-            or (left.end_pos[1] == right.start_pos[1] and left.end_pos[2] < right.start_pos[2])
-            or (right.end_pos[1] == left.start_pos[1] and right.end_pos[2] < left.start_pos[2])
+          local disjoint = left:end_cell()[1] < right:start_cell()[1]
+            or right:end_cell()[1] < left:start_cell()[1]
+            or (left:end_cell()[1] == right:start_cell()[1] and left:end_cell()[2] < right:start_cell()[2])
+            or (right:end_cell()[1] == left:start_cell()[1] and right:end_cell()[2] < left:start_cell()[2])
           assert(disjoint, "conflicting Tree-sitter results should be normalized into disjoint selections")
         end
       end
@@ -989,18 +1008,18 @@ local cases = {
       helix.copy_selection_on_adjacent_line(1)
       helix.scroll_half_page(1, 5)
       local rows = {}
-      for _, entry in ipairs(helix.current_selection_entries()) do
-        rows[#rows + 1] = entry.cursor_pos[1]
+      for _, entry in ipairs(helix.current_selection_ranges()) do
+        rows[#rows + 1] = entry:cursor()[1]
       end
       table.sort(rows)
       assert_equal(rows, { 35, 36 }, "scrolling should move every cursor while retaining their separation")
 
       reset_case(lines, 40, 8)
       helix.toggle_select_mode()
-      local anchor = vim.deepcopy(helix.primary_selection_entry().anchor_pos)
+      local anchor = vim.deepcopy(helix.primary_range():anchor_cell())
       helix.scroll_half_page(1, 5)
-      assert_equal(helix.primary_selection_entry().anchor_pos, anchor, "scrolling in select mode should preserve its anchor")
-      assert_equal(helix.primary_selection_entry().cursor_pos[1], 45, "scrolling in select mode should extend the cursor")
+      assert_equal(helix.primary_range():anchor_cell(), anchor, "scrolling in select mode should preserve its anchor")
+      assert_equal(helix.primary_range():cursor()[1], 45, "scrolling in select mode should extend the cursor")
 
       reset_case({ string.rep("x", 240), "next" }, 1, 160)
       vim.wo.wrap = true
@@ -1026,9 +1045,9 @@ local cases = {
       end
       helix.toggle_select_mode()
       helix.scroll_half_page(1, 1)
-      assert_equal(helix.primary_selection_entry().cursor_pos, { 2, 2 }, "scrolling should clamp on a short line")
+      assert_equal(helix.primary_range():cursor(), { 2, 2 }, "scrolling should clamp on a short line")
       helix.scroll_half_page(1, 1)
-      assert_equal(helix.primary_selection_entry().cursor_pos, { 3, 9 }, "scrolling should restore the wide-text visual column")
+      assert_equal(helix.primary_range():cursor(), { 3, 9 }, "scrolling should restore the wide-text visual column")
     end,
   },
   {

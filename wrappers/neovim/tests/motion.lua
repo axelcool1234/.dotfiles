@@ -1,5 +1,8 @@
+require("axelcool1234")
+
 local helix = require("axelcool1234.helix")
 local pickers = require("axelcool1234.pickers")
+local position = require("axelcool1234.helix.position")
 local state_module = require("axelcool1234.helix.state")
 
 local function assert_equal(actual, expected, label)
@@ -164,9 +167,9 @@ local function current_lines()
 end
 
 local function assert_primary_cursor_synced(label)
-  local entry = helix.primary_selection_entry()
+  local entry = helix.primary_range()
   assert(entry, label .. " should retain a primary selection entry")
-  assert_equal(entry.cursor_pos, state_module.current_pos_1indexed(), label .. " should keep logical and real cursors synchronized")
+  assert_equal(entry:cursor(), state_module.current_pos_1indexed(), label .. " should keep logical and real cursors synchronized")
 end
 
 local function capture_echo(thunk, wait_ms)
@@ -246,6 +249,30 @@ end
 local function leave_single_preview_active()
   helix.toggle_select_mode()
   helix.toggle_select_mode()
+end
+
+local function finish_headless_insert()
+  vim.api.nvim_exec_autocmds("InsertLeave", {
+    buffer = vim.api.nvim_get_current_buf(),
+    modeline = false,
+  })
+end
+
+-- `:startinsert` does not enter Insert mode while a headless Lua chunk is
+-- still running. Model the state immediately after typing text and pressing
+-- Escape, then fire the lifecycle event that the UI would emit.
+local function simulate_headless_insert(text)
+  assert(not text:find("\n", 1, true), "the insert simulation accepts one line")
+  local text_width = position.grapheme_count(text)
+  assert(text_width > 0, "the insert simulation requires nonempty text")
+  local buffer = vim.api.nvim_get_current_buf()
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local insertion_col = position.grapheme_col_from_byte_col0(position.line_text(buffer, cursor[1]), cursor[2])
+  vim.api.nvim_buf_set_text(buffer, cursor[1] - 1, cursor[2], cursor[1] - 1, cursor[2], { text })
+  local updated_line = position.line_text(buffer, cursor[1])
+  local escape_col = insertion_col + text_width - 1
+  vim.api.nvim_win_set_cursor(0, { cursor[1], position.byte_col0_from_grapheme_col(updated_line, escape_col) })
+  finish_headless_insert()
 end
 
 local cases = {
@@ -549,7 +576,7 @@ local cases = {
 
       local row, col0 = unpack(vim.api.nvim_win_get_cursor(0))
       vim.api.nvim_buf_set_text(0, row - 1, col0, row - 1, col0, { "hello" })
-      vim.cmd("stopinsert")
+      finish_headless_insert()
       vim.wait(100)
 
       assert_equal(current_lines(), { "(hello∀x)" }, "inserting before a unicode selection should preserve the selected text")
@@ -565,7 +592,7 @@ local cases = {
       helix.normal_motion("j")()
       helix.insert_mode()
       assert_equal(vim.api.nvim_win_get_cursor(0), { 3, 0 }, "insert should start on the moved row")
-      vim.cmd("stopinsert")
+      finish_headless_insert()
     end,
   },
   {
@@ -575,18 +602,13 @@ local cases = {
       leave_single_preview_active()
 
       helix.insert_mode()
-      vim.wait(50)
-      vim.api.nvim_buf_set_text(0, 1, 0, 1, 0, { "x" })
-      vim.cmd("stopinsert")
-      vim.wait(100)
+      simulate_headless_insert("x")
       helix.move_visual_line_up()
 
       assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "k after a cursor-only insert should move to the adjacent line")
       helix.insert_mode()
       assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "the next insert should start at the moved cursor, not the previous row")
-      vim.api.nvim_buf_set_text(0, 0, 0, 0, 0, { "y" })
-      vim.cmd("stopinsert")
-      vim.wait(100)
+      simulate_headless_insert("y")
 
       assert_equal(current_lines(), { "yone", "xtwo", "three" }, "both inserts should edit their respective cursor rows")
       helix.undo()
@@ -601,20 +623,20 @@ local cases = {
       reset_case({ "abc", "def ghi" }, 1, 3)
 
       helix.insert_mode()
-      vim.cmd("stopinsert")
+      finish_headless_insert()
       vim.wait(100)
       helix.move_visual_line_down()
 
       assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 3 }, "j should move the real cursor down from the newline cell")
       assert_equal(
-        helix.primary_selection_entry().cursor_pos,
+        helix.primary_range():cursor(),
         { 2, 4 },
         "j should replace the invisible post-insert newline entry"
       )
 
       helix.apply_word_motion("prev_word_start", 1)
       assert_equal(
-        helix.primary_selection_entry().cursor_pos,
+        helix.primary_range():cursor(),
         { 2, 1 },
         "b should start from the moved cursor rather than the old newline cell"
       )
@@ -632,14 +654,14 @@ local cases = {
       vim.wait(50)
       vim.api.nvim_buf_set_text(0, 1, 2, 1, 2, { "XX" })
       vim.api.nvim_exec_autocmds("TextChangedI", { buffer = 0 })
-      vim.cmd("stopinsert")
+      finish_headless_insert()
       vim.wait(100)
 
       assert_equal(selection_texts(), { "23456" }, "insert should preserve the selected text")
       assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 4 }, "insert should leave the real cursor at the selection start")
-      local retained = helix.primary_selection_entry()
-      assert_equal(retained.anchor_pos, { 2, 9 }, "the retained selection anchor should become its opposite end")
-      assert_equal(retained.cursor_pos, { 2, 5 }, "the retained selection cursor should match the insertion endpoint")
+      local retained = helix.primary_range()
+      assert_equal(retained:anchor_cell(), { 2, 9 }, "the retained selection anchor should become its opposite end")
+      assert_equal(retained:cursor(), { 2, 5 }, "the retained selection cursor should match the insertion endpoint")
 
       helix.move_visual_line_up()
 
@@ -647,7 +669,7 @@ local cases = {
       assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 4 }, "k should retain the insertion endpoint column")
       helix.insert_mode()
       assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 4 }, "the next insert should use the cursor reached after the selection")
-      vim.cmd("stopinsert")
+      finish_headless_insert()
     end,
   },
   {
@@ -661,7 +683,7 @@ local cases = {
       assert(type(backspace_map.callback) == "function", "multi-insert should install a buffer-local insert backspace handler")
       backspace_map.callback()
       vim.wait(100)
-      vim.cmd("stopinsert")
+      finish_headless_insert()
       vim.wait(100)
 
       assert_equal(current_lines(), { "ab", "ab" }, "backspace in multi-insert should delete before every active cursor")
@@ -678,7 +700,7 @@ local cases = {
       local backspace_map = vim.fn.maparg("<BS>", "i", false, true)
       backspace_map.callback()
       vim.wait(100)
-      vim.cmd("stopinsert")
+      finish_headless_insert()
       vim.wait(100)
 
       assert_equal(current_lines(), { "∀b", "∀b" }, "backspace should delete the character before every cursor")
@@ -688,7 +710,7 @@ local cases = {
         "backspace after a multibyte symbol should leave every cursor before the suffix"
       )
       assert_equal(
-        helix.primary_selection_entry().cursor_pos,
+        helix.primary_range():cursor(),
         { 2, 2 },
         "backspace after a multibyte symbol should preserve the logical insertion endpoint"
       )
@@ -707,26 +729,26 @@ local cases = {
       reset_case({ "  alpha  " }, 1, 5)
       helix.insert_at_line_start()
       assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 2 }, "I should insert before the first non-whitespace character")
-      feed("<Esc>")
+      finish_headless_insert()
       assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 2 }, "escaping I should retain its insertion endpoint")
-      assert_equal(helix.primary_selection_entry().cursor_pos, { 1, 3 }, "I should retain the same logical endpoint")
+      assert_equal(helix.primary_range():cursor(), { 1, 3 }, "I should retain the same logical endpoint")
 
       reset_case({ "  alpha  " }, 1, 2)
       helix.insert_at_line_end()
       assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 9 }, "A should insert after trailing whitespace")
-      feed("<Esc>")
+      finish_headless_insert()
       assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 9 }, "escaping A should retain its insertion endpoint")
-      assert_equal(helix.primary_selection_entry().cursor_pos, { 1, 10 }, "A should retain the same logical endpoint")
+      assert_equal(helix.primary_range():cursor(), { 1, 10 }, "A should retain the same logical endpoint")
 
       reset_case({ "    " }, 1, 2)
       helix.insert_at_line_start()
       assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "I should treat a whitespace-only line as nonempty")
-      vim.cmd("stopinsert")
+      finish_headless_insert()
 
       reset_case({ "    " }, 1, 0)
       helix.insert_at_line_end()
       assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 4 }, "A should remain at the end of a whitespace-only line")
-      vim.cmd("stopinsert")
+      finish_headless_insert()
     end,
   },
   {
@@ -738,7 +760,7 @@ local cases = {
       helix.insert_at_line_start()
       assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 4 }, "I should use the active end's line")
       assert_equal(selection_texts(), {}, "I should collapse the old selection")
-      vim.cmd("stopinsert")
+      finish_headless_insert()
 
       reset_case({ "  alpha", "    beta" }, 2, 4)
       helix.toggle_select_mode()
@@ -746,7 +768,7 @@ local cases = {
       helix.insert_at_line_end()
       assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 7 }, "A should use the active end's line")
       assert_equal(selection_texts(), {}, "A should collapse the old selection")
-      vim.cmd("stopinsert")
+      finish_headless_insert()
     end,
   },
   {
@@ -758,12 +780,12 @@ local cases = {
       helix.change_selection("_")
       vim.api.nvim_buf_set_text(0, 0, 1, 0, 1, { "X" })
       vim.api.nvim_exec_autocmds("TextChangedI", { buffer = 0 })
-      vim.cmd("stopinsert")
+      finish_headless_insert()
       vim.wait(100)
 
       assert_equal(current_lines(), { "aXd" }, "change should replace the selected cells")
       assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 2 }, "escaping change should stay at the insertion endpoint")
-      assert_equal(helix.primary_selection_entry().cursor_pos, { 1, 3 }, "change should retain the logical insertion endpoint")
+      assert_equal(helix.primary_range():cursor(), { 1, 3 }, "change should retain the logical insertion endpoint")
       assert_primary_cursor_synced("change escape")
 
       helix.undo()
@@ -779,14 +801,14 @@ local cases = {
     run = function()
       reset_case({ "abcdef" }, 1, 2)
       helix.insert_mode()
-      feed("<Esc>")
+      finish_headless_insert()
       assert_equal(state_module.current_pos_1indexed(), { 1, 3 }, "escaping i without edits should keep its insertion point")
       assert_primary_cursor_synced("insert escape")
 
       reset_case({ "abcdef" }, 1, 2)
       helix.append_mode()
       assert_equal(state_module.current_pos_1indexed(), { 1, 4 }, "a should initially move after the cursor cell")
-      feed("<Esc>")
+      finish_headless_insert()
       assert_equal(state_module.current_pos_1indexed(), { 1, 3 }, "escaping a without edits should restore the original cursor cell")
       assert_primary_cursor_synced("append escape")
     end,
@@ -797,7 +819,7 @@ local cases = {
       reset_case({ "  one", "  two", "  three", "  four" }, 1, 4)
       helix.copy_selection_on_adjacent_line(1)
       helix.insert_at_line_start()
-      feed("<Esc>")
+      finish_headless_insert()
 
       assert_equal(all_cursor_positions(), { { 1, 3 }, { 2, 3 } }, "I should retain every tracked insertion endpoint")
       helix.move_textual_line_down()
@@ -868,7 +890,7 @@ local cases = {
       for _, motion_case in ipairs(motion_cases) do
         reset_case({ "zero", "  alpha beta", "0123456789", "last" }, 2, 6)
         helix.insert_at_line_start()
-        feed("<Esc>")
+        finish_headless_insert()
         assert_primary_cursor_synced(motion_case.name .. " setup")
 
         motion_case.apply()
@@ -894,14 +916,14 @@ local cases = {
         assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 4 }, "insert should begin after the computed indent")
 
         vim.api.nvim_buf_set_text(0, 1, 4, 1, 4, { "x" })
-        vim.cmd("stopinsert")
+        finish_headless_insert()
         vim.wait(100)
         assert_equal(current_lines(), { "fn main() {", "    x", "}" }, "typed text should follow the computed indent")
 
         helix.undo()
         assert_equal(current_lines(), { "fn main() {", "", "}" }, "one undo should remove both the indent and inserted text")
         assert_equal(
-          helix.primary_selection_entry().cursor_pos,
+          helix.primary_range():cursor(),
           { 2, 1 },
           "undo should not retain a logical cursor beyond the restored empty line"
         )
@@ -918,7 +940,7 @@ local cases = {
 
       assert_equal(current_lines(), { "fn main() {", "    ", "    ", "}" }, "each empty cursor line should be autoindented")
       assert_equal(all_cursor_positions(), { { 2, 5 }, { 3, 5 } }, "each insert cursor should sit after its computed indent")
-      vim.cmd("stopinsert")
+      finish_headless_insert()
     end,
   },
   {
@@ -926,8 +948,8 @@ local cases = {
     run = function()
       reset_case({ "abc" }, 1, 3)
       helix.open_line_below()
-      feed_deferred("xyz<Esc>")
-      assert_equal(current_lines(), { "abc", "yz" }, "open_line_below should preserve the inserted text in headless mode")
+      simulate_headless_insert("xyz")
+      assert_equal(current_lines(), { "abc", "xyz" }, "open_line_below should preserve the inserted text in headless mode")
       assert_equal(state_module.current_pos_1indexed(), { 2, 3 }, "escaping o should keep the cursor at the insertion endpoint")
     end,
   },
@@ -938,7 +960,7 @@ local cases = {
       helix.open_line_above()
       vim.wait(50)
       vim.api.nvim_buf_set_text(0, 0, 0, 0, 0, { "up" })
-      vim.cmd("stopinsert")
+      finish_headless_insert()
       vim.wait(100)
       assert_equal(current_lines(), { "up", "abc" }, "open_line_above should preserve the inserted text in headless mode")
       assert_equal(state_module.current_pos_1indexed(), { 1, 3 }, "escaping O should keep the cursor at the insertion endpoint")

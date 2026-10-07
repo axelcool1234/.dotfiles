@@ -8,8 +8,8 @@ local function octo_diff_buffer(bufnr)
 end
 
 local function primary_selection_line_range()
-  local entries = helix.current_selection_entries()
-  local entry = helix.primary_selection_entry()
+  local entries = helix.current_selection_ranges()
+  local entry = helix.primary_range()
   if not entry then
     return nil
   end
@@ -18,7 +18,7 @@ local function primary_selection_line_range()
     vim.notify("Octo review comments use only the primary Helix selection", vim.log.levels.INFO)
   end
 
-  return entry.start_pos[1], entry.end_pos[1]
+  return entry:start_cell()[1], entry:end_cell()[1]
 end
 
 local function run_ranged_octo(action)
