@@ -19,24 +19,62 @@ end
 
 local function selection_texts()
   local texts = {}
-  for _, entry in ipairs(helix.current_selection_ranges()) do
+  for _, entry in ipairs(helix.current_selection().ranges) do
     texts[#texts + 1] = entry:text()
   end
   return texts
+end
+
+local function selection_shape()
+  local shape = {}
+  for index, entry in ipairs(helix.current_selection().ranges) do
+    shape[index] = { entry:anchor_cell(), entry:cursor(), entry:is_empty() }
+  end
+  return shape
 end
 
 local basic_cases = {
   { name = "w word", target = "next_word_start", text = "alpha beta", col0 = 0, expected = "alpha " },
   { name = "e word", target = "next_word_end", text = "alpha beta", col0 = 0, expected = "alpha" },
   { name = "b word", target = "prev_word_start", text = "alpha beta", col0 = 6, expected = "alpha " },
-  { name = "W long word", target = "next_long_word_start", text = "alpha.!,and next", col0 = 0, expected = "alpha.!,and " },
-  { name = "E long word", target = "next_long_word_end", text = "alpha.!,and next", col0 = 0, expected = "alpha.!,and" },
-  { name = "B long word", target = "prev_long_word_start", text = "alpha.!,and next", col0 = 12, expected = "alpha.!,and " },
+  {
+    name = "W long word",
+    target = "next_long_word_start",
+    text = "alpha.!,and next",
+    col0 = 0,
+    expected = "alpha.!,and ",
+  },
+  {
+    name = "E long word",
+    target = "next_long_word_end",
+    text = "alpha.!,and next",
+    col0 = 0,
+    expected = "alpha.!,and",
+  },
+  {
+    name = "B long word",
+    target = "prev_long_word_start",
+    text = "alpha.!,and next",
+    col0 = 12,
+    expected = "alpha.!,and ",
+  },
   { name = "w punctuation boundary", target = "next_word_start", text = "alpha.!,and", col0 = 0, expected = "alpha" },
   { name = "e punctuation boundary", target = "next_word_end", text = "alpha.!,and", col0 = 5, expected = ".!," },
   { name = "w underscore word", target = "next_word_start", text = "one_two next", col0 = 0, expected = "one_two " },
-  { name = "W keeps punctuation", target = "next_long_word_start", text = "...   next", col0 = 0, expected = "...   " },
-  { name = "E stops before whitespace", target = "next_long_word_end", text = "...   next", col0 = 0, expected = "..." },
+  {
+    name = "W keeps punctuation",
+    target = "next_long_word_start",
+    text = "...   next",
+    col0 = 0,
+    expected = "...   ",
+  },
+  {
+    name = "E stops before whitespace",
+    target = "next_long_word_end",
+    text = "...   next",
+    col0 = 0,
+    expected = "...",
+  },
   { name = "b punctuation", target = "prev_word_start", text = "alpha.!,and", col0 = 8, expected = ".!," },
 }
 
@@ -73,12 +111,12 @@ do
   for _, case in ipairs(counted_cases) do
     reset({ text }, 1, case.col0)
     helix.apply_word_motion(case.target, 2)
-    local counted = helix.current_selection_ranges()
+    local counted = selection_shape()
 
     reset({ text }, 1, case.col0)
     helix.apply_word_motion(case.target)
     helix.apply_word_motion(case.target)
-    assert_equal(helix.current_selection_ranges(), counted, case.target .. " count should match two successive motions")
+    assert_equal(selection_shape(), counted, case.target .. " count should match two successive motions")
   end
 end
 
@@ -92,20 +130,20 @@ do
     "prev_long_word_start",
   }) do
     reset({ "" })
-    local before = helix.current_selection_ranges()
+    local before = selection_shape()
     helix.apply_word_motion(target)
-    assert_equal(helix.current_selection_ranges(), before, target .. " should be a no-op in an empty buffer")
+    assert_equal(selection_shape(), before, target .. " should be a no-op in an empty buffer")
   end
 
   reset({ "last" }, 1, 3)
-  local before = helix.current_selection_ranges()
+  local before = selection_shape()
   helix.apply_word_motion("next_word_start")
-  assert_equal(helix.current_selection_ranges(), before, "a failed forward motion should preserve the selection")
+  assert_equal(selection_shape(), before, "a failed forward motion should preserve the selection")
 
   reset({ "first" }, 1, 0)
-  before = helix.current_selection_ranges()
+  before = selection_shape()
   helix.apply_word_motion("prev_word_start")
-  assert_equal(helix.current_selection_ranges(), before, "a failed backward motion should preserve the selection")
+  assert_equal(selection_shape(), before, "a failed backward motion should preserve the selection")
 end
 
 do

@@ -1,9 +1,12 @@
 require("axelcool1234")
+require("axelcool1234.remaps")
+vim.cmd.runtime("after/plugin/lualine.lua")
 
 local helix = require("axelcool1234.helix")
 local pickers = require("axelcool1234.pickers")
 local position = require("axelcool1234.helix.position")
 local state_module = require("axelcool1234.helix.state")
+local headless_insert = require("wrappers.neovim.tests.support.headless_insert")
 
 local function assert_equal(actual, expected, label)
   if not vim.deep_equal(actual, expected) then
@@ -251,29 +254,8 @@ local function leave_single_preview_active()
   helix.toggle_select_mode()
 end
 
-local function finish_headless_insert()
-  vim.api.nvim_exec_autocmds("InsertLeave", {
-    buffer = vim.api.nvim_get_current_buf(),
-    modeline = false,
-  })
-end
-
--- `:startinsert` does not enter Insert mode while a headless Lua chunk is
--- still running. Model the state immediately after typing text and pressing
--- Escape, then fire the lifecycle event that the UI would emit.
-local function simulate_headless_insert(text)
-  assert(not text:find("\n", 1, true), "the insert simulation accepts one line")
-  local text_width = position.grapheme_count(text)
-  assert(text_width > 0, "the insert simulation requires nonempty text")
-  local buffer = vim.api.nvim_get_current_buf()
-  local cursor = vim.api.nvim_win_get_cursor(0)
-  local insertion_col = position.grapheme_col_from_byte_col0(position.line_text(buffer, cursor[1]), cursor[2])
-  vim.api.nvim_buf_set_text(buffer, cursor[1] - 1, cursor[2], cursor[1] - 1, cursor[2], { text })
-  local updated_line = position.line_text(buffer, cursor[1])
-  local escape_col = insertion_col + text_width - 1
-  vim.api.nvim_win_set_cursor(0, { cursor[1], position.byte_col0_from_grapheme_col(updated_line, escape_col) })
-  finish_headless_insert()
-end
+local simulate_headless_insert = headless_insert.simulate
+local finish_headless_insert = headless_insert.finish
 
 local cases = {
   {
@@ -554,16 +536,8 @@ local cases = {
       helix.toggle_select_mode()
       helix.delete()
 
-      assert_equal(
-        current_lines(),
-        { "axiom OperationPtr.dominates (op₁ op : OperationPtr) (ctx : WfIRContext OpInfo) : Prop" },
-        "deleting the unicode subscript should only remove that symbol"
-      )
-      assert_equal(
-        state_module.current_pos_1indexed(),
-        { 1, 37 },
-        "cursor should stay right after the surviving 'op' token after deleting the unicode subscript"
-      )
+      assert_equal(current_lines(), { "axiom OperationPtr.dominates (op₁ op : OperationPtr) (ctx : WfIRContext OpInfo) : Prop" }, "deleting the unicode subscript should only remove that symbol")
+      assert_equal(state_module.current_pos_1indexed(), { 1, 37 }, "cursor should stay right after the surviving 'op' token after deleting the unicode subscript")
     end,
   },
   {
@@ -628,18 +602,10 @@ local cases = {
       helix.move_visual_line_down()
 
       assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 3 }, "j should move the real cursor down from the newline cell")
-      assert_equal(
-        helix.primary_range():cursor(),
-        { 2, 4 },
-        "j should replace the invisible post-insert newline entry"
-      )
+      assert_equal(helix.primary_range():cursor(), { 2, 4 }, "j should replace the invisible post-insert newline entry")
 
       helix.apply_word_motion("prev_word_start", 1)
-      assert_equal(
-        helix.primary_range():cursor(),
-        { 2, 1 },
-        "b should start from the moved cursor rather than the old newline cell"
-      )
+      assert_equal(helix.primary_range():cursor(), { 2, 1 }, "b should start from the moved cursor rather than the old newline cell")
     end,
   },
   {
@@ -704,16 +670,8 @@ local cases = {
       vim.wait(100)
 
       assert_equal(current_lines(), { "∀b", "∀b" }, "backspace should delete the character before every cursor")
-      assert_equal(
-        all_cursor_positions(),
-        { { 1, 4 }, { 2, 4 } },
-        "backspace after a multibyte symbol should leave every cursor before the suffix"
-      )
-      assert_equal(
-        helix.primary_range():cursor(),
-        { 2, 2 },
-        "backspace after a multibyte symbol should preserve the logical insertion endpoint"
-      )
+      assert_equal(all_cursor_positions(), { { 1, 4 }, { 2, 4 } }, "backspace after a multibyte symbol should leave every cursor before the suffix")
+      assert_equal(helix.primary_range():cursor(), { 2, 2 }, "backspace after a multibyte symbol should preserve the logical insertion endpoint")
     end,
   },
   {
@@ -834,7 +792,9 @@ local cases = {
         {
           name = "horizontal",
           expected = { 2, 4 },
-          apply = function() helix.normal_motion("l")() end,
+          apply = function()
+            helix.normal_motion("l")()
+          end,
         },
         {
           name = "textual vertical",
@@ -869,12 +829,16 @@ local cases = {
         {
           name = "scroll",
           expected = { 3, 3 },
-          apply = function() helix.scroll_half_page(1, 1) end,
+          apply = function()
+            helix.scroll_half_page(1, 1)
+          end,
         },
         {
           name = "word",
           expected = { 2, 8 },
-          apply = function() helix.apply_word_motion("next_word_start", 1) end,
+          apply = function()
+            helix.apply_word_motion("next_word_start", 1)
+          end,
         },
         {
           name = "find character",
@@ -895,11 +859,7 @@ local cases = {
 
         motion_case.apply()
 
-        assert_equal(
-          state_module.current_pos_1indexed(),
-          motion_case.expected,
-          motion_case.name .. " should move from the retained insertion endpoint"
-        )
+        assert_equal(state_module.current_pos_1indexed(), motion_case.expected, motion_case.name .. " should move from the retained insertion endpoint")
         assert_primary_cursor_synced(motion_case.name)
       end
     end,
@@ -922,11 +882,7 @@ local cases = {
 
         helix.undo()
         assert_equal(current_lines(), { "fn main() {", "", "}" }, "one undo should remove both the indent and inserted text")
-        assert_equal(
-          helix.primary_range():cursor(),
-          { 2, 1 },
-          "undo should not retain a logical cursor beyond the restored empty line"
-        )
+        assert_equal(helix.primary_range():cursor(), { 2, 1 }, "undo should not retain a logical cursor beyond the restored empty line")
       end
     end,
   },
@@ -1013,11 +969,7 @@ local cases = {
       reset_case({ "aaaaa" }, 1, 0)
       helix.select_whole_buffer()
       helix.select_regex_matches("a")
-      assert_equal(
-        all_cursor_positions(),
-        { { 1, 1 }, { 1, 2 }, { 1, 3 }, { 1, 4 }, { 1, 5 } },
-        "adjacent single-character matches should not merge into one cursor"
-      )
+      assert_equal(all_cursor_positions(), { { 1, 1 }, { 1, 2 }, { 1, 3 }, { 1, 4 }, { 1, 5 } }, "adjacent single-character matches should not merge into one cursor")
     end,
   },
   {
@@ -1052,11 +1004,7 @@ local cases = {
       feed_deferred("alpha<Esc>", 20, 300)
       vim.api.nvim_del_augroup_by_id(group)
 
-      assert_equal(
-        preview_range,
-        { start_row = 1, start_col = 24, end_row = 1, end_col = 28 },
-        "typing /alpha should preview the next forward match before confirming"
-      )
+      assert_equal(preview_range, { start_row = 1, start_col = 24, end_row = 1, end_col = 28 }, "typing /alpha should preview the next forward match before confirming")
 
       assert_equal(vim.api.nvim_win_get_cursor(0), original_cursor, "cancelling an incremental search should restore the original cursor")
       assert_equal(primary_selection_range(), nil, "cancelling an incremental search should clear the temporary preview")
@@ -1070,25 +1018,13 @@ local cases = {
       helix.search_regex_backward()
       feed_deferred("alpha<CR>", 20, 300)
 
-      assert_equal(
-        primary_selection_range(),
-        { start_row = 1, start_col = 12, end_row = 1, end_col = 16 },
-        "? should first select the previous match"
-      )
+      assert_equal(primary_selection_range(), { start_row = 1, start_col = 12, end_row = 1, end_col = 16 }, "? should first select the previous match")
 
       helix.search_next("forward")
-      assert_equal(
-        primary_selection_range(),
-        { start_row = 1, start_col = 24, end_row = 1, end_col = 28 },
-        "n should still move forward after a ? search"
-      )
+      assert_equal(primary_selection_range(), { start_row = 1, start_col = 24, end_row = 1, end_col = 28 }, "n should still move forward after a ? search")
 
       helix.search_next("backward")
-      assert_equal(
-        primary_selection_range(),
-        { start_row = 1, start_col = 12, end_row = 1, end_col = 16 },
-        "N should still move backward after a ? search"
-      )
+      assert_equal(primary_selection_range(), { start_row = 1, start_col = 12, end_row = 1, end_col = 16 }, "N should still move backward after a ? search")
     end,
   },
   {
@@ -1097,11 +1033,7 @@ local cases = {
       reset_case({ "alpha beta alpha gamma alpha" }, 1, 0)
       helix.select_regex_matches("alpha")
 
-      assert_equal(
-        all_cursor_positions(),
-        { { 1, 5 }, { 1, 16 }, { 1, 28 } },
-        "select regex without an existing preview should search the whole buffer"
-      )
+      assert_equal(all_cursor_positions(), { { 1, 5 }, { 1, 16 }, { 1, 28 } }, "select regex without an existing preview should search the whole buffer")
 
       local slash_entry = which_key_entry("/")
       assert(slash_entry ~= nil, "slash register should be listed in which-key registers")
@@ -1109,11 +1041,7 @@ local cases = {
       assert(not slash_entry.desc:find("\\v", 1, true), "slash register preview should store the raw pattern, not the compiled Vim regex")
 
       helix.search_next("forward")
-      assert_equal(
-        primary_selection_range(),
-        { start_row = 1, start_col = 12, end_row = 1, end_col = 16 },
-        "n should continue from the regex selected by s via the slash register"
-      )
+      assert_equal(primary_selection_range(), { start_row = 1, start_col = 12, end_row = 1, end_col = 16 }, "n should continue from the regex selected by s via the slash register")
     end,
   },
   {
@@ -1129,11 +1057,7 @@ local cases = {
       assert(not user_entry.desc:find("\\v", 1, true), "explicit search register preview should store the raw pattern")
 
       helix.search_next("forward")
-      assert_equal(
-        primary_selection_range(),
-        { start_row = 1, start_col = 12, end_row = 1, end_col = 16 },
-        "n should use the last active search register, not only slash"
-      )
+      assert_equal(primary_selection_range(), { start_row = 1, start_col = 12, end_row = 1, end_col = 16 }, "n should use the last active search register, not only slash")
     end,
   },
   {
@@ -1153,11 +1077,7 @@ local cases = {
       assert_equal(seen[#seen], "register '/' set to '<alpha>|<beta>'", "star should echo which search register was updated")
 
       helix.search_next("forward")
-      assert_equal(
-        primary_selection_range(),
-        { start_row = 1, start_col = 7, end_row = 1, end_col = 10 },
-        "n after star should jump to the next whole-word match from the ORed selections"
-      )
+      assert_equal(primary_selection_range(), { start_row = 1, start_col = 7, end_row = 1, end_col = 10 }, "n after star should jump to the next whole-word match from the ORed selections")
     end,
   },
   {
@@ -1781,15 +1701,31 @@ local cases = {
   {
     name = "goto function stays on the selected function when moving backward and advances to the next function when moving forward",
     run = function()
-      reset_case({ "", "ChangeResult Executable::setToLive() {", "  if (live)", "    return ChangeResult::NoChange;", "  live = true;", "  return ChangeResult::Change;", "}", "", "ChangeResult Executable::other() {", "  return ChangeResult::Change;", "}" }, 1, 0)
+      reset_case({
+        "",
+        "ChangeResult Executable::setToLive() {",
+        "  if (live)",
+        "    return ChangeResult::NoChange;",
+        "  live = true;",
+        "  return ChangeResult::Change;",
+        "}",
+        "",
+        "ChangeResult Executable::other() {",
+        "  return ChangeResult::Change;",
+        "}",
+      }, 1, 0)
       vim.bo.filetype = "cpp"
       pcall(vim.treesitter.start, 0, "cpp")
 
       helix.goto_textobject("function", "forward")
-      assert_equal(selection_texts(), { "ChangeResult Executable::setToLive() {\n  if (live)\n    return ChangeResult::NoChange;\n  live = true;\n  return ChangeResult::Change;\n}" }, "]f should select the whole function definition")
+      assert_equal(selection_texts(), {
+        "ChangeResult Executable::setToLive() {\n  if (live)\n    return ChangeResult::NoChange;\n  live = true;\n  return ChangeResult::Change;\n}",
+      }, "]f should select the whole function definition")
 
       helix.goto_textobject("function", "backward")
-      assert_equal(selection_texts(), { "ChangeResult Executable::setToLive() {\n  if (live)\n    return ChangeResult::NoChange;\n  live = true;\n  return ChangeResult::Change;\n}" }, "[f from an exact function selection should not descend into function.inner captures")
+      assert_equal(selection_texts(), {
+        "ChangeResult Executable::setToLive() {\n  if (live)\n    return ChangeResult::NoChange;\n  live = true;\n  return ChangeResult::Change;\n}",
+      }, "[f from an exact function selection should not descend into function.inner captures")
 
       helix.goto_textobject("function", "forward")
       assert_equal(selection_texts(), { "ChangeResult Executable::other() {\n  return ChangeResult::Change;\n}" }, "]f from an exact function selection should advance to the next function definition")
@@ -1798,7 +1734,19 @@ local cases = {
   {
     name = "reverse repeat last motion replays goto-textobject backward",
     run = function()
-      reset_case({ "", "ChangeResult Executable::setToLive() {", "  if (live)", "    return ChangeResult::NoChange;", "  live = true;", "  return ChangeResult::Change;", "}", "", "ChangeResult Executable::other() {", "  return ChangeResult::Change;", "}" }, 1, 0)
+      reset_case({
+        "",
+        "ChangeResult Executable::setToLive() {",
+        "  if (live)",
+        "    return ChangeResult::NoChange;",
+        "  live = true;",
+        "  return ChangeResult::Change;",
+        "}",
+        "",
+        "ChangeResult Executable::other() {",
+        "  return ChangeResult::Change;",
+        "}",
+      }, 1, 0)
       vim.bo.filetype = "cpp"
       pcall(vim.treesitter.start, 0, "cpp")
 
@@ -1807,24 +1755,50 @@ local cases = {
       assert_equal(selection_texts(), { "ChangeResult Executable::other() {\n  return ChangeResult::Change;\n}" }, "alt-dot after ]f should advance to the next function")
 
       helix.repeat_last_motion_reverse()
-      assert_equal(selection_texts(), { "ChangeResult Executable::setToLive() {\n  if (live)\n    return ChangeResult::NoChange;\n  live = true;\n  return ChangeResult::Change;\n}" }, "alt-shift-dot after ]f should replay the matching [f motion")
+      assert_equal(selection_texts(), {
+        "ChangeResult Executable::setToLive() {\n  if (live)\n    return ChangeResult::NoChange;\n  live = true;\n  return ChangeResult::Change;\n}",
+      }, "alt-shift-dot after ]f should replay the matching [f motion")
     end,
   },
   {
     name = "goto function from inside a function body skips function.inner captures and moves to the next function",
     run = function()
-      reset_case({ "ChangeResult Executable::setToLive() {", "  if (live)", "    return ChangeResult::NoChange;", "  live = true;", "  return ChangeResult::Change;", "}", "", "void Executable::print(raw_ostream &os) const {", "  os << (live ? \"live\" : \"dead\");", "}" }, 3, 4)
+      reset_case({
+        "ChangeResult Executable::setToLive() {",
+        "  if (live)",
+        "    return ChangeResult::NoChange;",
+        "  live = true;",
+        "  return ChangeResult::Change;",
+        "}",
+        "",
+        "void Executable::print(raw_ostream &os) const {",
+        '  os << (live ? "live" : "dead");',
+        "}",
+      }, 3, 4)
       vim.bo.filetype = "cpp"
       pcall(vim.treesitter.start, 0, "cpp")
 
       helix.goto_textobject("function", "forward")
-      assert_equal(selection_texts(), { "void Executable::print(raw_ostream &os) const {\n  os << (live ? \"live\" : \"dead\");\n}" }, "]f from inside a function body should jump to the next function, not another statement in the current body")
+      assert_equal(selection_texts(), { 'void Executable::print(raw_ostream &os) const {\n  os << (live ? "live" : "dead");\n}' }, "]f from inside a function body should jump to the next function, not another statement in the current body")
     end,
   },
   {
     name = "goto function in cpp progresses from a function body to a lambda and then to the next function",
     run = function()
-      reset_case({ "ChangeResult Executable::setToLive() {", "  if (live)", "    return ChangeResult::NoChange;", "  live = true;", "  return ChangeResult::Change;", "}", "", "auto f = []() { return 1; };", "", "void Executable::print(raw_ostream &os) const {", "  os << (live ? \"live\" : \"dead\");", "}" }, 3, 4)
+      reset_case({
+        "ChangeResult Executable::setToLive() {",
+        "  if (live)",
+        "    return ChangeResult::NoChange;",
+        "  live = true;",
+        "  return ChangeResult::Change;",
+        "}",
+        "",
+        "auto f = []() { return 1; };",
+        "",
+        "void Executable::print(raw_ostream &os) const {",
+        '  os << (live ? "live" : "dead");',
+        "}",
+      }, 3, 4)
       vim.bo.filetype = "cpp"
       pcall(vim.treesitter.start, 0, "cpp")
 
@@ -1832,7 +1806,7 @@ local cases = {
       assert_equal(selection_texts(), { "[]() { return 1; }" }, "]f should still see the lambda as the next function-like object")
 
       helix.goto_textobject("function", "forward")
-      assert_equal(selection_texts(), { "void Executable::print(raw_ostream &os) const {\n  os << (live ? \"live\" : \"dead\");\n}" }, "repeating ]f after the lambda should continue to the next function definition")
+      assert_equal(selection_texts(), { 'void Executable::print(raw_ostream &os) const {\n  os << (live ? "live" : "dead");\n}' }, "repeating ]f after the lambda should continue to the next function definition")
     end,
   },
   {
@@ -1868,7 +1842,11 @@ local cases = {
   {
     name = "cpp parameter motions use helix-style around captures with commas",
     run = function()
-      reset_case({ "void DeadCodeAnalysis::markEdgeLive(Block *from, Block *to) {", "  LDBG() << \"Marking edge live from block \" << from << \" to block \" << to;", "}" }, 1, 0)
+      reset_case({
+        "void DeadCodeAnalysis::markEdgeLive(Block *from, Block *to) {",
+        '  LDBG() << "Marking edge live from block " << from << " to block " << to;',
+        "}",
+      }, 1, 0)
       vim.bo.filetype = "cpp"
       pcall(vim.treesitter.start, 0, "cpp")
 
@@ -2146,8 +2124,22 @@ local cases = {
       reset_case({ "alpha", "oops", "beta", "warn" }, 1, 0)
       local ns = vim.api.nvim_create_namespace("motion-test-diagnostic-repeat")
       vim.diagnostic.set(ns, 0, {
-        { lnum = 1, col = 0, end_lnum = 1, end_col = 4, message = "oops", severity = vim.diagnostic.severity.ERROR },
-        { lnum = 3, col = 0, end_lnum = 3, end_col = 4, message = "warn", severity = vim.diagnostic.severity.WARN },
+        {
+          lnum = 1,
+          col = 0,
+          end_lnum = 1,
+          end_col = 4,
+          message = "oops",
+          severity = vim.diagnostic.severity.ERROR,
+        },
+        {
+          lnum = 3,
+          col = 0,
+          end_lnum = 3,
+          end_col = 4,
+          message = "warn",
+          severity = vim.diagnostic.severity.WARN,
+        },
       })
 
       helix.goto_diagnostic("forward")
@@ -2187,11 +2179,7 @@ local cases = {
       helix.select_regex_matches("[=]")
       feed("&")
       assert_equal(current_lines(), { "a   =1,bb=2", "long=3,c =4" }, "& should align each selection column group separately")
-      assert_equal(
-        all_cursor_positions(),
-        { { 1, 5 }, { 1, 10 }, { 2, 5 }, { 2, 10 } },
-        "& should preserve the grouped selection columns after padding"
-      )
+      assert_equal(all_cursor_positions(), { { 1, 5 }, { 1, 10 }, { 2, 5 }, { 2, 10 } }, "& should preserve the grouped selection columns after padding")
     end,
   },
   {
@@ -2660,11 +2648,7 @@ local cases = {
         error(err)
       end
 
-      assert_equal(
-        captured_range,
-        { start = { 1, 0 }, ["end"] = { 2, 4 } },
-        "equal should request lsp range formatting for the current selection bounds"
-      )
+      assert_equal(captured_range, { start = { 1, 0 }, ["end"] = { 2, 4 } }, "equal should request lsp range formatting for the current selection bounds")
       assert_equal(current_lines(), { "  alpha", "  beta" }, "equal should apply the formatter edits")
       assert_equal(selection_texts(), { "alpha\n  beta" }, "equal should preserve the selection on the formatted text")
     end,
@@ -2898,8 +2882,12 @@ local jumplist_cases = {
             local pre = action._pre[action[1]]
             local post = action._post[action[1]]
             assert(pre or post, case.picker .. " should checkpoint its source on selection")
-            if pre then pre() end
-            if post then post() end
+            if pre then
+              pre()
+            end
+            if post then
+              post()
+            end
           end)
           local after = jumplist_items()
           assert_equal(#after, #before + 1, case.picker .. " should add a jumplist entry")
@@ -2939,9 +2927,17 @@ local jumplist_cases = {
     run = function()
       local cases = {
         { builtin = "lsp_document_symbols", picker = "document_symbols_picker", reason = "symbol" },
-        { builtin = "lsp_dynamic_workspace_symbols", picker = "workspace_symbols_picker", reason = "workspace-symbol" },
+        {
+          builtin = "lsp_dynamic_workspace_symbols",
+          picker = "workspace_symbols_picker",
+          reason = "workspace-symbol",
+        },
         { builtin = "diagnostics", picker = "diagnostics_picker", reason = "diagnostic-picker" },
-        { builtin = "diagnostics", picker = "workspace_diagnostics_picker", reason = "workspace-diagnostic-picker" },
+        {
+          builtin = "diagnostics",
+          picker = "workspace_diagnostics_picker",
+          reason = "workspace-diagnostic-picker",
+        },
       }
 
       for _, case in ipairs(cases) do
@@ -2992,7 +2988,15 @@ local jumplist_cases = {
             local action_state = require("telescope.actions.state")
             local original_selected = action_state.get_selected_entry
             action_state.get_selected_entry = function()
-              return { value = { bufnr = vim.api.nvim_get_current_buf(), lnum = 2, col = 1, end_lnum = 2, end_col = 7 } }
+              return {
+                value = {
+                  bufnr = vim.api.nvim_get_current_buf(),
+                  lnum = 2,
+                  col = 1,
+                  end_lnum = 2,
+                  end_col = 7,
+                },
+              }
             end
             local capture_target = action._pre[action[1]]
             local commit_jump = action._post[action[1]]
@@ -3307,7 +3311,14 @@ local jumplist_cases = {
         reset_case({ "alpha", "oops", "beta" }, 1, 0)
         local ns = vim.api.nvim_create_namespace("motion-test-jumplist-diagnostic")
         vim.diagnostic.set(ns, 0, {
-          { lnum = 1, col = 0, end_lnum = 1, end_col = 4, message = "oops", severity = vim.diagnostic.severity.ERROR },
+          {
+            lnum = 1,
+            col = 0,
+            end_lnum = 1,
+            end_col = 4,
+            message = "oops",
+            severity = vim.diagnostic.severity.ERROR,
+          },
         })
         assert_jumplist_push("diagnostic", "goto_diagnostic", function()
           helix.goto_diagnostic("forward")
@@ -3322,8 +3333,22 @@ local jumplist_cases = {
         reset_case({ "alpha", "oops", "beta", "warn" }, 2, 0)
         local ns = vim.api.nvim_create_namespace("motion-test-jumplist-edge-diagnostic")
         vim.diagnostic.set(ns, 0, {
-          { lnum = 1, col = 0, end_lnum = 1, end_col = 4, message = "oops", severity = vim.diagnostic.severity.ERROR },
-          { lnum = 3, col = 0, end_lnum = 3, end_col = 4, message = "warn", severity = vim.diagnostic.severity.WARN },
+          {
+            lnum = 1,
+            col = 0,
+            end_lnum = 1,
+            end_col = 4,
+            message = "oops",
+            severity = vim.diagnostic.severity.ERROR,
+          },
+          {
+            lnum = 3,
+            col = 0,
+            end_lnum = 3,
+            end_col = 4,
+            message = "warn",
+            severity = vim.diagnostic.severity.WARN,
+          },
         })
         assert_jumplist_push("diagnostic-edge", "goto_edge_diagnostic", function()
           helix.goto_edge_diagnostic("last")

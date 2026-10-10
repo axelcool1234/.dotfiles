@@ -73,6 +73,20 @@ function M.boundaries_equal(left, right)
   return M.compare_boundaries(left, right) == 0
 end
 
+function M.compare_cells(left, right)
+  if left[1] ~= right[1] then
+    return left[1] < right[1] and -1 or 1
+  end
+  if left[2] ~= right[2] then
+    return left[2] < right[2] and -1 or 1
+  end
+  return 0
+end
+
+function M.cells_equal(left, right)
+  return M.compare_cells(left, right) == 0
+end
+
 function M.display_col_from_grapheme_col(text, col)
   return vim.fn.strdisplaywidth(M.prefix_by_grapheme_count(text, math.max(col - 1, 0))) + 1
 end

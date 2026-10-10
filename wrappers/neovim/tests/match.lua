@@ -1,3 +1,4 @@
+require("axelcool1234")
 local helix = require("axelcool1234.helix")
 
 local function feed(keys)
@@ -42,6 +43,8 @@ local function secondary_cursor_count()
 end
 
 local function reset_case(lines, filetype, row, col0)
+  feed("<Esc>")
+  vim.wait(20)
   vim.cmd("enew!")
   vim.bo.filetype = filetype or "text"
   vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
@@ -108,7 +111,7 @@ local cases = {
         [[{
   { "Goto column", "g|", helix.goto_column, mode = "n" },
   { "Goto definition", "gd", '<cmd>lua require("telescope.builtin").lsp_definitions({ reuse_win = true })<CR>', mode = "n" },
-}]]
+}]],
       }, "third mam should select the containing keys table, not a stray quote span")
     end,
   },
@@ -309,11 +312,7 @@ local cases = {
     run = function()
       reset_case({ "- `<C-Space>` should work when typing a command." }, "markdown", 1, 7)
       run_keys("mdm")
-      assert_equal(
-        current_lines(),
-        { "- <C-Space> should work when typing a command." },
-        "mdm inside markdown inline code should delete the surrounding backticks, not the inner angle brackets"
-      )
+      assert_equal(current_lines(), { "- <C-Space> should work when typing a command." }, "mdm inside markdown inline code should delete the surrounding backticks, not the inner angle brackets")
     end,
   },
   {
@@ -321,11 +320,7 @@ local cases = {
     run = function()
       reset_case({ "- Implement `miT`/`maT` and `[T`/`]T`." }, "markdown", 1, 14)
       run_keys("mdm")
-      assert_equal(
-        current_lines(),
-        { "- Implement miT/`maT` and `[T`/`]T`." },
-        "mdm inside `miT` should delete the surrounding markdown backticks"
-      )
+      assert_equal(current_lines(), { "- Implement miT/`maT` and `[T`/`]T`." }, "mdm inside `miT` should delete the surrounding markdown backticks")
     end,
   },
   {
@@ -333,19 +328,11 @@ local cases = {
     run = function()
       reset_case({ "- Implement `miT`/`maT` and `[T`/`]T`." }, "markdown", 1, 14)
       run_keys("mdm")
-      assert_equal(
-        current_lines(),
-        { "- Implement miT/`maT` and `[T`/`]T`." },
-        "mdm with the cursor on the interior `i` should still resolve the surrounding backticks"
-      )
+      assert_equal(current_lines(), { "- Implement miT/`maT` and `[T`/`]T`." }, "mdm with the cursor on the interior `i` should still resolve the surrounding backticks")
 
       reset_case({ "- Implement `miT`/`maT` and `[T`/`]T`." }, "markdown", 1, 30)
       run_keys("mdm")
-      assert_equal(
-        current_lines(),
-        { "- Implement `miT`/`maT` and [T/`]T`." },
-        "mdm with the cursor on the interior `[T` code span should still resolve the surrounding backticks"
-      )
+      assert_equal(current_lines(), { "- Implement `miT`/`maT` and [T/`]T`." }, "mdm with the cursor on the interior `[T` code span should still resolve the surrounding backticks")
     end,
   },
   {
@@ -463,19 +450,11 @@ local cases = {
     run = function()
       reset_case({ "last two", "", "paragraph", "", "without whitespaces", "", "after" }, "text", 3, 0)
       run_keys("2mip")
-      assert_equal(
-        selection_texts(),
-        { "paragraph\n\nwithout whitespaces\n" },
-        "2mip should select two paragraphs without trailing blank lines"
-      )
+      assert_equal(selection_texts(), { "paragraph\n\nwithout whitespaces\n" }, "2mip should select two paragraphs without trailing blank lines")
 
       reset_case({ "last two", "", "paragraph", "", "without whitespaces", "", "after" }, "text", 3, 0)
       run_keys("2map")
-      assert_equal(
-        selection_texts(),
-        { "paragraph\n\nwithout whitespaces\n\n" },
-        "2map should select two paragraphs including the trailing blank block"
-      )
+      assert_equal(selection_texts(), { "paragraph\n\nwithout whitespaces\n\n" }, "2map should select two paragraphs including the trailing blank block")
     end,
   },
   {
@@ -627,7 +606,7 @@ local cases = {
       assert_equal(selection_texts(), { "-- hello world" }, "mac should select around the comment")
       reset_case({ "-- hello world" }, "lua", 1, 3)
       run_keys("mic")
-      assert_equal(selection_texts(), { "-- hello world" }, "mic should select inside the comment per current query")
+      assert_equal(selection_texts(), { "-- hello world" }, "mic should follow Helix's comment.inside capture")
     end,
   },
   {
@@ -640,11 +619,7 @@ local cases = {
         "}",
       }, "rust", 3, 4)
       run_keys("maT")
-      assert_equal(
-        selection_texts(),
-        { "fn first() {\n    assert!(true);\n}" },
-        "maT should select around the Rust test item"
-      )
+      assert_equal(selection_texts(), { "fn first() {\n    assert!(true);\n}" }, "maT should select around the Rust test item")
 
       reset_case({
         "#[test]",
@@ -705,7 +680,7 @@ local cases = {
       }, "markdown", 2, 4)
       run_keys("mii")
       assert_equal(selection_texts(), {
-        "  - Scratchpads\n  - Motion that yanks filepaths and urls\n  - Look into whether or not a Tmux vim mode where you can move around is possible, or\n    if CTRL+SHIFT+E to explore the scrollback is all we can do"
+        "  - Scratchpads\n  - Motion that yanks filepaths and urls\n  - Look into whether or not a Tmux vim mode where you can move around is possible, or\n    if CTRL+SHIFT+E to explore the scrollback is all we can do",
       }, "mii should select the inner markdown list items instead of the whole document")
     end,
   },
@@ -757,13 +732,11 @@ local cases = {
   {
     name = "mim handles unicode pair contents on lean style line",
     run = function()
-      reset_case({ "def OperationPtr.strictlyDominates (op₁ op₂ : OperationPtr) (ctx : WfIRContext OpInfo) : Prop :=" }, "text", 1, 45)
+      reset_case({
+        "def OperationPtr.strictlyDominates (op₁ op₂ : OperationPtr) (ctx : WfIRContext OpInfo) : Prop :=",
+      }, "text", 1, 45)
       run_keys("mim")
-      assert_equal(
-        selection_texts(),
-        { "op₁ op₂ : OperationPtr" },
-        "mim in the space between op₁ and op₂ should stay inside the first pair"
-      )
+      assert_equal(selection_texts(), { "op₁ op₂ : OperationPtr" }, "mim in the space between op₁ and op₂ should stay inside the first pair")
     end,
   },
   {

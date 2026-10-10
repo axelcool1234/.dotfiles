@@ -5,8 +5,12 @@ local range_module = require("axelcool1234.helix.range")
 function M.new(opts)
   local insert_preview = {}
 
-  local function range_from_cells(anchor, cursor, range_opts)
-    return range_module.from_cells(vim.api.nvim_get_current_buf(), anchor, cursor, range_opts)
+  local function span_from_cells(anchor, cursor, range_opts)
+    return range_module.from_span_cells(vim.api.nvim_get_current_buf(), anchor, cursor, range_opts)
+  end
+
+  local function cursor_cell(point)
+    return range_module.cursor_cell(vim.api.nvim_get_current_buf(), point)
   end
 
   local function display_col(point)
@@ -19,9 +23,9 @@ function M.new(opts)
       if point then
         local anchor = anchors and anchors[index] or nil
         if anchor then
-          entries[#entries + 1] = range_from_cells(anchor, point)
+          entries[#entries + 1] = span_from_cells(anchor, point)
         else
-          entries[#entries + 1] = range_from_cells(point, point)
+          entries[#entries + 1] = cursor_cell(point)
         end
       end
     end
@@ -38,13 +42,13 @@ function M.new(opts)
       if start_anchor and end_anchor then
         -- `i` inserts at the normalized start of the selection, so that edge
         -- becomes the active cursor when the insert session rebuilds it.
-        entries[#entries + 1] = range_from_cells(end_anchor, start_anchor)
+        entries[#entries + 1] = span_from_cells(end_anchor, start_anchor)
       elseif start_anchor then
-        entries[#entries + 1] = range_from_cells(start_anchor, start_anchor)
+        entries[#entries + 1] = cursor_cell(start_anchor)
       elseif end_anchor then
-        entries[#entries + 1] = range_from_cells(end_anchor, end_anchor)
+        entries[#entries + 1] = cursor_cell(end_anchor)
       else
-        entries[#entries + 1] = range_from_cells(point, point)
+        entries[#entries + 1] = cursor_cell(point)
       end
     end
 
@@ -89,19 +93,19 @@ function M.new(opts)
           if cursor[1] == ending[1] and cursor[2] == ending[2] then
             opposite = anchor
           end
-          append(range_from_cells(opposite, cursor), cursor)
+          append(span_from_cells(opposite, cursor), cursor)
         elseif anchor then
-          append(range_from_cells(anchor, anchor), point or anchor)
+          append(cursor_cell(anchor), point or anchor)
         elseif ending then
-          append(range_from_cells(ending, ending), point or ending)
+          append(cursor_cell(ending), point or ending)
         elseif point then
-          append(range_from_cells(point, point), point)
+          append(cursor_cell(point), point)
         end
       elseif point then
         if anchor then
-          append(range_from_cells(anchor, point), point)
+          append(span_from_cells(anchor, point), point)
         else
-          append(range_from_cells(point, point), point)
+          append(cursor_cell(point), point)
         end
       end
     end

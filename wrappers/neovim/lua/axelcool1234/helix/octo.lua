@@ -8,8 +8,9 @@ local function octo_diff_buffer(bufnr)
 end
 
 local function primary_selection_line_range()
-  local entries = helix.current_selection_ranges()
-  local entry = helix.primary_range()
+  local selection = helix.current_selection()
+  local entries = selection.ranges
+  local entry = selection:primary()
   if not entry then
     return nil
   end

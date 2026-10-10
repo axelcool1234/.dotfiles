@@ -1,6 +1,7 @@
 local state_module = require("axelcool1234.helix.state")
 local position = require("axelcool1234.helix.position")
 local range_module = require("axelcool1234.helix.range")
+local selection_module = require("axelcool1234.helix.selection")
 
 local M = {}
 
@@ -32,9 +33,7 @@ local function run_normal_motion(keys, count)
   vim.cmd(("normal! %d%s"):format(count or 1, keys))
 end
 
-local function pos_equal(left, right)
-  return left[1] == right[1] and left[2] == right[2]
-end
+local pos_equal = position.cells_equal
 
 local function normalize_find_char(char)
   if char == "\r" then
@@ -188,25 +187,19 @@ local function word_motion_bounds(buffer, target, count, start_pos)
           end
 
           if target == "prev_word_start" then
-            if (current_type == character_types.Word and prev_type ~= character_types.Word)
-              or (current_type == character_types.Punctuation and prev_type ~= character_types.Punctuation) then
+            if (current_type == character_types.Word and prev_type ~= character_types.Word) or (current_type == character_types.Punctuation and prev_type ~= character_types.Punctuation) then
               break
             end
           end
 
           if target == "prev_long_word_start" then
-            if (current_type == character_types.Word and prev_type == character_types.WhiteSpace)
-              or (current_type == character_types.Punctuation and prev_type == character_types.WhiteSpace) then
+            if (current_type == character_types.Word and prev_type == character_types.WhiteSpace) or (current_type == character_types.Punctuation and prev_type == character_types.WhiteSpace) then
               break
             end
           end
         else
-          if current_type == character_types.EndOfLine
-            or prev_type == character_types.EndOfLine
-            or current_type == character_types.Unknown then
-            if moved_from_original
-              and current_type ~= character_types.Unknown
-              and current_type ~= character_types.EndOfLine then
+          if current_type == character_types.EndOfLine or prev_type == character_types.EndOfLine or current_type == character_types.Unknown then
+            if moved_from_original and current_type ~= character_types.Unknown and current_type ~= character_types.EndOfLine then
               break
             end
 
@@ -228,13 +221,11 @@ local function word_motion_bounds(buffer, target, count, start_pos)
               break
             end
 
-            if (current_type == character_types.Punctuation and prev_type ~= character_types.Punctuation)
-              or (current_type == character_types.Word and prev_type ~= character_types.Word) then
+            if (current_type == character_types.Punctuation and prev_type ~= character_types.Punctuation) or (current_type == character_types.Word and prev_type ~= character_types.Word) then
               break
             end
           else
-            if (current_type == character_types.Punctuation and prev_type ~= character_types.Punctuation)
-              or (current_type == character_types.Word and prev_type ~= character_types.Word) then
+            if (current_type == character_types.Punctuation and prev_type ~= character_types.Punctuation) or (current_type == character_types.Word and prev_type ~= character_types.Word) then
               range_start[2] = range_start[2] - 1
               moved_from_original = true
             end
@@ -259,9 +250,7 @@ local function word_motion_bounds(buffer, target, count, start_pos)
           end
 
           if target == "next_word_start" then
-            if (current_type == character_types.WhiteSpace and next_type ~= character_types.WhiteSpace)
-              or (current_type == character_types.Punctuation and next_type == character_types.Word)
-              or (current_type ~= character_types.Punctuation and next_type == character_types.Punctuation) then
+            if (current_type == character_types.WhiteSpace and next_type ~= character_types.WhiteSpace) or (current_type == character_types.Punctuation and next_type == character_types.Word) or (current_type ~= character_types.Punctuation and next_type == character_types.Punctuation) then
               break
             end
           end
@@ -273,9 +262,7 @@ local function word_motion_bounds(buffer, target, count, start_pos)
           end
 
           if target == "next_word_end" then
-            if (current_type == character_types.Word and next_type ~= character_types.Word)
-              or (current_type ~= character_types.Punctuation and next_type == character_types.Punctuation)
-              or (current_type == character_types.Punctuation and next_type ~= character_types.Punctuation) then
+            if (current_type == character_types.Word and next_type ~= character_types.Word) or (current_type ~= character_types.Punctuation and next_type == character_types.Punctuation) or (current_type == character_types.Punctuation and next_type ~= character_types.Punctuation) then
               break
             end
           end
@@ -286,12 +273,8 @@ local function word_motion_bounds(buffer, target, count, start_pos)
             end
           end
         else
-          if current_type == character_types.EndOfLine
-            or next_type == character_types.EndOfLine
-            or current_type == character_types.Unknown then
-            if moved_from_original
-              and current_type ~= character_types.Unknown
-              and current_type ~= character_types.EndOfLine then
+          if current_type == character_types.EndOfLine or next_type == character_types.EndOfLine or current_type == character_types.Unknown then
+            if moved_from_original and current_type ~= character_types.Unknown and current_type ~= character_types.EndOfLine then
               break
             end
             if current_pos[1] == last_line then
@@ -313,23 +296,19 @@ local function word_motion_bounds(buffer, target, count, start_pos)
             end
 
             if target == "next_word_start" then
-              if (current_type ~= character_types.Punctuation and next_type == character_types.Punctuation)
-                or (current_type == character_types.Punctuation and next_type == character_types.Word) then
+              if (current_type ~= character_types.Punctuation and next_type == character_types.Punctuation) or (current_type == character_types.Punctuation and next_type == character_types.Word) then
                 break
               end
             end
 
             if target == "next_word_end" then
-              if (current_type == character_types.Word and next_type ~= character_types.Word)
-                or (current_type == character_types.Punctuation and next_type ~= character_types.Punctuation) then
+              if (current_type == character_types.Word and next_type ~= character_types.Word) or (current_type == character_types.Punctuation and next_type ~= character_types.Punctuation) then
                 break
               end
             end
           else
             if target == "next_word_start" then
-              if (current_type ~= character_types.Punctuation and next_type == character_types.Punctuation)
-                or (current_type == character_types.Punctuation and next_type == character_types.Word)
-                or (current_type == character_types.WhiteSpace and next_type == character_types.Word) then
+              if (current_type ~= character_types.Punctuation and next_type == character_types.Punctuation) or (current_type == character_types.Punctuation and next_type == character_types.Word) or (current_type == character_types.WhiteSpace and next_type == character_types.Word) then
                 range_start[2] = range_start[2] + 1
                 moved_from_original = true
               end
@@ -343,8 +322,7 @@ local function word_motion_bounds(buffer, target, count, start_pos)
             end
 
             if target == "next_word_end" or target == "next_long_word_end" then
-              if (current_type == character_types.Word and next_type ~= character_types.Word)
-                or (current_type == character_types.Punctuation and next_type ~= character_types.Punctuation) then
+              if (current_type == character_types.Word and next_type ~= character_types.Word) or (current_type == character_types.Punctuation and next_type ~= character_types.Punctuation) then
                 range_start[2] = range_start[2] + 1
                 moved_from_original = true
               end
@@ -375,11 +353,19 @@ end
 function M.new(opts)
   local state = opts.state
 
-  local function range_from_cells(anchor, cursor, range_opts)
-    return range_module.from_cells(vim.api.nvim_get_current_buf(), anchor, cursor, range_opts)
+  local function span_from_cells(anchor, cursor, range_opts)
+    return range_module.from_span_cells(vim.api.nvim_get_current_buf(), anchor, cursor, range_opts)
+  end
+
+  local function cursor_cell(cell)
+    return range_module.cursor_cell(vim.api.nvim_get_current_buf(), cell)
   end
 
   local motion = {}
+
+  local function publish_ranges(source_selection, ranges)
+    return state.set_preview_selection(selection_module.new(source_selection.buffer, ranges, source_selection.primary_index))
+  end
 
   local function first_nonblank_col(line)
     local byte_col1 = line:find("%S")
@@ -413,30 +399,29 @@ function M.new(opts)
 
   local function word_motion_entry(buffer, start_pos, target, count)
     local anchor_pos, cursor_pos = word_motion_bounds(buffer, target, count, start_pos)
-    return range_from_cells(anchor_pos, cursor_pos)
+    return span_from_cells(anchor_pos, cursor_pos)
   end
 
   local function apply_row_jump(target_row)
     local buffer = vim.api.nvim_get_current_buf()
-    local source_entries = state.current_ranges()
+    local source_selection = state.current_selection()
+    local source_entries = source_selection.ranges
     local entries = {}
 
-    for index, source_entry in ipairs(source_entries) do
+    for _, source_entry in ipairs(source_entries) do
       local target = { target_row, 1 }
 
       if state.extend_mode_active() then
-        local preview_range = state.preview_range(index)
-        local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
-        table.insert(entries, range_from_cells(anchor, target))
+        local anchor = source_entry:anchor_cell()
+        table.insert(entries, span_from_cells(anchor, target))
       else
-        table.insert(entries, range_from_cells(target, target))
+        table.insert(entries, cursor_cell(target))
       end
     end
 
-    -- A one-entry preview may be an invisible point retained after insert.
-    -- It is still the source of truth and must move with the real cursor.
+    -- A one-range preview retained after insert remains the source of truth.
     if #source_entries > 1 or state.extend_mode_active() or state.preview_active() then
-      state.set_preview_ranges(buffer, entries)
+      publish_ranges(source_selection, entries)
       if not state.extend_mode_active() then
         state.exit_extend_mode()
       end
@@ -460,40 +445,38 @@ function M.new(opts)
 
   local function scroll_cursor(direction, amount)
     local buffer = vim.api.nvim_get_current_buf()
-    local source_entries = state.current_ranges()
+    local source_selection = state.current_selection()
+    local source_entries = source_selection.ranges
     local delta, initial_view = scroll_view_delta(direction, amount)
     local last_row = vim.api.nvim_buf_line_count(buffer)
     local entries = {}
 
-    for index, source_entry in ipairs(source_entries) do
+    for _, source_entry in ipairs(source_entries) do
       local preferred_col = source_entry.goal_display_col or position.display_col(buffer, source_entry:cursor())
       local target_row = math.max(1, math.min(source_entry:cursor()[1] + (direction * amount), last_row))
       local target_col = position.grapheme_col_at_display_col(buffer, target_row, preferred_col)
       local target = { target_row, target_col }
 
       if state.extend_mode_active() then
-        local preview_range = state.preview_range(index)
-        local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
-        table.insert(entries, range_from_cells(anchor, target))
+        local anchor = source_entry:anchor_cell()
+        table.insert(entries, span_from_cells(anchor, target))
       else
-        table.insert(entries, range_from_cells(target, target))
+        table.insert(entries, cursor_cell(target))
       end
       entries[#entries].goal_display_col = preferred_col
     end
 
     local final_view = vim.deepcopy(initial_view)
     final_view.topline = initial_view.topline + delta
-    final_view.lnum = entries[1]:cursor()[1]
-    final_view.col = position.byte_col0_from_grapheme_col(
-      position.line_text(buffer, entries[1]:cursor()[1]),
-      entries[1]:cursor()[2]
-    )
+    local primary = entries[source_selection.primary_index]
+    final_view.lnum = primary:cursor()[1]
+    final_view.col = position.byte_col0_from_grapheme_col(position.line_text(buffer, primary:cursor()[1]), primary:cursor()[2])
     if final_view.curswant ~= nil then
-      final_view.curswant = math.max(entries[1].goal_display_col - 1, 0)
+      final_view.curswant = math.max(primary.goal_display_col - 1, 0)
     end
 
     if #source_entries > 1 or state.extend_mode_active() then
-      state.set_preview_ranges(buffer, entries)
+      publish_ranges(source_selection, entries)
       vim.fn.winrestview(final_view)
       if not state.extend_mode_active() then
         state.exit_extend_mode()
@@ -510,8 +493,7 @@ function M.new(opts)
   end
 
   function motion.scroll_half_page(direction, count_override)
-    local amount = count_override
-      or (vim.v.count > 0 and vim.v.count or math.max(math.floor(vim.api.nvim_win_get_height(0) / 2), 1))
+    local amount = count_override or (vim.v.count > 0 and vim.v.count or math.max(math.floor(vim.api.nvim_win_get_height(0) / 2), 1))
     scroll_cursor(direction, amount)
   end
 
@@ -536,24 +518,24 @@ function M.new(opts)
     local buffer = vim.api.nvim_get_current_buf()
     local count = count_override or vim.v.count1
     local entries = {}
-    local source_entries = state.current_ranges()
+    local source_selection = state.current_selection()
+    local source_entries = source_selection.ranges
 
-    local function append_entry(source_entry, index)
+    local function append_entry(source_entry)
       local entry = word_motion_entry(buffer, source_entry:cursor(), target, count)
       if state.extend_mode_active() then
-        local preview_range = state.preview_range(index)
-        local anchor = preview_range and preview_range:anchor_cell() or source_entry:cursor()
-        table.insert(entries, range_from_cells(anchor, entry:cursor()))
+        local anchor = source_entry:anchor_cell()
+        table.insert(entries, span_from_cells(anchor, entry:cursor()))
       else
         table.insert(entries, entry)
       end
     end
 
-    for index, entry in ipairs(source_entries) do
-      append_entry(entry, index)
+    for _, entry in ipairs(source_entries) do
+      append_entry(entry)
     end
 
-    state.set_preview_ranges(buffer, entries)
+    publish_ranges(source_selection, entries)
     if not state.extend_mode_active() then
       state.exit_extend_mode()
     end
@@ -562,7 +544,8 @@ function M.new(opts)
   function motion.find_char(kind, char, count_override)
     local buffer = vim.api.nvim_get_current_buf()
     local count = count_override or vim.v.count1
-    local source_entries = state.current_ranges()
+    local source_selection = state.current_selection()
+    local source_entries = source_selection.ranges
     local entries = {}
     local matched_any = false
     local opts = {
@@ -571,7 +554,7 @@ function M.new(opts)
       till = kind == "t" or kind == "T",
     }
 
-    for index, source_entry in ipairs(source_entries) do
+    for _, source_entry in ipairs(source_entries) do
       local target = find_char_target(buffer, source_entry:cursor(), char, opts)
       if target then
         matched_any = true
@@ -580,11 +563,10 @@ function M.new(opts)
       end
 
       if state.extend_mode_active() then
-        local preview_range = state.preview_range(index)
-        local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
-        table.insert(entries, range_from_cells(anchor, target))
+        local anchor = source_entry:anchor_cell()
+        table.insert(entries, span_from_cells(anchor, target))
       else
-        table.insert(entries, range_from_cells(source_entry:cursor(), target))
+        table.insert(entries, span_from_cells(source_entry:cursor(), target))
       end
     end
 
@@ -592,7 +574,7 @@ function M.new(opts)
       return
     end
 
-    state.set_preview_ranges(buffer, entries)
+    publish_ranges(source_selection, entries)
     if not state.extend_mode_active() then
       state.exit_extend_mode()
     end
@@ -602,26 +584,26 @@ function M.new(opts)
     return function()
       local count = vim.v.count1
       local buffer = vim.api.nvim_get_current_buf()
-      local source_entries = state.current_ranges()
+      local source_selection = state.current_selection()
+      local source_entries = source_selection.ranges
 
       if keys == "h" or keys == "l" then
         local entries = {}
         local forward = keys == "l"
 
-        for index, source_entry in ipairs(source_entries) do
+        for _, source_entry in ipairs(source_entries) do
           local target = stepped_pos(buffer, source_entry:cursor(), forward, count)
 
           if state.extend_mode_active() then
-            local preview_range = state.preview_range(index)
-            local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
-            table.insert(entries, range_from_cells(anchor, target))
+            local anchor = source_entry:anchor_cell()
+            table.insert(entries, span_from_cells(anchor, target))
           else
-            table.insert(entries, range_from_cells(target, target))
+            table.insert(entries, cursor_cell(target))
           end
         end
 
         if #source_entries > 1 or state.extend_mode_active() or state.preview_active() then
-          state.set_preview_ranges(buffer, entries)
+          publish_ranges(source_selection, entries)
           if not state.extend_mode_active() then
             state.exit_extend_mode()
           end
@@ -642,24 +624,23 @@ function M.new(opts)
         local last_row = vim.api.nvim_buf_line_count(buffer)
         local entries = {}
 
-        for index, source_entry in ipairs(source_entries) do
+        for _, source_entry in ipairs(source_entries) do
           local preferred_col = source_entry.goal_display_col or position.display_col(buffer, source_entry:cursor())
           local target_row = math.max(1, math.min(source_entry:cursor()[1] + (delta * count), last_row))
           local target_col = position.grapheme_col_at_display_col(buffer, target_row, preferred_col)
           local target = { target_row, target_col }
 
           if state.extend_mode_active() then
-            local preview_range = state.preview_range(index)
-            local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
-            table.insert(entries, range_from_cells(anchor, target))
+            local anchor = source_entry:anchor_cell()
+            table.insert(entries, span_from_cells(anchor, target))
           else
-            table.insert(entries, range_from_cells(target, target))
+            table.insert(entries, cursor_cell(target))
           end
           entries[#entries].goal_display_col = preferred_col
         end
 
         if #source_entries > 1 or state.extend_mode_active() or state.preview_active() then
-          state.set_preview_ranges(buffer, entries)
+          publish_ranges(source_selection, entries)
           if not state.extend_mode_active() then
             state.exit_extend_mode()
           end
@@ -670,16 +651,15 @@ function M.new(opts)
       local function collect_entries(anchor_from_preview)
         local entries = {}
 
-        for index, source_entry in ipairs(source_entries) do
+        for _, source_entry in ipairs(source_entries) do
           state_module.move_cursor_to_pos(source_entry:cursor())
           run_normal_motion(keys, count)
           local pos = state_module.current_pos_1indexed()
           if anchor_from_preview then
-            local preview_range = state.preview_range(index)
-            local anchor = preview_range and preview_range:anchor_cell() or source_entry:anchor_cell()
-            table.insert(entries, range_from_cells(anchor, pos))
+            local anchor = source_entry:anchor_cell()
+            table.insert(entries, span_from_cells(anchor, pos))
           else
-            table.insert(entries, range_from_cells(pos, pos))
+            table.insert(entries, cursor_cell(pos))
           end
         end
 
@@ -690,7 +670,7 @@ function M.new(opts)
         local direct_entries = {}
         local used_direct_motion = false
 
-        local function append_direct_entry(source_entry, index)
+        local function append_direct_entry(source_entry)
           local target = direct_motion_target(buffer, source_entry:cursor(), keys)
           if not target then
             return false
@@ -698,29 +678,25 @@ function M.new(opts)
 
           used_direct_motion = true
           local anchor = source_entry:anchor_cell()
-          local preview_range = state.preview_active() and state.preview_range(index) or nil
-          if preview_range then
-            anchor = preview_range:anchor_cell()
-          end
-          table.insert(direct_entries, range_from_cells(anchor, target))
+          table.insert(direct_entries, span_from_cells(anchor, target))
           return true
         end
 
-        for index, source_entry in ipairs(source_entries) do
-          append_direct_entry(source_entry, index)
+        for _, source_entry in ipairs(source_entries) do
+          append_direct_entry(source_entry)
         end
 
         if used_direct_motion then
-          state.set_preview_ranges(buffer, direct_entries)
+          publish_ranges(source_selection, direct_entries)
           return
         end
 
-        state.set_preview_ranges(buffer, collect_entries(true))
+        publish_ranges(source_selection, collect_entries(true))
         return
       end
 
       if #source_entries > 1 or state.preview_active() then
-        state.set_preview_ranges(buffer, collect_entries(false))
+        publish_ranges(source_selection, collect_entries(false))
         return
       end
 

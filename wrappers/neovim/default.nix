@@ -21,6 +21,10 @@ in
 {
   imports = [ wlib.wrapperModules.neovim ];
 
+  # Keep the Helix query source available even when Neovim is started with
+  # `-u NONE`, as the headless motion harnesses do.
+  envDefault.NVIM_HELIX_QUERY_RUNTIME = "${pkgs.helix.runtime}/queries";
+
   # Use this directory itself as the wrapped Neovim config directory.
   settings.config_directory = ./.;
   # The community template writes lua/matugen.lua under the ordinary Neovim

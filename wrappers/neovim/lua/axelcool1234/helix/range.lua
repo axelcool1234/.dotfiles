@@ -2,14 +2,13 @@ local position = require("axelcool1234.helix.position")
 
 local M = {}
 local Range = {}
-local buffers = setmetatable({}, { __mode = "k" })
 
 local function copy_cell(cell)
   return { cell[1], cell[2] }
 end
 
 local function buffer_for(range)
-  local buffer = buffers[range]
+  local buffer = range._buffer
   if buffer and vim.api.nvim_buf_is_valid(buffer) then
     return buffer
   end
@@ -17,7 +16,7 @@ local function buffer_for(range)
 end
 
 local function direction(range)
-  if range.point then
+  if range.kind == "cursor" then
     return 0
   end
   return -position.compare_boundaries(range.anchor, range.head)
@@ -25,15 +24,11 @@ end
 
 function Range:copy()
   return M.from_boundaries(buffer_for(self), self.anchor, self.head, {
-    point = self.point,
+    kind = self.kind,
     goal_display_col = self.goal_display_col,
     visual_cursor = self.visual_cursor and copy_cell(self.visual_cursor) or nil,
     visual_anchor = self.visual_anchor and copy_cell(self.visual_anchor) or nil,
   })
-end
-
-function Range:buffer_id()
-  return buffer_for(self)
 end
 
 function Range:direction()
@@ -88,7 +83,7 @@ end
 
 function Range:reversed()
   return M.from_boundaries(buffer_for(self), self.head, self.anchor, {
-    point = self.point,
+    kind = self.kind,
     goal_display_col = self.goal_display_col,
     visual_cursor = self.visual_anchor,
     visual_anchor = self.visual_cursor,
@@ -104,6 +99,25 @@ function Range:end_cell()
     return self:start_cell()
   end
   return position.cell_before_boundary(buffer_for(self), self:to())
+end
+
+-- A user-facing block cursor covers one grapheme (or the synthetic newline
+-- cell). At the end of the final line there is no cell to cover, so the cursor
+-- is represented by an empty range.
+function Range:is_cursor()
+  return self.kind == "cursor"
+end
+
+function Range:as_selection()
+  if self.kind ~= "cursor" then
+    return self:copy()
+  end
+  return M.from_boundaries(buffer_for(self), self.anchor, self.head, {
+    kind = "selection",
+    goal_display_col = self.goal_display_col,
+    visual_cursor = self.visual_cursor,
+    visual_anchor = self.visual_anchor,
+  })
 end
 
 function Range:byte_range()
@@ -128,8 +142,7 @@ function Range:overlaps(other)
   if self:is_empty() or other:is_empty() then
     return position.boundaries_equal(left_from, right_from)
   end
-  return position.compare_boundaries(left_from, right_to) < 0
-    and position.compare_boundaries(right_from, left_to) < 0
+  return position.compare_boundaries(left_from, right_to) < 0 and position.compare_boundaries(right_from, left_to) < 0
 end
 
 function Range:merge(other, prefer_self)
@@ -137,16 +150,11 @@ function Range:merge(other, prefer_self)
   local to = position.compare_boundaries(self:to(), other:to()) >= 0 and self:to() or other:to()
   local source = prefer_self and self or other
   local backward = source:direction() < 0
-  local merged = backward and M.from_boundaries(buffer_for(self), to, from)
-    or M.from_boundaries(buffer_for(self), from, to)
+  local merged = backward and M.from_boundaries(buffer_for(self), to, from) or M.from_boundaries(buffer_for(self), from, to)
+  merged.kind = self.kind == "cursor" and other.kind == "cursor" and "cursor" or "selection"
   merged.goal_display_col = source.goal_display_col
   merged.visual_cursor = source.visual_cursor and copy_cell(source.visual_cursor) or nil
   return merged
-end
-
-function Range:as_selection()
-  self.point = false
-  return self
 end
 
 local metatable = { __index = Range }
@@ -158,45 +166,43 @@ end
 function M.from_boundaries(buffer, anchor, head, opts)
   opts = opts or {}
   local range = {
+    _buffer = buffer,
     anchor = position.clamp_boundary(buffer, anchor),
     head = position.clamp_boundary(buffer, head),
-    point = opts.point == true,
+    kind = opts.kind or "selection",
     goal_display_col = opts.goal_display_col,
     visual_cursor = opts.visual_cursor and copy_cell(opts.visual_cursor) or nil,
     visual_anchor = opts.visual_anchor and copy_cell(opts.visual_anchor) or nil,
   }
   setmetatable(range, metatable)
-  buffers[range] = buffer
   return range
 end
 
-function M.from_cells(buffer, anchor_cell, cursor_cell, opts)
+-- Construct a directional, half-open span from inclusive anchor/cursor cells.
+-- Equal cells deliberately mean a one-cell range. Use M.empty for an
+-- insertion point.
+function M.from_span_cells(buffer, anchor_cell, cursor_cell, opts)
   opts = opts or {}
   local anchor = position.clamp_pos(buffer, anchor_cell)
   local cursor = position.clamp_pos(buffer, cursor_cell)
   local before = anchor[1] < cursor[1] or (anchor[1] == cursor[1] and anchor[2] < cursor[2])
   local after = anchor[1] > cursor[1] or (anchor[1] == cursor[1] and anchor[2] > cursor[2])
 
-  if opts.empty == true then
-    local boundary = position.boundary_before_cell(buffer, cursor)
-    return M.from_boundaries(buffer, boundary, boundary, opts)
-  end
   if after then
-    return M.from_boundaries(
-      buffer,
-      position.boundary_after_cell(buffer, anchor),
-      position.boundary_before_cell(buffer, cursor),
-      opts
-    )
+    return M.from_boundaries(buffer, position.boundary_after_cell(buffer, anchor), position.boundary_before_cell(buffer, cursor), opts)
   end
 
-  opts.point = opts.point ~= false and not before
-  return M.from_boundaries(
-    buffer,
-    position.boundary_before_cell(buffer, anchor),
-    position.boundary_after_cell(buffer, cursor),
-    opts
-  )
+  return M.from_boundaries(buffer, position.boundary_before_cell(buffer, anchor), position.boundary_after_cell(buffer, cursor), opts)
+end
+
+function M.cursor_cell(buffer, cell, opts)
+  opts = vim.tbl_extend("force", opts or {}, { kind = "cursor" })
+  return M.from_span_cells(buffer, cell, cell, opts)
+end
+
+function M.empty(buffer, boundary, opts)
+  opts = vim.tbl_extend("force", opts or {}, { kind = "insertion" })
+  return M.from_boundaries(buffer, boundary, boundary, opts)
 end
 
 function M.from_byte_range(buffer, start_row0, start_col0, end_row0, end_col0, opts)
@@ -212,7 +218,7 @@ end
 function M.copy(buffer, range)
   assert(M.is_range(range), "expected a Range")
   return M.from_boundaries(buffer, range.anchor, range.head, {
-    point = range.point,
+    kind = range.kind,
     goal_display_col = range.goal_display_col,
     visual_cursor = range.visual_cursor,
     visual_anchor = range.visual_anchor,

@@ -1,4 +1,5 @@
 local helix = require("axelcool1234.helix")
+require("axelcool1234.remaps")
 local pickers = require("axelcool1234.pickers")
 local state = require("axelcool1234.helix.state")
 

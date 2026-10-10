@@ -1,5 +1,6 @@
 local position = require("axelcool1234.helix.position")
 local range_module = require("axelcool1234.helix.range")
+local selection_module = require("axelcool1234.helix.selection")
 
 local M = {}
 local Transaction = {}
@@ -55,7 +56,7 @@ local function track_marks(buffer, namespace, range, mode, affinity)
       from = point_mark(buffer, namespace, range.head, "before_sticky"),
       to = point_mark(buffer, namespace, range.head, "after_sticky"),
       direction = 1,
-      point = false,
+      kind = range.kind,
     }
   end
   if range:is_empty() then
@@ -65,24 +66,14 @@ local function track_marks(buffer, namespace, range, mode, affinity)
       from = mark,
       to = mark,
       direction = 0,
-      point = range.point,
+      kind = range.kind,
       goal_display_col = range.goal_display_col,
     }
     if range.visual_cursor then
-      marks.visual_cursor = point_mark(
-        buffer,
-        namespace,
-        position.boundary_before_cell(buffer, range.visual_cursor),
-        "after_sticky"
-      )
+      marks.visual_cursor = point_mark(buffer, namespace, position.boundary_before_cell(buffer, range.visual_cursor), "after_sticky")
     end
     if range.visual_anchor then
-      marks.visual_anchor = point_mark(
-        buffer,
-        namespace,
-        position.boundary_before_cell(buffer, range.visual_anchor),
-        "after_sticky"
-      )
+      marks.visual_anchor = point_mark(buffer, namespace, position.boundary_before_cell(buffer, range.visual_anchor), "after_sticky")
     end
     return marks
   end
@@ -91,24 +82,14 @@ local function track_marks(buffer, namespace, range, mode, affinity)
     from = point_mark(buffer, namespace, range:from(), edges.from),
     to = point_mark(buffer, namespace, range:to(), edges.to),
     direction = range:direction(),
-    point = range.point,
+    kind = range.kind,
     goal_display_col = range.goal_display_col,
   }
   if range.visual_cursor then
-    marks.visual_cursor = point_mark(
-      buffer,
-      namespace,
-      position.boundary_before_cell(buffer, range.visual_cursor),
-      "after_sticky"
-    )
+    marks.visual_cursor = point_mark(buffer, namespace, position.boundary_before_cell(buffer, range.visual_cursor), "after_sticky")
   end
   if range.visual_anchor then
-    marks.visual_anchor = point_mark(
-      buffer,
-      namespace,
-      position.boundary_before_cell(buffer, range.visual_anchor),
-      "after_sticky"
-    )
+    marks.visual_anchor = point_mark(buffer, namespace, position.boundary_before_cell(buffer, range.visual_anchor), "after_sticky")
   end
   return marks
 end
@@ -137,15 +118,15 @@ local function range_from_marks(buffer, namespace, marks)
   end
   if marks.direction < 0 then
     return range_module.from_boundaries(buffer, to, from, {
-      point = marks.point,
       goal_display_col = marks.goal_display_col,
+      kind = marks.kind,
       visual_cursor = visual_cursor,
       visual_anchor = visual_anchor,
     })
   end
   return range_module.from_boundaries(buffer, from, to, {
-    point = marks.point,
     goal_display_col = marks.goal_display_col,
+    kind = marks.kind,
     visual_cursor = visual_cursor,
     visual_anchor = visual_anchor,
   })
@@ -165,6 +146,15 @@ function Tracker:resolve(opts)
     self:clear()
   end
   return ranges
+end
+
+function Tracker:resolve_selection(opts)
+  assert(self.primary_index, "range tracker does not represent a Selection")
+  local ranges = self:resolve(opts)
+  if not ranges then
+    return nil
+  end
+  return selection_module.new(self.buffer, ranges, self.primary_index)
 end
 
 function Tracker:clear()
@@ -216,10 +206,7 @@ end
 -- Adapter for byte-oriented editor APIs (Tree-sitter, LSP and option-derived
 -- delimiters). Bytes enter the model here and are converted immediately.
 function Transaction:replace_bytes(start_row0, start_col0, end_row0, end_col0, replacement)
-  return self:replace(
-    range_module.from_byte_range(self.buffer, start_row0, start_col0, end_row0, end_col0),
-    replacement
-  )
+  return self:replace(range_module.from_byte_range(self.buffer, start_row0, start_col0, end_row0, end_col0), replacement)
 end
 
 function Transaction:insert(point, text)
@@ -245,6 +232,30 @@ function Transaction:track_insertion(point)
   return #self.tracked_ranges
 end
 
+function Transaction:track_selection(selection, opts)
+  assert(selection.buffer == self.buffer, "transaction and selection buffers must match")
+  assert(self.tracked_selection == nil, "a transaction can track only one resulting selection")
+  assert(self.result_selection == nil, "a transaction cannot track and explicitly set its resulting selection")
+  local first = #self.tracked_ranges + 1
+  for _, range in ipairs(selection.ranges) do
+    self:track_range(range, opts)
+  end
+  self.tracked_selection = {
+    first = first,
+    count = #selection.ranges,
+    primary_index = selection.primary_index,
+  }
+  return self
+end
+
+-- Set a selection whose coordinates already describe the post-edit buffer.
+function Transaction:with_selection(selection)
+  assert(selection.buffer == self.buffer, "transaction and selection buffers must match")
+  assert(self.tracked_selection == nil, "a transaction cannot track and explicitly set its resulting selection")
+  self.result_selection = selection:copy()
+  return self
+end
+
 function Transaction:apply()
   validate_edits(self.edits)
   local namespace = vim.api.nvim_create_namespace("axelcool1234-helix-transaction")
@@ -266,8 +277,17 @@ function Transaction:apply()
     ranges[index] = range_from_marks(self.buffer, namespace, marks)
   end
 
+  local selection = self.result_selection and self.result_selection:copy() or nil
+  if self.tracked_selection then
+    local tracked = {}
+    for index = 1, self.tracked_selection.count do
+      tracked[index] = ranges[self.tracked_selection.first + index - 1]
+    end
+    selection = selection_module.new(self.buffer, tracked, self.tracked_selection.primary_index)
+  end
+
   vim.api.nvim_buf_clear_namespace(self.buffer, namespace, 0, -1)
-  return { ranges = ranges }
+  return { ranges = ranges, selection = selection }
 end
 
 function M.new(buffer)
@@ -275,6 +295,8 @@ function M.new(buffer)
     buffer = buffer,
     edits = {},
     tracked_ranges = {},
+    tracked_selection = nil,
+    result_selection = nil,
   }, Transaction)
 end
 
@@ -296,6 +318,12 @@ function M.track_ranges(buffer, ranges, opts)
     tracker.ranges[index] = logical
     tracker.marks[index] = track_marks(buffer, namespace, logical, "range", opts.affinity or "outside")
   end
+  return tracker
+end
+
+function M.track_selection(selection, opts)
+  local tracker = M.track_ranges(selection.buffer, selection.ranges, opts)
+  tracker.primary_index = selection.primary_index
   return tracker
 end
 

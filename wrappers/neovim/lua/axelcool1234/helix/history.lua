@@ -61,15 +61,11 @@ function M.new(opts)
     end
   end
 
-  local function snapshot_from(entries)
-    return { entries = vim.deepcopy(entries) }
+  local function snapshot_from(selection)
+    return { selection = selection:copy() }
   end
 
-  local function record_snapshot(buffer, seq, entries, branch_from_seq)
-    if #entries == 0 then
-      return false
-    end
-
+  local function record_snapshot(buffer, seq, selection, branch_from_seq)
     local buffer_history = history_for_buffer(buffer)
     local branch_index = branch_from_seq and seq_index(buffer_history, branch_from_seq) or nil
     if branch_index and seq ~= branch_from_seq and branch_index < #buffer_history.seqs then
@@ -78,7 +74,7 @@ function M.new(opts)
 
     local existing_index = seq_index(buffer_history, seq)
 
-    buffer_history.snapshots[seq] = snapshot_from(entries)
+    buffer_history.snapshots[seq] = snapshot_from(selection)
     if not existing_index then
       table.insert(buffer_history.seqs, seq)
     end
@@ -86,12 +82,12 @@ function M.new(opts)
     return true
   end
 
-  local function current_snapshot_entries()
-    return state.current_ranges()
+  local function current_snapshot_selection()
+    return state.current_selection()
   end
 
   local function materialize_snapshot(snapshot)
-    return vim.deepcopy(snapshot.entries or {})
+    return snapshot.selection:copy()
   end
 
   local function snapshot_for_seq(buffer, seq)
@@ -102,15 +98,15 @@ function M.new(opts)
     return seq_index(history_for_buffer(buffer), current_undo_seq())
   end
 
-  function history.begin_change(entries)
+  function history.begin_change(selection)
     local buffer = vim.api.nvim_get_current_buf()
     close_undo_block()
     local seq = current_undo_seq()
     return {
       before_seq = seq,
-      before_snapshot = snapshot_from(entries),
+      before_snapshot = snapshot_from(selection),
       buffer = buffer,
-      stored = record_snapshot(buffer, seq, entries),
+      stored = record_snapshot(buffer, seq, selection),
     }
   end
 
@@ -128,15 +124,15 @@ function M.new(opts)
       return false
     end
 
-    local entries = current_snapshot_entries()
-    if not record_snapshot(change.buffer, after_seq, entries, change.before_seq) then
+    local selection = current_snapshot_selection()
+    if not record_snapshot(change.buffer, after_seq, selection, change.before_seq) then
       return false
     end
 
     history_for_buffer(change.buffer).transitions[after_seq] = {
       parent_seq = change.before_seq,
       before = change.before_snapshot,
-      after = snapshot_from(entries),
+      after = snapshot_from(selection),
     }
     return true
   end
@@ -147,8 +143,8 @@ function M.new(opts)
       return false
     end
 
-    local entries = current_snapshot_entries()
-    return record_snapshot(buffer, current_undo_seq(), entries)
+    local selection = current_snapshot_selection()
+    return record_snapshot(buffer, current_undo_seq(), selection)
   end
 
   function history.attach()
@@ -157,8 +153,8 @@ function M.new(opts)
     end)
   end
 
-  function history.transaction(entries)
-    local change = history.begin_change(entries)
+  function history.undo_scope(selection)
+    local change = history.begin_change(selection)
     local finished = false
 
     local function finish()
@@ -210,13 +206,10 @@ function M.new(opts)
       return false
     end
 
-    local entries = materialize_snapshot(snapshot)
-    if #entries == 0 then
-      return false
-    end
+    local selection = materialize_snapshot(snapshot)
 
     state.exit_extend_mode()
-    state.set_preview_ranges(buffer, entries, { sync_history = false })
+    state.set_preview_selection(selection, { sync_history = false })
     return true
   end
 

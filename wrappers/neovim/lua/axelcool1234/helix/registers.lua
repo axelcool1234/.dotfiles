@@ -2,7 +2,6 @@ local M = {}
 
 function M.new(opts)
   local state = opts.state
-  local state_module = opts.state_module
 
   local registers = {
     default_yank_register = '"',
@@ -10,65 +9,28 @@ function M.new(opts)
 
   local stored = {}
   local selected = nil
-  local last_search_register = '/'
-  local last_native_command = vim.fn.getreg(':')
-  local visible_static_registers = { '_', '#', '.', '%', '+', '*' }
+  local last_search_register = "/"
+  local last_native_command = vim.fn.getreg(":")
+  local visible_static_registers = { "_", "#", ".", "%", "+", "*" }
   local static_descriptions = {
-    ['+'] = "<system clipboard>",
-    ['*'] = "<primary clipboard>",
-    ['_'] = "<empty>",
-    ['#'] = "<selection indices>",
-    ['.'] = "<selection contents>",
-    ['%'] = "<document path>",
+    ["+"] = "<system clipboard>",
+    ["*"] = "<primary clipboard>",
+    ["_"] = "<empty>",
+    ["#"] = "<selection indices>",
+    ["."] = "<selection contents>",
+    ["%"] = "<document path>",
   }
 
-  local function current_ranges()
-    return state.current_ranges()
-  end
-
-  local function entry_starts_before(left, right)
-    if left:start_cell()[1] == right:start_cell()[1] then
-      if left:start_cell()[2] == right:start_cell()[2] then
-        if left:end_cell()[1] == right:end_cell()[1] then
-          return left:end_cell()[2] < right:end_cell()[2]
-        end
-
-        return left:end_cell()[1] < right:end_cell()[1]
-      end
-
-      return left:start_cell()[2] < right:start_cell()[2]
-    end
-
-    return left:start_cell()[1] < right:start_cell()[1]
-  end
-
-  local function selection_index_values(entries)
-    local ordered = {}
-    for index, entry in ipairs(entries) do
-      ordered[index] = {
-        index = index,
-        entry = entry,
-      }
-    end
-
-    table.sort(ordered, function(left, right)
-      return entry_starts_before(left.entry, right.entry)
-    end)
-
+  local function selection_index_values(selection)
     local values = {}
-    for sorted_index, item in ipairs(ordered) do
-      values[item.index] = tostring(sorted_index)
+    for index = 1, selection:len() do
+      values[index] = tostring(index)
     end
-
     return values
   end
 
   local function current_selection_texts()
-    local values = {}
-    for _, entry in ipairs(current_ranges()) do
-      values[#values + 1] = entry:text()
-    end
-    return values
+    return state.current_selection():texts()
   end
 
   local function clipboard_contents(name)
@@ -84,7 +46,7 @@ function M.new(opts)
   end
 
   local function is_read_only(name)
-    return name == '#' or name == '.' or name == '%'
+    return name == "#" or name == "." or name == "%"
   end
 
   local function is_static_register(name)
@@ -92,7 +54,7 @@ function M.new(opts)
   end
 
   local function is_default_register(name)
-    return name == '/' or name == ':' or name == '"' or name == '@'
+    return name == "/" or name == ":" or name == '"' or name == "@"
   end
 
   local function is_printable_register(name)
@@ -135,7 +97,7 @@ function M.new(opts)
   end
 
   local function preview_read(name)
-    if name == '+' or name == '*' then
+    if name == "+" or name == "*" then
       return vim.deepcopy(stored[name] or {})
     end
 
@@ -143,9 +105,9 @@ function M.new(opts)
   end
 
   local function sync_command_register()
-    local command = vim.fn.getreg(':')
+    local command = vim.fn.getreg(":")
     if command ~= "" and command ~= last_native_command then
-      stored[':'] = { command }
+      stored[":"] = { command }
       last_native_command = command
     elseif command == "" then
       last_native_command = nil
@@ -154,10 +116,6 @@ function M.new(opts)
 
   function registers.select(name)
     selected = name
-  end
-
-  function registers.selected()
-    return selected
   end
 
   function registers.take_selected()
@@ -191,7 +149,7 @@ function M.new(opts)
   function registers.which_key_entries(select_fn)
     local entries = {}
 
-    for _, name in ipairs({ '/', ':', '"', '@' }) do
+    for _, name in ipairs({ "/", ":", '"', "@" }) do
       local default_values = preview_read(name)
       if #default_values > 0 then
         entries[#entries + 1] = {
@@ -238,29 +196,29 @@ function M.new(opts)
   function registers.read(name)
     name = normalize_name(name)
 
-    if name == '_' then
+    if name == "_" then
       return {}
     end
 
-    if name == '#' then
-      return selection_index_values(current_ranges())
+    if name == "#" then
+      return selection_index_values(state.current_selection())
     end
 
-    if name == '.' then
+    if name == "." then
       return current_selection_texts()
     end
 
-    if name == ':' then
+    if name == ":" then
       sync_command_register()
       return vim.deepcopy(stored[name] or {})
     end
 
-    if name == '%' then
+    if name == "%" then
       local path = vim.api.nvim_buf_get_name(0)
       return { path ~= "" and path or "[No Name]" }
     end
 
-    if name == '+' or name == '*' then
+    if name == "+" or name == "*" then
       local contents = clipboard_contents(name)
       local values = stored[name]
       if values and (joined_contents(values) == contents or contents == "") then
@@ -277,7 +235,7 @@ function M.new(opts)
     name = normalize_name(name)
     values = vim.deepcopy(values or {})
 
-    if name == '_' then
+    if name == "_" then
       return true
     end
 
@@ -285,13 +243,13 @@ function M.new(opts)
       return nil, string.format("Register [%s] is not writable", name)
     end
 
-    if name == ':' then
-      last_native_command = vim.fn.getreg(':')
+    if name == ":" then
+      last_native_command = vim.fn.getreg(":")
     end
 
     stored[name] = values
 
-    if name == '+' or name == '*' then
+    if name == "+" or name == "*" then
       vim.fn.setreg(name, joined_contents(values), "v")
     end
 

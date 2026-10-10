@@ -46,27 +46,6 @@ local function cursor_preview_cell(buffer, pos)
   }
 end
 
-local function ordered_ranges(selection)
-  if not selection then
-    return {}
-  end
-  local ranges = { selection.ranges[selection.primary_index] }
-  for index, range in ipairs(selection.ranges) do
-    if index ~= selection.primary_index then
-      ranges[#ranges + 1] = range
-    end
-  end
-  return ranges
-end
-
-local function copied_ordered_ranges(selection)
-  local ranges = {}
-  for index, range in ipairs(ordered_ranges(selection)) do
-    ranges[index] = range:copy()
-  end
-  return ranges
-end
-
 function M.new(opts)
   local state = {
     preview = {
@@ -116,9 +95,8 @@ function M.new(opts)
     clear_tracking(bucket[buffer])
     local saved = {
       buffer = buffer,
-      primary_index = selection.primary_index,
       changedtick = vim.api.nvim_buf_get_changedtick(buffer),
-      tracker = transaction_module.track_ranges(buffer, selection.ranges, { affinity = "inside" }),
+      tracker = transaction_module.track_selection(selection, { affinity = "inside" }),
     }
     bucket[buffer] = saved
     return saved
@@ -129,16 +107,16 @@ function M.new(opts)
       return nil
     end
     local changed = saved.changedtick ~= vim.api.nvim_buf_get_changedtick(saved.buffer)
-    local ranges = saved.tracker:resolve({ keep = true, strict = true })
-    if not ranges or #ranges == 0 then
+    local selection = saved.tracker:resolve_selection({ keep = true, strict = true })
+    if not selection then
       return nil
     end
     if changed then
-      for _, range in ipairs(ranges) do
+      for _, range in ipairs(selection.ranges) do
         range.goal_display_col = nil
       end
     end
-    return selection_module.new(saved.buffer, ranges, math.min(saved.primary_index, #ranges))
+    return selection
   end
 
   local function active_selection()
@@ -221,19 +199,12 @@ function M.new(opts)
       return selection:copy()
     end
     local pos = M.current_pos_1indexed()
-    return selection_module.single(current_buffer(), range_module.from_cells(current_buffer(), pos, pos))
+    return selection_module.single(current_buffer(), range_module.cursor_cell(current_buffer(), pos))
   end
 
-  function state.preview_ranges()
-    return copied_ordered_ranges(active_selection())
-  end
-
-  function state.preview_range(index)
-    return state.preview_ranges()[index]
-  end
-
-  function state.preview_primary_index()
-    return active_selection() and 1 or nil
+  function state.preview_selection()
+    local selection = active_selection()
+    return selection and selection:copy() or nil
   end
 
   function state.set_history_sync(callback)
@@ -268,7 +239,7 @@ function M.new(opts)
     local buffer = selection.buffer
     state.preview.buffer = buffer
     for index, range in ipairs(selection.ranges) do
-      if not range.point and not range:is_empty() then
+      if not range:is_cursor() then
         local start_row, start_col, end_row, end_col = range:byte_range()
         vim.api.nvim_buf_set_extmark(buffer, state.preview.selection_namespace, start_row, start_col, {
           end_row = end_row,
@@ -352,23 +323,6 @@ function M.new(opts)
     end
   end
 
-  function state.current_ranges()
-    local entries = state.preview_ranges()
-    if #entries > 0 then
-      return entries
-    end
-    local pos = M.current_pos_1indexed()
-    return { range_module.from_cells(current_buffer(), pos, pos) }
-  end
-
-  function state.primary_range()
-    local selection = active_selection()
-    if selection then
-      return selection:primary()
-    end
-    return state.current_ranges()[1]
-  end
-
   function state.set_preview_selection(selection, config)
     config = config or {}
     if not selection or #selection.ranges == 0 then
@@ -393,22 +347,6 @@ function M.new(opts)
       state.preview.updating = false
     end)
     return true
-  end
-
-  function state.set_preview_ranges(buffer, entries, config)
-    config = config or {}
-    if #entries == 0 then
-      state.clear_preview({ keep_extend_mode = true, keep_insert_mode = true })
-      return false
-    end
-
-    local ranges = {}
-    for index, entry in ipairs(entries) do
-      ranges[index] = range_module.copy(buffer, entry)
-    end
-
-    local selection = selection_module.new(buffer, ranges, 1)
-    return state.set_preview_selection(selection, config)
   end
 
   return state

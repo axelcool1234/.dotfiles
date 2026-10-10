@@ -1,7 +1,9 @@
 local helix = require("axelcool1234.helix")
+require("axelcool1234.remaps")
 local pickers = require("axelcool1234.pickers")
 local position = require("axelcool1234.helix.position")
 local state_module = require("axelcool1234.helix.state")
+local headless_insert = require("wrappers.neovim.tests.support.headless_insert")
 
 local function assert_equal(actual, expected, label)
   if not vim.deep_equal(actual, expected) then
@@ -25,7 +27,7 @@ end
 
 local function selection_texts()
   local texts = {}
-  for _, entry in ipairs(helix.current_selection_ranges()) do
+  for _, entry in ipairs(helix.current_selection().ranges) do
     texts[#texts + 1] = entry:text()
   end
   return texts
@@ -57,26 +59,7 @@ local function feed(keys)
   vim.api.nvim_feedkeys(termcodes, "xt", false)
 end
 
-local function finish_headless_insert()
-  vim.api.nvim_exec_autocmds("InsertLeave", {
-    buffer = vim.api.nvim_get_current_buf(),
-    modeline = false,
-  })
-end
-
-local function simulate_headless_insert(text)
-  assert(not text:find("\n", 1, true), "the insert simulation accepts one line")
-  local text_width = position.grapheme_count(text)
-  assert(text_width > 0, "the insert simulation requires nonempty text")
-  local buffer = vim.api.nvim_get_current_buf()
-  local cursor = vim.api.nvim_win_get_cursor(0)
-  local insertion_col = position.grapheme_col_from_byte_col0(position.line_text(buffer, cursor[1]), cursor[2])
-  vim.api.nvim_buf_set_text(buffer, cursor[1] - 1, cursor[2], cursor[1] - 1, cursor[2], { text })
-  local updated_line = position.line_text(buffer, cursor[1])
-  local escape_col = insertion_col + text_width - 1
-  vim.api.nvim_win_set_cursor(0, { cursor[1], position.byte_col0_from_grapheme_col(updated_line, escape_col) })
-  finish_headless_insert()
-end
+local simulate_headless_insert = headless_insert.simulate
 
 local function start_treesitter(filetype)
   vim.bo.filetype = filetype
@@ -165,7 +148,7 @@ local cases = {
       helix.select_whole_buffer()
       helix.split_selection_by_regex("^ ")
       assert_equal(selection_texts(), { "", "ab" }, "a leading delimiter should leave a leading empty selection")
-      assert_equal(helix.current_selection_ranges()[1]:is_empty(), true, "the leading point should be semantically empty")
+      assert_equal(helix.current_selection().ranges[1]:is_empty(), true, "the leading point should be semantically empty")
 
       reset_case({ "ab " })
       helix.select_whole_buffer()
@@ -187,7 +170,7 @@ local cases = {
       helix.flip_selection_direction()
       helix.merge_selections(true)
       assert_equal(selection_texts(), { "abcd", "efgh" }, "adjacent groups should merge independently")
-      for _, entry in ipairs(helix.current_selection_ranges()) do
+      for _, entry in ipairs(helix.current_selection().ranges) do
         assert(entry:anchor_cell()[2] > entry:cursor()[2], "merged reverse selections should remain reverse")
       end
       helix.merge_selections(true)
@@ -197,9 +180,9 @@ local cases = {
       helix.select_whole_buffer()
       helix.select_regex_matches("ab|cd|ef|gh")
       helix.rotate_selections("backward")
-      assert_equal(selection_texts()[1], "gh", "the last range should become primary before merging")
+      assert_equal(helix.current_selection():primary():text(), "gh", "the last range should become primary before merging")
       helix.merge_selections(true)
-      assert_equal(selection_texts()[1], "efgh", "the group containing the old primary should remain primary")
+      assert_equal(helix.current_selection():primary():text(), "efgh", "the group containing the old primary should remain primary")
     end,
   },
   {
@@ -275,23 +258,27 @@ local cases = {
       assert_equal(current_lines(), { "ALPHA BETA" }, "the edit should apply")
       helix.undo()
       assert_equal(current_lines(), { "Alpha Beta" }, "undo should restore text")
-      assert_equal(selection_texts(), { "Beta", "Alpha" }, "undo should restore selections and primary identity")
-      for _, entry in ipairs(helix.current_selection_ranges()) do
+      assert_equal(selection_texts(), { "Alpha", "Beta" }, "undo should restore selections in document order")
+      assert_equal(helix.current_selection():primary():text(), "Beta", "undo should restore primary identity")
+      for _, entry in ipairs(helix.current_selection().ranges) do
         assert(entry:anchor_cell()[2] > entry:cursor()[2], "undo should restore backward selection direction")
       end
       helix.redo()
       assert_equal(current_lines(), { "ALPHA BETA" }, "redo should restore text")
-      assert_equal(selection_texts(), { "BETA", "ALPHA" }, "redo should restore selections and primary identity")
+      assert_equal(selection_texts(), { "ALPHA", "BETA" }, "redo should restore selections in document order")
+      assert_equal(helix.current_selection():primary():text(), "BETA", "redo should restore primary identity")
       helix.earlier()
       assert_equal(current_lines(), { "Alpha Beta" }, "earlier should navigate native history")
-      assert_equal(selection_texts(), { "Beta", "Alpha" }, "earlier should restore multicursors and primary identity")
-      for _, entry in ipairs(helix.current_selection_ranges()) do
+      assert_equal(selection_texts(), { "Alpha", "Beta" }, "earlier should restore multicursors in document order")
+      assert_equal(helix.current_selection():primary():text(), "Beta", "earlier should restore primary identity")
+      for _, entry in ipairs(helix.current_selection().ranges) do
         assert(entry:anchor_cell()[2] > entry:cursor()[2], "earlier should restore selection direction")
       end
       helix.later()
       assert_equal(current_lines(), { "ALPHA BETA" }, "later should navigate native history")
-      assert_equal(selection_texts(), { "BETA", "ALPHA" }, "later should restore multicursors and primary identity")
-      for _, entry in ipairs(helix.current_selection_ranges()) do
+      assert_equal(selection_texts(), { "ALPHA", "BETA" }, "later should restore multicursors in document order")
+      assert_equal(helix.current_selection():primary():text(), "BETA", "later should restore primary identity")
+      for _, entry in ipairs(helix.current_selection().ranges) do
         assert(entry:anchor_cell()[2] > entry:cursor()[2], "later should restore selection direction")
       end
 
@@ -536,7 +523,7 @@ local cases = {
         helix.jump_backward()
         assert_equal(vim.api.nvim_get_current_buf(), first, "C-o should restore the source buffer")
         assert_equal(selection_texts(), { "alpha", "beta" }, "C-o should restore every selection")
-        for _, entry in ipairs(helix.current_selection_ranges()) do
+        for _, entry in ipairs(helix.current_selection().ranges) do
           assert(entry:anchor_cell()[2] > entry:cursor()[2], "C-o should restore selection direction")
         end
         helix.jump_forward()
@@ -689,8 +676,22 @@ local cases = {
           request_opts.on_list({
             title = "definitions",
             items = {
-              { bufnr = vim.api.nvim_get_current_buf(), lnum = 2, col = 1, end_lnum = 2, end_col = 6, text = "first" },
-              { bufnr = vim.api.nvim_get_current_buf(), lnum = 3, col = 1, end_lnum = 3, end_col = 7, text = "second" },
+              {
+                bufnr = vim.api.nvim_get_current_buf(),
+                lnum = 2,
+                col = 1,
+                end_lnum = 2,
+                end_col = 6,
+                text = "first",
+              },
+              {
+                bufnr = vim.api.nvim_get_current_buf(),
+                lnum = 3,
+                col = 1,
+                end_lnum = 3,
+                end_col = 7,
+                text = "second",
+              },
             },
           })
           assert(picker_spec and picker_spec.attach_mappings, "multiple locations should open a picker")
@@ -876,7 +877,7 @@ local cases = {
       helix.flip_selection_direction()
       helix.select_all_treesitter_siblings()
       assert_equal(selection_texts(), { "bar", "baz" }, "all siblings should be selected")
-      for _, entry in ipairs(helix.current_selection_ranges()) do
+      for _, entry in ipairs(helix.current_selection().ranges) do
         assert(entry:anchor_cell()[2] > entry:cursor()[2], "sibling direction should be preserved")
       end
       helix.select_all_treesitter_siblings()
@@ -886,22 +887,22 @@ local cases = {
       start_treesitter("lua")
       helix.expand_selection()
       helix.select_all_treesitter_siblings()
-      assert_equal(selection_texts()[1], "baz", "the originally selected sibling should remain primary")
+      assert_equal(helix.current_selection():primary():text(), "baz", "the originally selected sibling should remain primary")
 
       reset_case({ "return foo(bar, baz)" }, 1, 7)
       start_treesitter("lua")
       helix.expand_selection()
-      while selection_texts()[1] ~= "foo(bar, baz)" do
-        local before = selection_texts()[1]
+      while helix.current_selection():primary():text() ~= "foo(bar, baz)" do
+        local before = helix.current_selection():primary():text()
         helix.expand_selection()
-        if selection_texts()[1] == before then
+        if helix.current_selection():primary():text() == before then
           break
         end
       end
       helix.flip_selection_direction()
       helix.select_all_treesitter_children()
       assert_equal(selection_texts(), { "foo", "(bar, baz)" }, "all named children should be selected")
-      for _, entry in ipairs(helix.current_selection_ranges()) do
+      for _, entry in ipairs(helix.current_selection().ranges) do
         assert(entry:anchor_cell()[2] > entry:cursor()[2], "child direction should be preserved")
       end
     end,
@@ -937,16 +938,16 @@ local cases = {
       start_treesitter("lua")
       helix.select_whole_buffer()
       helix.select_regex_matches("1")
-      local leaf = helix.current_selection_ranges()
+      local leaf = helix.current_selection().ranges
       helix.select_all_treesitter_children()
-      assert_equal(helix.current_selection_ranges(), leaf, "a leaf node with no named children should stay unchanged")
+      assert_equal(helix.current_selection().ranges, leaf, "a leaf node with no named children should stay unchanged")
 
       reset_case({ "return foo(1)" })
       start_treesitter("lua")
       helix.select_whole_buffer()
-      local root = helix.current_selection_ranges()
+      local root = helix.current_selection().ranges
       helix.select_all_treesitter_siblings()
-      assert_equal(helix.current_selection_ranges(), root, "a root selection with no siblings should stay unchanged")
+      assert_equal(helix.current_selection().ranges, root, "a root selection with no siblings should stay unchanged")
     end,
   },
   {
@@ -958,9 +959,9 @@ local cases = {
       helix.select_regex_matches("[{]1, 2[}]|[{]3, 4[}]")
       helix.select_all_treesitter_children()
       assert_equal(selection_texts(), { "1", "2", "3", "4" }, "each parent should contribute its own named children")
-      local once = helix.current_selection_ranges()
+      local once = helix.current_selection().ranges
       helix.select_all_treesitter_children()
-      assert_equal(helix.current_selection_ranges(), once, "selecting children again at leaf nodes should be idempotent")
+      assert_equal(helix.current_selection().ranges, once, "selecting children again at leaf nodes should be idempotent")
     end,
   },
   {
@@ -971,7 +972,7 @@ local cases = {
       helix.select_whole_buffer()
       helix.select_regex_matches("1|3, 4")
       helix.select_all_treesitter_siblings()
-      local entries = helix.current_selection_ranges()
+      local entries = helix.current_selection().ranges
       for left_index = 1, #entries do
         for right_index = left_index + 1, #entries do
           local left = entries[left_index]
@@ -1008,7 +1009,7 @@ local cases = {
       helix.copy_selection_on_adjacent_line(1)
       helix.scroll_half_page(1, 5)
       local rows = {}
-      for _, entry in ipairs(helix.current_selection_ranges()) do
+      for _, entry in ipairs(helix.current_selection().ranges) do
         rows[#rows + 1] = entry:cursor()[1]
       end
       table.sort(rows)

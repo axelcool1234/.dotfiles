@@ -44,9 +44,12 @@ Keep these layers distinct:
   an adapter boundary in `position.lua`.
 - `Range` stores directional, half-open `anchor` and `head` boundaries. Use
   methods such as `:anchor_cell()`, `:cursor()`, `:start_cell()`, `:end_cell()`,
-  `:byte_range()`, `:text()`, and `:is_empty()`. Do not add parallel cached
-  cell fields.
-- `Selection` owns normalized ranges plus the primary index.
+  `:byte_range()`, `:text()`, and `:is_empty()`. Its explicit kind distinguishes
+  a cursor cell, a selected span, and an empty insertion point; do not infer
+  that intent from byte width or add parallel cached cell fields.
+- `Selection` owns normalized ranges plus the primary index. Pass it across
+  command/state/history boundaries as one value; never encode the primary by
+  moving its range to array index 1.
 - `Transaction` owns buffer edits and range tracking. Commands describe edits
   in logical boundaries; transaction code performs byte conversion and extmark
   tracking.
@@ -68,14 +71,18 @@ not discard them as invalid columns.
 1. Identify the Helix command and observable behavior, not only its key. Treat
    notation such as `ms<char>` as a prompted command family.
 
-2. Construct real ranges with `range.from_cells`, `range.from_boundaries`, or
-   `range.from_byte_range` at an external byte-coordinate adapter. The old
-   table-shaped selection entries and their compatibility property names no
-   longer exist.
+2. Choose a constructor that states intent: `range.cursor_cell()` for a block
+   cursor, `range.from_span_cells()` for an inclusive selected span (including
+   a one-grapheme selection), and `range.empty()` for an insertion boundary.
+   Use `range.from_boundaries()` internally and `range.from_byte_range()` only
+   at an external byte-coordinate adapter. Do not recreate a generic
+   `from_cells` constructor or a boolean `point` option.
 
-3. Read selections through `state.current_selection()`, `state.current_ranges()`,
-   `state.preview_ranges()`, and `state.primary_range()`. Publish them through
-   `state.set_preview_selection()` or `state.set_preview_ranges()`.
+3. Read selections through `state.current_selection()` or
+   `state.preview_selection()` and publish them through
+   `state.set_preview_selection()`. Use `selection:primary()`, `:transform()`,
+   `:transform_iter()`, `:filter()`, and the other Selection methods. The old
+   range-array state APIs are intentionally absent.
 
 4. Preserve direction explicitly. Decide where both anchor and cursor land,
    including after edits. Do not normalize away backward selections unless the
@@ -85,23 +92,34 @@ not discard them as invalid columns.
    cursor; other cursors and highlights are renderings of the same selection
    model, not a separate source of truth.
 
-6. Route buffer changes through `Transaction`. Use `track_ranges()` or
-   `Transaction:track_range()` with semantic affinity (`inside`, `outside`,
-   `before`, or `after`) instead of exposing raw extmark gravity choices in
-   commands. Do not edit one range and then calculate later ranges from shifted
-   buffer contents.
+6. Route buffer changes through `Transaction`. Prefer
+   `Transaction:track_selection()` and consume `apply().selection`. For edits
+   performed by native commands or LSP, use the narrow
+   `transaction.track_selection()` escape hatch. Range-level tracking remains
+   appropriate for individual inserted spans. Use semantic affinity (`inside`,
+   `outside`, `before`, or `after`) instead of raw extmark gravity choices, and
+   do not calculate later edits from already-shifted buffer contents.
 
-7. Route insert-driven operations through `insert.lua`. One insert session
+7. Keep undo history separate from edit construction. `history.undo_scope()`
+   brackets native or transaction edits and restores complete Selections; it
+   is not the edit transaction itself.
+
+8. Route insert-driven operations through `insert.lua`. One insert session
    normally forms one undo block and synchronizes secondary ranges from the
    local insert-session state.
 
-8. Keep byte math at adapters. Prefer `boundary_to_byte`, `boundary_from_byte`,
+9. Keep byte math at adapters. Prefer `boundary_to_byte`, `boundary_from_byte`,
    `byte_before_cell`, `byte_after_cell`, `byte_col0_from_grapheme_col`, and
    `grapheme_col_from_byte_col0`. Do not use `#line` as a logical column or pass
    grapheme columns directly to Neovim APIs.
 
-9. Reuse `next_pos`, `prev_pos`, `supports_column`, `is_newline_pos`, and display
-   column helpers rather than duplicating row/column traversal.
+10. Reuse `compare_cells`, `cells_equal`, `next_pos`, `prev_pos`,
+   `supports_column`, `is_newline_pos`, and display column helpers rather than
+   duplicating coordinate comparison or row/column traversal.
+
+11. Keep pure policies out of `init.lua`: extend focused modules such as
+    `integer.lua`, `case.lua`, and `surround.lua`. `init.lua` should coordinate
+    prompts, state, history, and editor APIs rather than duplicate algorithms.
 
 For surround commands, snapshot all ranges before editing and apply the changes
 through one transaction. After `ms<char>`, preserve the Helix selection landing
@@ -131,7 +149,10 @@ nix run .#neovim -- --headless -u NONE \
 ```
 
 Also run `word_motion.lua`, `jumplist.lua`, `match.lua`, `motion.lua`, or
-`parity.lua` as appropriate. A test should assert observable buffer text,
+`parity.lua` as appropriate. Run mapping- and Tree-sitter-driven harnesses with
+the real wrapper initialization (without `-u NONE`); those harnesses load
+`remaps.lua` explicitly because startup events are not reliable in headless
+chunks. Model tests should stay independent of mappings. A test should assert observable buffer text,
 selection text, direction, cursor cell, range count, or undo behavior—not only
 that a mapping exists.
 
@@ -153,7 +174,10 @@ When useful, port behavioral cases from:
 - Coordinate space is explicit at every external API boundary.
 - Multibyte graphemes and newline cells were considered.
 - Range direction, primary selection, and preferred display columns survive.
-- Multi-range edits use one transaction with semantic affinity.
+- Multi-range edits return a complete Selection from one transaction with
+  semantic affinity.
 - No legacy selection-entry properties or byte-based logical column math were
+  reintroduced.
+- No range-array state compatibility API or ambiguous range constructor was
   reintroduced.
 - Relevant focused harnesses and a load/syntax check were run.

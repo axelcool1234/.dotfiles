@@ -1,6 +1,7 @@
 local M = {}
 local range_module = require("axelcool1234.helix.range")
 local transaction_module = require("axelcool1234.helix.transaction")
+local surround = require("axelcool1234.helix.surround")
 
 function M.new(opts)
   local state = opts.state
@@ -19,7 +20,6 @@ function M.new(opts)
   local entry_spans_plain_explicit_pair
   local find_treesitter_seed_node
   local pair_region_from_ts_node
-  local module_root = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h:h:h:h")
 
   local function read_query_with_inherits(path, seen)
     seen = seen or {}
@@ -59,8 +59,8 @@ function M.new(opts)
     return vim.api.nvim_get_current_buf()
   end
 
-  local function range_from_cells(anchor, cursor, range_opts)
-    return range_module.from_cells(current_buffer(), anchor, cursor, range_opts)
+  local function span_from_cells(anchor, cursor, range_opts)
+    return range_module.from_span_cells(current_buffer(), anchor, cursor, range_opts)
   end
 
   local function object_history_key(buffer)
@@ -84,78 +84,32 @@ function M.new(opts)
     return position.cursor_max_column(current_buffer(), row)
   end
 
-  local function current_ranges()
-    return state.current_ranges()
+  local function current_selection()
+    return state.current_selection()
   end
 
-  local function current_preview_ranges()
-    if not state.preview_active() then
-      return {}
-    end
-
-    return state.preview_ranges()
+  local function current_preview_selection()
+    return state.preview_selection()
   end
 
   -- Pair helpers
 
-  local function surround_pair(char)
-    local pairs = {
-      ["("] = { "(", ")" },
-      [")"] = { "(", ")" },
-      ["["] = { "[", "]" },
-      ["]"] = { "[", "]" },
-      ["{"] = { "{", "}" },
-      ["}"] = { "{", "}" },
-      ["<"] = { "<", ">" },
-      [">"] = { "<", ">" },
-      ['"'] = { '"', '"' },
-      ["'"] = { "'", "'" },
-      ["`"] = { "`", "`" },
-    }
-
-    return pairs[char] or { char, char }
-  end
-
-  local surround_pairs = {
-    { "(", ")" },
-    { "[", "]" },
-    { "{", "}" },
-    { "<", ">" },
-    { "‘", "’" },
-    { "“", "”" },
-    { "«", "»" },
-    { "「", "」" },
-    { "（", "）" },
-    { '"', '"' },
-    { "'", "'" },
-    { "`", "`" },
-  }
-  local plain_bracket_pairs = {
-    { "(", ")" },
-    { "[", "]" },
-    { "{", "}" },
-    { "<", ">" },
-    { "‘", "’" },
-    { "“", "”" },
-    { "«", "»" },
-    { "「", "」" },
-    { "（", "）" },
-  }
+  local surround_pair = surround.for_char
+  local surround_pairs = surround.pairs
+  local plain_bracket_pairs = surround.plain_pairs
 
   local function pos_before(left, right)
-    return left[1] < right[1] or (left[1] == right[1] and left[2] < right[2])
+    return position.compare_cells(left, right) < 0
   end
 
   local function pos_after(left, right)
-    return left[1] > right[1] or (left[1] == right[1] and left[2] > right[2])
+    return position.compare_cells(left, right) > 0
   end
 
-  local function pos_equal(left, right)
-    return left[1] == right[1] and left[2] == right[2]
-  end
+  local pos_equal = position.cells_equal
 
   local function pos_leq(left, right)
-    return pos_before(left, right) or pos_equal(left, right)
+    return position.compare_cells(left, right) <= 0
   end
 
   local function entry_forward(entry)
@@ -171,17 +125,15 @@ function M.new(opts)
   end
 
   local function extend_entry_with_target(source_entry, target_entry)
-    local start_pos = pos_before(source_entry:start_cell(), target_entry:start_cell()) and source_entry:start_cell()
-      or target_entry:start_cell()
-    local end_pos = pos_after(source_entry:end_cell(), target_entry:end_cell()) and source_entry:end_cell()
-      or target_entry:end_cell()
+    local start_pos = pos_before(source_entry:start_cell(), target_entry:start_cell()) and source_entry:start_cell() or target_entry:start_cell()
+    local end_pos = pos_after(source_entry:end_cell(), target_entry:end_cell()) and source_entry:end_cell() or target_entry:end_cell()
     local target_cursor = entry_forward(target_entry) and target_entry:end_cell() or target_entry:start_cell()
 
     if pos_before(target_cursor, source_entry:anchor_cell()) then
-      return range_from_cells(end_pos, start_pos)
+      return span_from_cells(end_pos, start_pos)
     end
 
-    return range_from_cells(start_pos, end_pos)
+    return span_from_cells(start_pos, end_pos)
   end
 
   local function region_entry_positions(region)
@@ -199,9 +151,7 @@ function M.new(opts)
 
   local function region_contains_entry_with_progress(region, entry)
     local start_pos, end_pos = region_entry_positions(region)
-    return not pos_before(entry:start_cell(), start_pos)
-      and not pos_after(entry:end_cell(), end_pos)
-      and (pos_before(start_pos, entry:start_cell()) or pos_after(end_pos, entry:end_cell()))
+    return not pos_before(entry:start_cell(), start_pos) and not pos_after(entry:end_cell(), end_pos) and (pos_before(start_pos, entry:start_cell()) or pos_after(end_pos, entry:end_cell()))
   end
 
   local function region_span(region)
@@ -215,13 +165,7 @@ function M.new(opts)
   end
 
   local function region_key(region)
-    return string.format(
-      "%d:%d:%d:%d",
-      region.start_pos[1],
-      region.start_pos[2],
-      region.end_pos[1],
-      region.end_pos[2]
-    )
+    return string.format("%d:%d:%d:%d", region.start_pos[1], region.start_pos[2], region.end_pos[1], region.end_pos[2])
   end
 
   local function entry_cursor_range(source_entry)
@@ -358,10 +302,7 @@ function M.new(opts)
       end
     end
 
-    local entry = range_from_cells(region.start_pos, region.end_pos)
-    if pos_equal(entry:start_cell(), entry:end_cell()) then
-      entry:as_selection()
-    end
+    local entry = span_from_cells(region.start_pos, region.end_pos)
     return entry
   end
 
@@ -542,8 +483,9 @@ function M.new(opts)
 
     local query = nil
 
+    local query_runtime = vim.g.helix_query_runtime or vim.env.NVIM_HELIX_QUERY_RUNTIME
     for _, helix_path in ipairs({
-      vim.g.helix_query_runtime and vim.fs.joinpath(vim.g.helix_query_runtime, lang, "textobjects.scm") or nil,
+      query_runtime and vim.fs.joinpath(query_runtime, lang, "textobjects.scm") or nil,
     }) do
       if helix_path and vim.fn.filereadable(helix_path) == 1 then
         local content = read_query_with_inherits(helix_path)
@@ -700,22 +642,14 @@ function M.new(opts)
       local best = nil
       for _, candidate in ipairs(candidate_regions) do
         if direction == "forward" then
-          if candidate.start_row0 > cursor_pos[1] - 1
-            or (candidate.start_row0 == cursor_pos[1] - 1 and candidate.start_byte > byte_pos) then
-            if not best
-              or candidate.start_row0 < best.start_row0
-              or (candidate.start_row0 == best.start_row0 and candidate.start_byte < best.start_byte)
-              or (candidate.start_row0 == best.start_row0 and candidate.start_byte == best.start_byte and candidate.end_byte > best.end_byte) then
+          if candidate.start_row0 > cursor_pos[1] - 1 or (candidate.start_row0 == cursor_pos[1] - 1 and candidate.start_byte > byte_pos) then
+            if not best or candidate.start_row0 < best.start_row0 or (candidate.start_row0 == best.start_row0 and candidate.start_byte < best.start_byte) or (candidate.start_row0 == best.start_row0 and candidate.start_byte == best.start_byte and candidate.end_byte > best.end_byte) then
               best = candidate
             end
           end
         else
-          if candidate.end_row0 < cursor_pos[1] - 1
-            or (candidate.end_row0 == cursor_pos[1] - 1 and candidate.end_byte < byte_pos) then
-            if not best
-              or candidate.end_row0 > best.end_row0
-              or (candidate.end_row0 == best.end_row0 and candidate.end_byte > best.end_byte)
-              or (candidate.end_row0 == best.end_row0 and candidate.end_byte == best.end_byte and candidate.start_byte < best.start_byte) then
+          if candidate.end_row0 < cursor_pos[1] - 1 or (candidate.end_row0 == cursor_pos[1] - 1 and candidate.end_byte < byte_pos) then
+            if not best or candidate.end_row0 > best.end_row0 or (candidate.end_row0 == best.end_row0 and candidate.end_byte > best.end_byte) or (candidate.end_row0 == best.end_row0 and candidate.end_byte == best.end_byte and candidate.start_byte < best.start_byte) then
               best = candidate
             end
           end
@@ -731,9 +665,9 @@ function M.new(opts)
         break
       end
       if direction == "forward" then
-        current = range_from_cells(region.start_pos, region.end_pos)
+        current = span_from_cells(region.start_pos, region.end_pos)
       else
-        current = range_from_cells(region.end_pos, region.start_pos)
+        current = span_from_cells(region.end_pos, region.start_pos)
       end
     end
 
@@ -760,7 +694,7 @@ function M.new(opts)
     local row = source_entry:cursor()[1]
     local line = line_text(row)
     if line == "" then
-      return range_from_cells(source_entry:cursor(), source_entry:cursor())
+      return source_entry
     end
 
     local line_len = position.grapheme_count(line)
@@ -768,7 +702,7 @@ function M.new(opts)
     local anchor_col = cursor_col
     local kind = char_kind(position.grapheme_at(line, anchor_col), long)
     if kind == "space" then
-      return range_from_cells(source_entry:cursor(), source_entry:cursor())
+      return source_entry
     end
 
     local start_col = anchor_col
@@ -797,10 +731,7 @@ function M.new(opts)
         end
       end
     end
-    local entry = range_from_cells({ row, start_col }, { row, end_col })
-    if pos_equal(entry:start_cell(), entry:end_cell()) then
-      entry:as_selection()
-    end
+    local entry = span_from_cells({ row, start_col }, { row, end_col })
     return entry
   end
 
@@ -877,7 +808,7 @@ function M.new(opts)
         end
       end
 
-      return range_from_cells({ start_row, 1 }, { end_row, line_cursor_max_column(end_row) })
+      return span_from_cells({ start_row, 1 }, { end_row, line_cursor_max_column(end_row) })
     end
 
     local function paragraph_rows_from_row(target_row)
@@ -924,7 +855,7 @@ function M.new(opts)
         return paragraph_entry(start_row, end_row, around)
       end
 
-      return range_from_cells({ blank_start_row, 1 }, { blank_end_row, line_cursor_max_column(blank_end_row) })
+      return span_from_cells({ blank_start_row, 1 }, { blank_end_row, line_cursor_max_column(blank_end_row) })
     end
 
     local start_row, end_row = paragraph_rows_from_row(row)
@@ -958,9 +889,7 @@ function M.new(opts)
       local line = line_text(row)
       local indent = indent_level_for_line_text(line)
       local empty = line_is_empty(row)
-      if (min_indent > 0 and indent >= min_indent)
-        or (min_indent == 0 and not empty)
-        or (around and empty) then
+      if (min_indent > 0 and indent >= min_indent) or (min_indent == 0 and not empty) or (around and empty) then
         line_start = row
       else
         break
@@ -972,9 +901,7 @@ function M.new(opts)
       local line = line_text(row)
       local indent = indent_level_for_line_text(line)
       local empty = line_is_empty(row)
-      if (min_indent > 0 and indent >= min_indent)
-        or (min_indent == 0 and not empty)
-        or (around and empty) then
+      if (min_indent > 0 and indent >= min_indent) or (min_indent == 0 and not empty) or (around and empty) then
         line_end = row
       else
         break
@@ -988,7 +915,7 @@ function M.new(opts)
     end
 
     local end_col = position.text_end_column(current_buffer(), line_end)
-    return range_from_cells({ line_start, 1 }, { line_end, end_col })
+    return span_from_cells({ line_start, 1 }, { line_end, end_col })
   end
 
   local function textobject_change_entry(source_entry)
@@ -1011,7 +938,7 @@ function M.new(opts)
     local start_row = math.max(hunk.added.start, 1)
     local end_row = math.max(hunk.vend, start_row)
     end_row = math.min(end_row, vim.api.nvim_buf_line_count(current_buffer()))
-    return range_from_cells({ start_row, 1 }, { end_row, line_cursor_max_column(end_row) })
+    return span_from_cells({ start_row, 1 }, { end_row, line_cursor_max_column(end_row) })
   end
 
   local function base_textobject_entry(source_entry, char, around)
@@ -1044,10 +971,7 @@ function M.new(opts)
     if object_name then
       local region = capture_region_for_entry(object_name, source_entry, around)
       if region then
-        local entry = range_from_cells(region.start_pos, region.end_pos)
-        if pos_equal(entry:start_cell(), entry:end_cell()) then
-          entry:as_selection()
-        end
+        local entry = span_from_cells(region.start_pos, region.end_pos)
         return entry
       end
       return source_entry
@@ -1065,22 +989,14 @@ function M.new(opts)
       local region = find_surround_region_for_selection(source_entry, nil)
       region = around and region or inner_surround_region(region)
       local entry = surround_region_entry_for_source(region, source_entry)
-      if entry and pos_equal(entry:start_cell(), entry:end_cell()) then
-        entry:as_selection()
-      end
       return entry or source_entry
     end
 
     if not char:match("[%w_]") then
       local explicit_pair = surround_pair(char)
-      local region = (explicit_pair[1] == explicit_pair[2] or entry_spans_plain_explicit_pair(source_entry, explicit_pair))
-        and find_surround_region_for_selection(source_entry, char)
-        or find_surround_region_at_point(source_entry:cursor(), char)
+      local region = (explicit_pair[1] == explicit_pair[2] or entry_spans_plain_explicit_pair(source_entry, explicit_pair)) and find_surround_region_for_selection(source_entry, char) or find_surround_region_at_point(source_entry:cursor(), char)
       region = around and region or inner_surround_region(region)
       local entry = surround_region_entry_for_source(region, source_entry)
-      if entry and pos_equal(entry:start_cell(), entry:end_cell()) then
-        entry:as_selection()
-      end
       return entry or source_entry
     end
 
@@ -1094,10 +1010,8 @@ function M.new(opts)
 
     local probe_entry = source_entry
     if not entry_is_point(source_entry) then
-      local probe_point = entry_forward(source_entry)
-        and position.prev_pos(current_buffer(), source_entry:end_cell())
-        or position.next_pos(current_buffer(), source_entry:start_cell())
-      probe_entry = range_from_cells(probe_point, probe_point)
+      local probe_point = entry_forward(source_entry) and position.prev_pos(current_buffer(), source_entry:end_cell()) or position.next_pos(current_buffer(), source_entry:start_cell())
+      probe_entry = range_module.cursor_cell(current_buffer(), probe_point)
     end
 
     local whole_entry = base_textobject_entry(probe_entry, char, true)
@@ -1105,8 +1019,7 @@ function M.new(opts)
       return source_entry
     end
 
-    if not pos_equal(source_entry:start_cell(), whole_entry:start_cell())
-      or not pos_equal(source_entry:end_cell(), whole_entry:end_cell()) then
+    if not pos_equal(source_entry:start_cell(), whole_entry:start_cell()) or not pos_equal(source_entry:end_cell(), whole_entry:end_cell()) then
       return source_entry
     end
 
@@ -1121,7 +1034,7 @@ function M.new(opts)
       return source_entry
     end
 
-    return range_from_cells(target_point, target_point)
+    return range_module.cursor_cell(current_buffer(), target_point)
   end
 
   local function textobject_entry(source_entry, char, around)
@@ -1139,7 +1052,7 @@ function M.new(opts)
   end
 
   function match.select_textobject_at_point(point, char, around)
-    local source_entry = range_from_cells(point, point)
+    local source_entry = range_module.cursor_cell(current_buffer(), point)
     return base_textobject_entry(source_entry, char, around)
   end
 
@@ -1148,19 +1061,16 @@ function M.new(opts)
       return
     end
 
-    local buffer = current_buffer()
-    local source_entries = state.preview_active() and current_preview_ranges() or current_ranges()
-    local entries = {}
-    for _, source_entry in ipairs(source_entries) do
+    local source = current_selection()
+    local selection = source:transform(function(source_entry)
       local target_entry = textobject_entry(source_entry, char, around)
       if state.extend_mode_active() then
-        entries[#entries + 1] = extend_entry_with_target(source_entry, target_entry)
-      else
-        entries[#entries + 1] = target_entry
+        return extend_entry_with_target(source_entry, target_entry)
       end
-    end
+      return target_entry
+    end)
 
-    state.set_preview_ranges(buffer, entries)
+    state.set_preview_selection(selection)
   end
 
   local function select_textobject_preview(around)
@@ -1169,16 +1079,13 @@ function M.new(opts)
   end
 
   function match.goto_textobject(object_name, direction, count_override)
-    local buffer = current_buffer()
-    local source_entries = state.preview_active() and current_preview_ranges() or current_ranges()
+    local source = current_selection()
     local count = count_override or vim.v.count1
-    local entries = {}
+    local selection = source:transform(function(source_entry)
+      return goto_capture_region_for_entry(object_name, source_entry, direction, count)
+    end)
 
-    for _, source_entry in ipairs(source_entries) do
-      entries[#entries + 1] = goto_capture_region_for_entry(object_name, source_entry, direction, count)
-    end
-
-    state.set_preview_ranges(buffer, entries)
+    state.set_preview_selection(selection)
     if not state.extend_mode_active() then
       state.exit_extend_mode()
     end
@@ -1186,36 +1093,35 @@ function M.new(opts)
 
   function match.expand_selection()
     local buffer = current_buffer()
-    local source_entries = state.preview_active() and current_preview_ranges() or current_ranges()
-    local entries = {}
+    local source = current_selection()
     local changed = false
-    for index, source_entry in ipairs(source_entries) do
-      entries[index] = selection_aware_treesitter_entry(source_entry, true)
-      changed = changed or not same_entry(entries[index], source_entry)
-    end
+    local selection = source:transform(function(source_entry)
+      local entry = selection_aware_treesitter_entry(source_entry, true)
+      changed = changed or not same_entry(entry, source_entry)
+      return entry
+    end)
     if not changed then
       return
     end
 
     local history_key = object_history_key(buffer)
     object_selection_history[history_key] = object_selection_history[history_key] or {}
-    table.insert(object_selection_history[history_key], vim.deepcopy(source_entries))
-    state.set_preview_ranges(buffer, entries)
+    table.insert(object_selection_history[history_key], source:copy())
+    state.set_preview_selection(selection)
   end
 
   function match.shrink_selection()
     local buffer = current_buffer()
-    local current = state.preview_active() and current_preview_ranges() or current_ranges()
+    local current = current_selection()
     local history_key = object_history_key(buffer)
     local stack = object_selection_history[history_key]
     if stack and #stack > 0 then
       local previous = table.remove(stack)
       local contained = true
-      for _, previous_entry in ipairs(previous) do
+      for _, previous_entry in ipairs(previous.ranges) do
         local found = false
-        for _, current_entry in ipairs(current) do
-          if pos_leq(current_entry:start_cell(), previous_entry:start_cell())
-            and pos_leq(previous_entry:end_cell(), current_entry:end_cell()) then
+        for _, current_entry in ipairs(current.ranges) do
+          if pos_leq(current_entry:start_cell(), previous_entry:start_cell()) and pos_leq(previous_entry:end_cell(), current_entry:end_cell()) then
             found = true
             break
           end
@@ -1226,29 +1132,24 @@ function M.new(opts)
         end
       end
       if contained then
-        state.set_preview_ranges(buffer, previous)
+        state.set_preview_selection(previous)
         return
       end
       object_selection_history[history_key] = {}
     end
 
-    local entries = {}
-    for index, source_entry in ipairs(current) do
+    local selection = current:transform(function(source_entry)
       local node = selected_or_seed_treesitter_node(source_entry)
       local child = node and node:child(0) or nil
-      entries[index] = treesitter_node_entry(child, true) or source_entry
-    end
-    state.set_preview_ranges(buffer, entries)
+      return treesitter_node_entry(child, true) or source_entry
+    end)
+    state.set_preview_selection(selection)
   end
 
   function match.select_sibling(direction)
-    local buffer = current_buffer()
-    local source_entries = state.preview_active() and current_preview_ranges() or current_ranges()
-    local entries = {}
-    for _, source_entry in ipairs(source_entries) do
-      entries[#entries + 1] = treesitter_sibling_entry(source_entry, direction, 1)
-    end
-    state.set_preview_ranges(buffer, entries)
+    state.set_preview_selection(current_selection():transform(function(source_entry)
+      return treesitter_sibling_entry(source_entry, direction, 1)
+    end))
   end
 
   local function named_children(node)
@@ -1266,10 +1167,8 @@ function M.new(opts)
   end
 
   function match.select_all_siblings()
-    local buffer = current_buffer()
-    local source_entries = state.preview_active() and current_preview_ranges() or current_ranges()
-    local entries = {}
-    for source_index, source_entry in ipairs(source_entries) do
+    local source = current_selection()
+    local selection = source:transform_iter(function(source_entry, source_index)
       local backward = pos_before(source_entry:cursor(), source_entry:anchor_cell())
       local node = selected_or_seed_treesitter_node(source_entry)
       local parent = node and node:parent() or nil
@@ -1278,61 +1177,58 @@ function M.new(opts)
       end
       local siblings = named_children(parent)
       if #siblings == 0 then
-        entries[#entries + 1] = source_entry
-      else
-        if source_index == 1 and node then
-          for sibling_index, sibling in ipairs(siblings) do
-            if sibling:id() == node:id() then
-              table.remove(siblings, sibling_index)
-              table.insert(siblings, 1, sibling)
-              break
-            end
+        return { source_entry }
+      end
+      if source_index == source.primary_index and node then
+        for sibling_index, sibling in ipairs(siblings) do
+          if sibling:id() == node:id() then
+            table.remove(siblings, sibling_index)
+            table.insert(siblings, 1, sibling)
+            break
           end
-        end
-        for _, sibling in ipairs(siblings) do
-          local entry = treesitter_node_entry(sibling, true)
-          if backward then
-            entry = range_from_cells(entry:end_cell(), entry:start_cell())
-          end
-          entries[#entries + 1] = entry
         end
       end
-    end
-    state.set_preview_ranges(buffer, entries)
+      local entries = {}
+      for _, sibling in ipairs(siblings) do
+        local entry = treesitter_node_entry(sibling, true)
+        if backward then
+          entry = span_from_cells(entry:end_cell(), entry:start_cell())
+        end
+        entries[#entries + 1] = entry
+      end
+      return entries
+    end)
+    state.set_preview_selection(selection)
   end
 
   function match.select_all_children()
-    local buffer = current_buffer()
-    local source_entries = state.preview_active() and current_preview_ranges() or current_ranges()
-    local entries = {}
-    for _, source_entry in ipairs(source_entries) do
+    local selection = current_selection():transform_iter(function(source_entry)
       local backward = pos_before(source_entry:cursor(), source_entry:anchor_cell())
       local node = selected_or_seed_treesitter_node(source_entry)
       local children = named_children(node)
       if #children == 0 then
-        entries[#entries + 1] = source_entry
-      else
-        for _, child in ipairs(children) do
-          local entry = treesitter_node_entry(child, true)
-          if backward then
-            entry = range_from_cells(entry:end_cell(), entry:start_cell())
-          end
-          entries[#entries + 1] = entry
-        end
+        return { source_entry }
       end
-    end
-    state.set_preview_ranges(buffer, entries)
+      local entries = {}
+      for _, child in ipairs(children) do
+        local entry = treesitter_node_entry(child, true)
+        if backward then
+          entry = span_from_cells(entry:end_cell(), entry:start_cell())
+        end
+        entries[#entries + 1] = entry
+      end
+      return entries
+    end)
+    state.set_preview_selection(selection)
   end
 
   function match.move_parent_node_boundary(edge)
     local buffer = current_buffer()
-    local source_entries = state.preview_active() and current_preview_ranges() or current_ranges()
-    local entries = {}
-    for index, source_entry in ipairs(source_entries) do
+    local selection = current_selection():transform(function(source_entry)
       local node = selected_or_seed_treesitter_node(source_entry)
       local node_entry = treesitter_node_entry(node, true)
       if not node_entry then
-        entries[index] = source_entry
+        return source_entry
       else
         local target
         if edge == "end" then
@@ -1352,57 +1248,46 @@ function M.new(opts)
           end
         end
         if state.extend_mode_active() then
-          entries[index] = range_from_cells(source_entry:anchor_cell(), target)
-        else
-          entries[index] = range_from_cells(target, target)
+          return span_from_cells(source_entry:anchor_cell(), target)
         end
+        return range_module.cursor_cell(buffer, target)
       end
-    end
-    state.set_preview_ranges(buffer, entries)
+    end)
+    state.set_preview_selection(selection)
   end
 
   function match.goto_treesitter_sibling(direction, count_override)
-    local buffer = current_buffer()
-    local source_entries = state.preview_active() and current_preview_ranges() or current_ranges()
+    local source = current_selection()
     local count = count_override or vim.v.count1
-    local entries = {}
+    local selection = source:transform(function(source_entry)
+      return treesitter_sibling_entry(source_entry, direction, count)
+    end)
 
-    for _, source_entry in ipairs(source_entries) do
-      entries[#entries + 1] = treesitter_sibling_entry(source_entry, direction, count)
-    end
-
-    state.set_preview_ranges(buffer, entries)
+    state.set_preview_selection(selection)
     if not state.extend_mode_active() then
       state.exit_extend_mode()
     end
   end
 
   function match.goto_treesitter_sibling_edge(edge)
-    local buffer = current_buffer()
-    local source_entries = state.preview_active() and current_preview_ranges() or current_ranges()
-    local entries = {}
+    local selection = current_selection():transform(function(source_entry)
+      return treesitter_sibling_edge_entry(source_entry, edge)
+    end)
 
-    for _, source_entry in ipairs(source_entries) do
-      entries[#entries + 1] = treesitter_sibling_edge_entry(source_entry, edge)
-    end
-
-    state.set_preview_ranges(buffer, entries)
+    state.set_preview_selection(selection)
     if not state.extend_mode_active() then
       state.exit_extend_mode()
     end
   end
 
   function match.goto_treesitter_child(edge, count_override)
-    local buffer = current_buffer()
-    local source_entries = state.preview_active() and current_preview_ranges() or current_ranges()
+    local source = current_selection()
     local count = count_override or vim.v.count1
-    local entries = {}
+    local selection = source:transform(function(source_entry)
+      return treesitter_child_entry(source_entry, edge, count)
+    end)
 
-    for _, source_entry in ipairs(source_entries) do
-      entries[#entries + 1] = treesitter_child_entry(source_entry, edge, count)
-    end
-
-    state.set_preview_ranges(buffer, entries)
+    state.set_preview_selection(selection)
     if not state.extend_mode_active() then
       state.exit_extend_mode()
     end
@@ -1710,7 +1595,7 @@ function M.new(opts)
         return nil
       end
 
-      current_entry = range_from_cells(region.start_pos, region.end_pos)
+      current_entry = span_from_cells(region.start_pos, region.end_pos)
       current_allow = false
     end
 
@@ -1980,7 +1865,7 @@ function M.new(opts)
   end
 
   find_surround_region_at_point = function(point_pos, char)
-    local target_entry = range_from_cells(point_pos, point_pos)
+    local target_entry = range_module.cursor_cell(current_buffer(), point_pos)
     return resolve_surround_region_for_target(target_entry, char)
   end
 
@@ -2050,44 +1935,37 @@ function M.new(opts)
     return regions, nil
   end
 
-  local function apply_surround_region_edits(entries, regions, pair)
+  local function apply_surround_region_edits(selection, regions, pair)
     local buffer = current_buffer()
     local edit = transaction_module.new(buffer)
-    for _, entry in ipairs(entries or {}) do
-      edit:track_range(entry)
+    if selection then
+      edit:track_selection(selection)
     end
     for _, region in ipairs(regions) do
       local start_pos, end_pos = region_entry_positions(region)
-      local start_range = range_from_cells(start_pos, start_pos)
-      local end_range = range_from_cells(end_pos, end_pos)
+      local start_range = range_module.cursor_cell(current_buffer(), start_pos)
+      local end_range = range_module.cursor_cell(current_buffer(), end_pos)
       edit:replace(start_range, pair and pair[1] or "")
       edit:replace(end_range, pair and pair[2] or "")
     end
-    return edit:apply().ranges
+    return edit:apply().selection
   end
 
-  local function add_surrounds(entries, pair)
+  local function add_surrounds(selection, pair)
     local buffer = current_buffer()
+    selection = selection:select_cursor_cells()
     local edit = transaction_module.new(buffer)
-    for _, entry in ipairs(entries) do
+    edit:track_selection(selection)
+    for _, entry in ipairs(selection.ranges) do
       local range = range_module.copy(buffer, entry)
-      edit:track_range(range)
       edit:insert(range:from(), pair[1])
       edit:insert(range:to(), pair[2])
     end
-    local surrounded = edit:apply().ranges
-    for _, range in ipairs(surrounded) do
-      range:as_selection()
-    end
-    return surrounded
+    return edit:apply().selection
   end
 
-  local function surround_history_entries()
-    if state.preview_active() then
-      return current_preview_ranges()
-    end
-
-    return current_ranges()
+  local function surround_history_selection()
+    return current_selection()
   end
 
   local function ambiguous_surround_char(entries, char)
@@ -2150,24 +2028,23 @@ function M.new(opts)
     end
 
     local pair = surround_pair(addition)
-    local history_entries = surround_history_entries()
-    local transaction = history.transaction(history_entries)
+    local source = surround_history_selection()
+    local transaction = history.undo_scope(source)
 
     if state.preview_active() then
-      local entries = add_surrounds(state.preview_ranges(), pair)
+      local selection = add_surrounds(source, pair)
 
       state.enter_extend_mode()
-      state.set_preview_ranges(vim.api.nvim_get_current_buf(), entries, { sync_history = false })
+      state.set_preview_selection(selection, { sync_history = false })
       transaction.commit_now()
       return
     end
 
-    local source_entries = current_ranges()
-    if #source_entries > 0 then
-      local entries = add_surrounds(source_entries, pair)
+    if source:len() > 0 then
+      local selection = add_surrounds(source, pair)
 
       state.enter_extend_mode()
-      state.set_preview_ranges(vim.api.nvim_get_current_buf(), entries, { sync_history = false })
+      state.set_preview_selection(selection, { sync_history = false })
       transaction.commit_now()
       return
     end
@@ -2182,16 +2059,16 @@ function M.new(opts)
 
       deletion = normalize_surround_char(deletion)
 
-      local entries = current_preview_ranges()
-      local regions, err = collect_validated_surround_regions(entries, deletion)
+      local selection = current_preview_selection()
+      local regions, err = collect_validated_surround_regions(selection.ranges, deletion)
       if not regions then
         echo_match_error(err)
         return
       end
 
-      local transaction = history.transaction(entries)
-      local updated = apply_surround_region_edits(entries, regions)
-      state.set_preview_ranges(current_buffer(), updated, { sync_history = false })
+      local transaction = history.undo_scope(selection)
+      local updated = apply_surround_region_edits(selection, regions)
+      state.set_preview_selection(updated, { sync_history = false })
       transaction.commit_now()
       return
     end
@@ -2203,14 +2080,14 @@ function M.new(opts)
 
     char = normalize_surround_char(char)
 
-    local entries = surround_history_entries()
-    local regions, err = collect_validated_surround_regions(entries, char)
+    local selection = surround_history_selection()
+    local regions, err = collect_validated_surround_regions(selection.ranges, char)
     if not regions then
       echo_match_error(err)
       return
     end
 
-    local transaction = history.transaction(entries)
+    local transaction = history.undo_scope(selection)
     apply_surround_region_edits(nil, regions)
     transaction.commit_now()
   end
@@ -2224,8 +2101,8 @@ function M.new(opts)
 
       deletion = normalize_surround_char(deletion)
 
-      local entries = current_preview_ranges()
-      local regions, err = collect_validated_surround_regions(entries, deletion)
+      local selection = current_preview_selection()
+      local regions, err = collect_validated_surround_regions(selection.ranges, deletion)
       if not regions then
         echo_match_error(err)
         return
@@ -2236,9 +2113,9 @@ function M.new(opts)
         return
       end
 
-      local transaction = history.transaction(entries)
-      local updated = apply_surround_region_edits(entries, regions, surround_pair(addition))
-      state.set_preview_ranges(current_buffer(), updated, { sync_history = false })
+      local transaction = history.undo_scope(selection)
+      local updated = apply_surround_region_edits(selection, regions, surround_pair(addition))
+      state.set_preview_selection(updated, { sync_history = false })
       transaction.commit_now()
       return
     end
@@ -2250,8 +2127,8 @@ function M.new(opts)
 
     deletion = normalize_surround_char(deletion)
 
-    local entries = surround_history_entries()
-    local regions, err = collect_validated_surround_regions(entries, deletion)
+    local selection = surround_history_selection()
+    local regions, err = collect_validated_surround_regions(selection.ranges, deletion)
     if not regions then
       echo_match_error(err)
       return
@@ -2262,35 +2139,35 @@ function M.new(opts)
       return
     end
 
-    local transaction = history.transaction(entries)
+    local transaction = history.undo_scope(selection)
     apply_surround_region_edits(nil, regions, surround_pair(addition))
     transaction.commit_now()
   end
 
   function match.surround_delete_nearest()
     if state.preview_active() then
-      local entries = current_preview_ranges()
-      local regions, err = collect_surround_regions(entries, nil)
+      local selection = current_preview_selection()
+      local regions, err = collect_surround_regions(selection.ranges, nil)
       if not regions then
         echo_match_error(err)
         return
       end
 
-      local transaction = history.transaction(entries)
-      local updated = apply_surround_region_edits(entries, regions)
-      state.set_preview_ranges(current_buffer(), updated, { sync_history = false })
+      local transaction = history.undo_scope(selection)
+      local updated = apply_surround_region_edits(selection, regions)
+      state.set_preview_selection(updated, { sync_history = false })
       transaction.commit_now()
       return
     end
 
-    local entries = surround_history_entries()
-    local regions, err = collect_surround_regions(entries, nil)
+    local selection = surround_history_selection()
+    local regions, err = collect_surround_regions(selection.ranges, nil)
     if not regions then
       echo_match_error(err)
       return
     end
 
-    local transaction = history.transaction(entries)
+    local transaction = history.undo_scope(selection)
     apply_surround_region_edits(nil, regions)
     transaction.commit_now()
   end
@@ -2304,10 +2181,10 @@ function M.new(opts)
 
     local start_pos, end_pos = region_entry_positions(region)
     if pos_before(source_entry:cursor(), source_entry:anchor_cell()) then
-      return range_from_cells(end_pos, start_pos)
+      return span_from_cells(end_pos, start_pos)
     end
 
-    return range_from_cells(start_pos, end_pos)
+    return span_from_cells(start_pos, end_pos)
   end
 
   inner_surround_region = function(region)
@@ -2353,27 +2230,21 @@ function M.new(opts)
 
   function match.goto_match()
     if state.preview_active() and state.extend_mode_active() then
-      local entries = current_preview_ranges()
-      local updated = {}
-
-      for _, entry in ipairs(entries) do
-        table.insert(updated, range_from_cells(entry:anchor_cell(), matching_pair_target(entry:cursor())))
-      end
-
-      state.set_preview_ranges(current_buffer(), updated)
+      state.set_preview_selection(current_preview_selection():transform(function(entry)
+        return span_from_cells(entry:anchor_cell(), matching_pair_target(entry:cursor()))
+      end))
       return
     end
 
-    local entries = {}
-    for _, entry in ipairs(current_ranges()) do
+    local selection = current_selection():transform(function(entry)
       local point = matching_pair_target(entry:cursor())
-      table.insert(entries, range_from_cells(point, point))
-    end
+      return range_module.cursor_cell(current_buffer(), point)
+    end)
 
     if state.preview_active() then
       state.clear_preview()
     end
-    state.set_preview_ranges(current_buffer(), entries)
+    state.set_preview_selection(selection)
   end
 
   return match

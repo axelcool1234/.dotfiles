@@ -1,5 +1,4 @@
 local position = require("axelcool1234.helix.position")
-local range_module = require("axelcool1234.helix.range")
 local transaction_module = require("axelcool1234.helix.transaction")
 
 local M = {}
@@ -9,24 +8,18 @@ local function positions_equal(left, right)
 end
 
 local function entries_equal(left, right)
-  return positions_equal(left:anchor_cell(), right:anchor_cell())
-    and positions_equal(left:cursor(), right:cursor())
-    and left.goal_display_col == right.goal_display_col
-    and (left:is_empty() == true) == (right:is_empty() == true)
+  return positions_equal(left:anchor_cell(), right:anchor_cell()) and positions_equal(left:cursor(), right:cursor()) and left.goal_display_col == right.goal_display_col and (left:is_empty() == true) == (right:is_empty() == true)
 end
 
 local function snapshots_equal(left, right)
   if not left or not right then
     return false
   end
-  if left.buffer ~= right.buffer
-    or (left.extend_mode == true) ~= (right.extend_mode == true)
-    or (left.had_preview == true) ~= (right.had_preview == true)
-    or #left.entries ~= #right.entries then
+  if left.buffer ~= right.buffer or (left.extend_mode == true) ~= (right.extend_mode == true) or (left.had_preview == true) ~= (right.had_preview == true) or left.selection:len() ~= right.selection:len() or left.selection.primary_index ~= right.selection.primary_index then
     return false
   end
-  for index, entry in ipairs(left.entries) do
-    if not right.entries[index] or not entries_equal(entry, right.entries[index]) then
+  for index, entry in ipairs(left.selection.ranges) do
+    if not right.selection.ranges[index] or not entries_equal(entry, right.selection.ranges[index]) then
       return false
     end
   end
@@ -52,19 +45,10 @@ function M.new(opts)
     return view
   end
 
-  local function normalized_entries(snapshot)
-    local entries = {}
-    for index, value in ipairs(snapshot.entries or {}) do
-      entries[index] = range_module.copy(snapshot.buffer, value)
-    end
-    return entries
-  end
-
   local function create_jump(snapshot, reason)
-    local entries = normalized_entries(snapshot)
     return {
       buffer = snapshot.buffer,
-      tracker = transaction_module.track_ranges(snapshot.buffer, entries, { affinity = "inside" }),
+      tracker = transaction_module.track_selection(snapshot.selection, { affinity = "inside" }),
       extend_mode = snapshot.extend_mode == true,
       had_preview = snapshot.had_preview == true,
       reason = reason,
@@ -84,16 +68,17 @@ function M.new(opts)
     if not jump or not jump.buffer or not vim.api.nvim_buf_is_valid(jump.buffer) then
       return nil
     end
+    local selection = jump.tracker:resolve_selection({ keep = true, strict = true })
+    if not selection then
+      return nil
+    end
     local snapshot = {
       buffer = jump.buffer,
-      entries = jump.tracker:resolve({ keep = true, strict = true }),
+      selection = selection,
       extend_mode = jump.extend_mode,
       had_preview = jump.had_preview,
     }
-    if not snapshot.entries then
-      return nil
-    end
-    snapshot.cursor_pos = snapshot.entries[1] and snapshot.entries[1]:cursor() or nil
+    snapshot.cursor_pos = snapshot.selection:primary():cursor()
     return snapshot
   end
 
@@ -127,7 +112,7 @@ function M.new(opts)
       cleanup_jump(view.jumps[index])
       table.remove(view.jumps, index)
     end
-    local normalized = vim.tbl_extend("force", snapshot, { entries = normalized_entries(snapshot) })
+    local normalized = vim.tbl_extend("force", snapshot, { selection = snapshot.selection:copy() })
     local previous = resolve_snapshot(view.jumps[#view.jumps])
     if previous and snapshots_equal(previous, normalized) then
       view.current = #view.jumps + 1
@@ -233,7 +218,7 @@ function M.new(opts)
           cursor_pos = cursor_pos,
           line = label,
           is_current = view.current == index,
-          selection_count = #snapshot.entries,
+          selection_count = snapshot.selection:len(),
           reason = view.jumps[index].reason,
         }
       end
