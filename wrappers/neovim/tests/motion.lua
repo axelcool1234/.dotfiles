@@ -579,12 +579,12 @@ local cases = {
       simulate_headless_insert("x")
       helix.move_visual_line_up()
 
-      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "k after a cursor-only insert should move to the adjacent line")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 1 }, "k after a cursor-only insert should move from the retained insertion endpoint")
       helix.insert_mode()
-      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "the next insert should start at the moved cursor, not the previous row")
+      assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 1 }, "the next insert should start at the moved cursor, not the previous row")
       simulate_headless_insert("y")
 
-      assert_equal(current_lines(), { "yone", "xtwo", "three" }, "both inserts should edit their respective cursor rows")
+      assert_equal(current_lines(), { "oyne", "xtwo", "three" }, "both inserts should edit their respective cursor rows and columns")
       helix.undo()
       assert_equal(current_lines(), { "one", "xtwo", "three" }, "one undo should remove only the second insert")
       helix.undo()
@@ -762,6 +762,13 @@ local cases = {
       finish_headless_insert()
       assert_equal(state_module.current_pos_1indexed(), { 1, 3 }, "escaping i without edits should keep its insertion point")
       assert_primary_cursor_synced("insert escape")
+
+      reset_case({ "abcdef" }, 1, 2)
+      helix.insert_mode()
+      simulate_headless_insert("X")
+      assert_equal(current_lines(), { "abXcdef" }, "i should insert before the cursor cell")
+      assert_equal(state_module.current_pos_1indexed(), { 1, 4 }, "escaping i after typing should keep the insertion endpoint instead of retreating")
+      assert_primary_cursor_synced("edited insert escape")
 
       reset_case({ "abcdef" }, 1, 2)
       helix.append_mode()

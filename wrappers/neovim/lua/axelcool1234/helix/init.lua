@@ -2944,6 +2944,7 @@ function M.insert_mode()
   insert.start(selection, {
     selection = selection_config,
     lifecycle = transaction.lifecycle(false),
+    track_endpoint = true,
   })
 end
 
