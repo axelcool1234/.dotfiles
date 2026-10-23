@@ -76,6 +76,7 @@ in
     modules = [
       self.bundles.foundation
       self.bundles.workstation
+      self.features.games
       self.features.open-ssh
       self.hosts.fermi
     ];
