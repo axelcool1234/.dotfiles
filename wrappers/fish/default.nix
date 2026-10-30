@@ -65,9 +65,10 @@ in
     '';
 
     passthru.persist = {
-      homeFiles = [
-        ".local/share/fish/fish_history"
+      homeDirectories = [
+        ".local/share/fish"
       ];
+      homeFiles = [ ];
     };
 
   };
