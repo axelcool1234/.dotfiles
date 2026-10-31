@@ -26,12 +26,9 @@
       '';
     };
 
-    services.greetd = {
+    services.displayManager.noctalia-greeter = {
       enable = true;
-      settings.default_session = {
-        command = "${lib.getExe pkgs.tuigreet} --time --time-format '%I:%M %p | %a | %F' --cmd '${lib.getExe' selfPkgs.niri "niri-session"}'";
-        user = "greeter";
-      };
+      settings.session.default = "niri";
     };
   };
 }
