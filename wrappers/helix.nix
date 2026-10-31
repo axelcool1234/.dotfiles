@@ -16,9 +16,7 @@ in
   imports = [ wlib.wrapperModules.helix ];
 
   config = {
-    package = inputs.modded-helix.packages.${system}.default.override {
-      includeGrammarIf = grammar: grammar.name != "bovex";
-    };
+    package = inputs.modded-helix.packages.${system}.default;
 
     # Helix's terminal-code clipboard backend can copy in Kitty, but paste is
     # unreliable and it breaks entirely when Helix is spawned from Lazygit.

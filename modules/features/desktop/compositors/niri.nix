@@ -28,6 +28,7 @@
 
     services.displayManager.noctalia-greeter = {
       enable = true;
+      passwordlessSyncUsers = [ baseVars.username ];
       settings.session.default = "niri";
     };
   };

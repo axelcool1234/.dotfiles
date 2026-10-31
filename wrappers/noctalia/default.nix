@@ -342,6 +342,8 @@ in
           grid = true;
           grid_columns = 3;
         };
+
+        greeter_sync.auto_sync = hostVars.isNixosHost;
       };
 
       wallpaper = {

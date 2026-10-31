@@ -9,12 +9,12 @@ let
 
   leanclient = pythonPackages.buildPythonPackage rec {
     pname = "leanclient";
-    version = "0.11.0";
+    version = "0.13.2";
     pyproject = true;
 
     src = pkgs.fetchPypi {
       inherit pname version;
-      hash = "sha256-5RhBiQ37sDxBil5k8cu6A6+Lo3qYQhEQX2O1aBj7AlY=";
+      hash = "sha256-MaypVPEGgFvIzClr7vOmzIAYB+FtSFMiv6gIgds2iS8=";
     };
 
     build-system = [ pythonPackages.hatchling ];
@@ -23,6 +23,7 @@ let
       orjson
       psutil
       tqdm
+      watchfiles
     ];
 
     pythonImportsCheck = [ "leanclient" ];
@@ -36,26 +37,30 @@ let
 in
 pythonPackages.buildPythonApplication rec {
   pname = "lean-lsp-mcp";
-  version = "0.27.0";
+  version = "0.32.0";
   pyproject = true;
 
   src = pkgs.fetchPypi {
     pname = "lean_lsp_mcp";
     inherit version;
-    hash = "sha256-oeX9SLnFlo0emhoqjUV5h3DHj4AGhAaRwVCsc4GImXo=";
+    hash = "sha256-T59HHdyc/n/Yd8nNpwh3IWnRGWSgUmKTCTPInzEn8bY=";
   };
 
   build-system = [ pythonPackages.setuptools ];
 
-  # Upstream currently pins `mcp` to an exact patch version, while nixpkgs is
-  # already on a nearby compatible patch release.
-  pythonRelaxDeps = [ "mcp" ];
+  # Upstream pins MCP exactly and requires a newer certifi data release than
+  # nixpkgs currently carries.  Neither constraint changes the APIs used here.
+  pythonRelaxDeps = [
+    "certifi"
+    "mcp"
+  ];
 
   dependencies = with pythonPackages; [
     certifi
     leanclient
     mcp
     orjson
+    psutil
     pyyaml
   ];
 

@@ -3,13 +3,13 @@ let
   src = pkgs.fetchFromGitHub {
     owner = "cameronfreer";
     repo = "lean4-skills";
-    rev = "12ea2a3058e7145efd49a84af13ff64bd53343cf";
-    hash = "sha256-PpvaSo++OD4iXQ5gUbkTKnGs/S6wsry6iVnaZACt/o8=";
+    rev = "83582df9d9172456993929f32ac4dd9d99c6211c";
+    hash = "sha256-IXsV/FJlYQAdtVkN+04+G8/dwyggQ4+lYdP9G3Zpj1U=";
   };
 in
 pkgs.stdenvNoCC.mkDerivation {
   pname = "lean4-skill";
-  version = "unstable-2026-04-05";
+  version = "unstable-2026-10-20";
 
   inherit src;
 

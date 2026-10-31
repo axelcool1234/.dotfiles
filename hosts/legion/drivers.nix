@@ -143,6 +143,28 @@
 { lib, config, pkgs, inputs, ... }:
 
 let
+  # LenovoLegionLinux's custom `install` target copies the module directly and
+  # bypasses the kernel's module-signing hook.  Current nixpkgs expects every
+  # external module to provide the deterministic `.ko.cer` sidecar produced by
+  # that hook, so patch the module inside the kernel package set and install it
+  # through Kbuild's standard target.  Keeping the override in the package set
+  # lets NixOS merge other external modules, including NVIDIA's, normally.
+  legionKernelPackages = pkgs.linuxKernel.packages.linux_zen.extend (
+    _final: previous: {
+      lenovo-legion-module = previous.lenovo-legion-module.overrideAttrs (_oldAttrs: {
+        installFlags = [
+          "-C"
+          "${previous.kernel.dev}/lib/modules/${previous.kernel.modDirVersion}/build"
+          "M=$(PWD)"
+          "INSTALL_MOD_PATH=${placeholder "out"}"
+          "INSTALL_MOD_DIR=kernel/drivers/platform/x86"
+        ];
+
+        installTargets = [ "modules_install" ];
+      });
+    }
+  );
+
   legionGpuMode = pkgs.writeShellScriptBin "legion-gpu-mode" ''
     #!/usr/bin/env bash
     set -euo pipefail
@@ -303,7 +325,7 @@ in
   #
   # This is not strictly required for the graphics policy itself, but it is a host-
   # level kernel choice that your Legion has already been using successfully.
-  boot.kernelPackages = pkgs.linuxKernel.packages.linux_zen;
+  boot.kernelPackages = legionKernelPackages;
 
   # Keep the bootloader aligned with the image produced by the Zen kernel package.
   # This is explicit because older nixpkgs revisions exposed this as `vmlinuz`.
