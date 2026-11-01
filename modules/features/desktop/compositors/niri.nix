@@ -1,5 +1,6 @@
 {
   baseVars,
+  config,
   hostVars,
   lib,
   pkgs,
@@ -30,6 +31,31 @@
       enable = true;
       passwordlessSyncUsers = [ baseVars.username ];
       settings.session.default = "niri";
+    };
+
+    # The shell writes its synced palette, wallpaper, and output settings here.
+    preferences.impermanence.persist.systemDirectories = lib.mkAfter [
+      {
+        directory = "/var/lib/noctalia-greeter";
+        user = "greeter";
+        group = "greeter";
+        mode = "0750";
+      }
+    ];
+
+    # Impermanence creates a new backing directory on the first switch. Seed
+    # it with an already-synced live state before systemd activates the bind
+    # mount, then leave every later activation untouched.
+    system.activationScripts.seedNoctaliaGreeterPersistence = lib.mkIf config.preferences.impermanence.enable {
+      deps = [ "createPersistentStorageDirs" ];
+      text = ''
+        greeter_live=/var/lib/noctalia-greeter
+        greeter_persistent=/persist/var/lib/noctalia-greeter
+
+        if [ -f "$greeter_live/sync.toml" ] && [ ! -e "$greeter_persistent/sync.toml" ]; then
+          ${lib.getExe' pkgs.coreutils "cp"} --archive "$greeter_live/." "$greeter_persistent/"
+        fi
+      '';
     };
   };
 }
