@@ -67,9 +67,11 @@
     # External package source for the LLM harness alias.
     llm-agents.url = "github:numtide/llm-agents.nix";
 
-    # Noctalia v5 desktop shell. Keep its own nixpkgs pin so the package uses
-    # the dependency set tested by the upstream release.
-    noctalia.url = "github:noctalia-dev/noctalia/v5.1.0";
+    # Noctalia v5 shell.
+    noctalia = {
+      url = "github:noctalia-dev/noctalia/v5.1.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
 
     # Pin the external app templates used by the Noctalia wrapper so theme
     # behavior does not depend on a mutable runtime catalog download.
