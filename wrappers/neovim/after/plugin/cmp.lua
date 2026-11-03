@@ -77,6 +77,9 @@ cmp.setup.cmdline({ '/', '?' }, {
 -- recall past command-line entries when useful.
 cmp.setup.cmdline(':', {
   mapping = cmp.mapping.preset.cmdline({
+    ['<C-f>'] = {
+      c = cmp.mapping.confirm({ select = true }),
+    },
     ['<C-Space>'] = {
       c = cmp.mapping.confirm({ select = true }),
     },

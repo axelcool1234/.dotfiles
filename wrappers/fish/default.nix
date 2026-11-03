@@ -57,6 +57,11 @@ in
           bind -M $mode \cj 'commandline -r jjui; commandline -f execute'
           ${lib.optionalString enableKittyScrollbackCommandEdit ''bind -M $mode \cg kitty_scrollback_edit_command_buffer''}
         end
+
+        for mode in default insert
+          bind -M $mode \cn history-prefix-search-backward
+          bind -M $mode \cp history-prefix-search-forward
+        end
       end
 
       function __fish_command_not_found_handler --on-event fish_command_not_found
