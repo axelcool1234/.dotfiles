@@ -15,6 +15,16 @@ let
       substituteInPlace lua/lean/widget/interactive_code.lua \
         --replace-fail 'if info_popup.doc ~= nil then' \
         'if info_popup.doc ~= nil and info_popup.doc ~= vim.NIL then'
+
+      substituteInPlace lua/lean/widget/interactive_code.lua \
+        --replace-fail "    vim.lsp.util.show_document(links[1], 'utf-16', { focus = true })" \
+        "    vim.api.nvim_exec_autocmds('User', { pattern = 'LeanInfoviewGoTo', modeline = false, data = { kind = kind } })
+        vim.lsp.util.show_document(links[1], 'utf-16', { focus = true })"
+
+      substituteInPlace lua/lean/widgets/GoToModuleLink.lua \
+        --replace-fail '        vim.lsp.util.show_document(' \
+        "        vim.api.nvim_exec_autocmds('User', { pattern = 'LeanInfoviewGoTo', modeline = false, data = { kind = 'definition' } })
+            vim.lsp.util.show_document("
     '';
   });
 in

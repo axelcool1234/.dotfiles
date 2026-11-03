@@ -1,6 +1,29 @@
 local infoview = require("lean.infoview")
 
 local hover_mapping_group = vim.api.nvim_create_augroup("AxelLeanHoverMappings", { clear = true })
+local infoview_jumplist_group = vim.api.nvim_create_augroup("AxelLeanInfoviewJumplist", { clear = true })
+
+local infoview_jump_reasons = {
+  declaration = "lsp-declaration",
+  definition = "lsp-definition",
+  type = "lsp-type-definition",
+}
+
+vim.api.nvim_create_autocmd("User", {
+  group = infoview_jumplist_group,
+  pattern = "LeanInfoviewGoTo",
+  callback = function(args)
+    local kind = args.data and args.data.kind
+    local reason = infoview_jump_reasons[kind]
+    if not reason then
+      return
+    end
+
+    local helix = require("axelcool1234.helix")
+    local commit_jump = helix.prepare_jumplist_jump(reason)
+    commit_jump(vim.api.nvim_get_current_win())
+  end,
+})
 
 vim.api.nvim_create_autocmd("FileType", {
   group = hover_mapping_group,

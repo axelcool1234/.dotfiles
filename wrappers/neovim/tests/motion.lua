@@ -1,6 +1,9 @@
 require("axelcool1234")
 require("axelcool1234.remaps")
 vim.cmd.runtime("after/plugin/lualine.lua")
+if #vim.api.nvim_get_autocmds({ event = "User", pattern = "LeanInfoviewGoTo" }) == 0 then
+  vim.cmd.runtime("after/plugin/lean.lua")
+end
 
 local helix = require("axelcool1234.helix")
 local pickers = require("axelcool1234.pickers")
@@ -3120,6 +3123,30 @@ local jumplist_cases = {
         assert_equal(vim.api.nvim_get_current_buf(), origin_buffer, "jump backward should restore the origin in the reused window")
         helix.jump_forward()
         assert_equal(vim.api.nvim_get_current_buf(), target_buffer, "jump forward should restore the LSP target in the reused window")
+      end)
+    end,
+  },
+  {
+    name = "Lean infoview location jumps checkpoint the source view",
+    run = function()
+      with_fresh_jumplist_tab(function()
+        reset_case({ "origin", "destination" }, 1, 0)
+        local before = #jumplist_items()
+
+        vim.api.nvim_exec_autocmds("User", {
+          pattern = "LeanInfoviewGoTo",
+          data = { kind = "definition" },
+        })
+
+        local after = jumplist_items()
+        assert_equal(#after, before + 1, "a resolved infoview gd should add one jumplist entry")
+        assert_equal(after[1].reason, "lsp-definition", "infoview gd should record an LSP definition jump")
+
+        vim.api.nvim_win_set_cursor(0, { 2, 0 })
+        helix.jump_backward()
+        assert_equal(vim.api.nvim_win_get_cursor(0), { 1, 0 }, "C-o should return to the pre-jump Lean source")
+        helix.jump_forward()
+        assert_equal(vim.api.nvim_win_get_cursor(0), { 2, 0 }, "C-i should return to the infoview destination")
       end)
     end,
   },
