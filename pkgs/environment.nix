@@ -11,7 +11,14 @@
 let
   shellPackage = selfPkgs.${hostVars.shell};
 
-  runtimePkgs = [
+  # A running desktop session keeps the PATH from the generation it started
+  # with. Prefix this wrapper's packages so a fresh terminal opened after
+  # `nh os switch` resolves the activated generation before that inherited
+  # PATH.
+  runtimePkgs = map (data: {
+    inherit data;
+    prefix = true;
+  }) [
     # Utils
     selfPkgs.${hostVars.editor}  # Edit text within files
     pkgs.ripgrep     # Search text within files
@@ -39,7 +46,7 @@ let
     pkgs.nix-prefetch                                              # get hashes
   ];
 
-  runtimePackages = [ shellPackage ] ++ runtimePkgs;
+  runtimePackages = [ shellPackage ] ++ map (entry: entry.data) runtimePkgs;
 
   collectRuntimePersist = key: myLib.collectPersistFromPackages key runtimePackages;
 in
