@@ -69,7 +69,7 @@
 
     # Noctalia v5 shell.
     noctalia = {
-      url = "github:noctalia-dev/noctalia/v5.1.0";
+      url = "github:noctalia-dev/noctalia/v5.4.1";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 

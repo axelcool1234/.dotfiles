@@ -7,6 +7,15 @@
   selfPkgs,
   ...
 }:
+let
+  monitors = hostVars.monitors;
+  monitorNames = lib.attrNames monitors;
+  transformedMonitors = lib.filterAttrs (_name: monitor: monitor ? transform) monitors;
+  transformedMonitorNames = lib.attrNames transformedMonitors;
+
+  formatMonitorMapping = names: render:
+    lib.concatStringsSep "; " (map (name: "${name}:${render monitors.${name}}") names);
+in
 {
   config = lib.mkIf (hostVars.compositor == "niri") {
     programs.niri = {
@@ -30,7 +39,36 @@
     services.displayManager.noctalia-greeter = {
       enable = true;
       passwordlessSyncUsers = [ baseVars.username ];
-      settings.session.default = "niri";
+      settings = {
+        session.default = "niri";
+
+        # Keep the greeter's logical geometry identical to the compositor's.
+        # This also avoids relying on Noctalia Sync to infer fractional scale
+        # for a rotated output, which currently leaves the greeter at 1x.
+        output = lib.mkIf (monitorNames != [ ]) (
+          {
+            layout = formatMonitorMapping monitorNames (
+              monitor: "${toString monitor.position.x},${toString monitor.position.y}"
+            );
+            scales = formatMonitorMapping monitorNames (monitor: toString monitor.scale);
+          }
+          // lib.optionalAttrs (transformedMonitorNames != [ ]) {
+            transforms = formatMonitorMapping transformedMonitorNames (monitor: monitor.transform);
+          }
+        );
+      };
+    };
+
+    # The Nouveau DRM node appears shortly after graphical.target on Fermi.
+    # Tag it for systemd and order greetd behind it so the greeter compositor
+    # does not start once with zero GPUs, exit, and visibly restart.
+    services.udev.extraRules = lib.mkIf (hostVars.hostName == "fermi") ''
+      SUBSYSTEM=="drm", KERNEL=="card0", TAG+="systemd"
+    '';
+
+    systemd.services.greetd = lib.mkIf (hostVars.hostName == "fermi") {
+      wants = [ "dev-dri-card0.device" ];
+      after = [ "dev-dri-card0.device" ];
     };
 
     # The shell writes its synced palette, wallpaper, and output settings here.

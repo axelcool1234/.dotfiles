@@ -1,0 +1,4 @@
+interface:
+  display_name: "System Health Check"
+  short_description: "Verify a NixOS reboot or deployment"
+  default_prompt: "Use $system-health-check to verify that this NixOS system is healthy after its latest reboot."

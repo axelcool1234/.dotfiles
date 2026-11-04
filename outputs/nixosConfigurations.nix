@@ -16,6 +16,7 @@ let
       desktopShell ? defaults.aliases.desktopShell,
       hostName,
       modules,
+      monitors ? { },
       overrides ? { },
       system,
       stateVersion ? "26.05",
@@ -29,7 +30,7 @@ let
           overrides
         )
         // {
-          inherit compositor hostName stateVersion;
+          inherit compositor hostName monitors stateVersion;
           inherit desktopShell;
           isNixosHost = true;
         };
@@ -73,6 +74,30 @@ in
   fermi = mkHostConfiguration {
     hostName = "fermi";
     system = "x86_64-linux";
+    monitors = {
+      "DP-1" = {
+        position = {
+          x = 1920;
+          y = -996;
+        };
+        scale = 0.625;
+        transform = "90";
+      };
+      "DP-3" = {
+        position = {
+          x = -1920;
+          y = 0;
+        };
+        scale = 1.3333333;
+      };
+      "DP-4" = {
+        position = {
+          x = 0;
+          y = 0;
+        };
+        scale = 2.0;
+      };
+    };
     modules = [
       self.bundles.foundation
       self.bundles.workstation

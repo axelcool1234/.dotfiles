@@ -323,40 +323,18 @@ in
         };
       };
 
-      outputs =
-        if hostVars.hostName == "fermi" then
-          {
-            "DP-3" = {
-              scale = 1.3333333;
-              position = _: {
-                props = {
-                  x = -1920;
-                  y = 0;
-                };
-              };
-            };
-            "DP-4" = {
-              scale = 2.0;
-              position = _: {
-                props = {
-                  x = 0;
-                  y = 0;
-                };
-              };
-            };
-            "DP-1" = {
-              scale = 0.625;
-              transform = "90";
-              position = _: {
-                props = {
-                  x = 1920;
-                  y = -996;
-                };
-              };
-            };
-          }
-        else
-          { };
+      outputs = lib.mapAttrs (
+        _name: monitor:
+        {
+          inherit (monitor) scale;
+          position = _: {
+            props = monitor.position;
+          };
+        }
+        // lib.optionalAttrs (monitor ? transform) {
+          inherit (monitor) transform;
+        }
+      ) hostVars.monitors;
 
       xwayland-satellite.path = lib.getExe pkgs.xwayland-satellite;
 

@@ -32,6 +32,7 @@ myLib.forAllSystems inputs (
         fonts = defaults.fonts;
         hostName = null;
         isNixosHost = false;
+        monitors = { };
         stateVersion = null;
       };
     };
