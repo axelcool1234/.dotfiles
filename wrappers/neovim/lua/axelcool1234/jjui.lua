@@ -1,4 +1,6 @@
 local M = {}
+local kitty_colors = require("axelcool1234.kitty_colors")
+local color_namespace = vim.api.nvim_create_namespace("axelcool1234.jjui")
 
 local state = {
   origin_tab = nil,
@@ -107,6 +109,17 @@ function M.open()
 
   vim.bo[state.term_buf].bufhidden = "wipe"
   vim.bo[state.term_buf].buflisted = false
+
+  local colors = kitty_colors.get()
+  if colors then
+    kitty_colors.apply_palette(state.term_buf, colors)
+    vim.api.nvim_set_hl(color_namespace, "Normal", {
+      fg = colors.foreground,
+      bg = colors.background,
+    })
+    vim.api.nvim_set_hl(color_namespace, "NormalNC", { link = "Normal" })
+    vim.api.nvim_win_set_hl_ns(0, color_namespace)
+  end
 
   vim.fn.termopen({ "jjui" }, {
     env = {

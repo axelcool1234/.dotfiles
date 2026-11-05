@@ -1,4 +1,5 @@
 local M = {}
+local kitty_colors = require("axelcool1234.kitty_colors")
 
 local open_term_command = vim.fn.has("nvim-0.11") == 0 and "termopen" or "jobstart"
 local paste_padding_lines = 32
@@ -93,57 +94,15 @@ local function system_checked(cmd)
 end
 
 local function get_kitty_colors()
-  local function try(with_window_id)
-    local cmd = {
-      state.kitty_data.kitty_path,
-      "@",
-      "get-colors",
-    }
-    if with_window_id then
-      cmd[#cmd + 1] = "--match=id:" .. state.kitty_data.window_id
-    end
-
-    local result = vim.system(cmd, { text = true }):wait()
-    if result.code ~= 0 then
-      return false, result
-    end
-
-    local colors = {}
-    for line in (result.stdout or ""):gmatch("[^\r\n]+") do
-      local parts = {}
-      for part in line:gmatch("%S+") do
-        parts[#parts + 1] = part
-      end
-      if #parts >= 2 then
-        colors[parts[1]] = parts[2]
-      end
-    end
-    return true, colors
-  end
-
-  local ok, colors = try(true)
-  if ok then
-    return colors
-  end
-
-  ok, colors = try(false)
-  if ok then
-    return colors
-  end
-
-  return nil
+  return kitty_colors.get({
+    kitty_path = state.kitty_data.kitty_path,
+    window_id = state.kitty_data.window_id,
+    fallback_to_current = true,
+  })
 end
 
 local function apply_terminal_palette(bufid)
-  if not state.kitty_colors or not bufid or not vim.api.nvim_buf_is_valid(bufid) then
-    return
-  end
-
-  vim.api.nvim_buf_call(bufid, function()
-    for index = 0, 15 do
-      vim.b["terminal_color_" .. index] = state.kitty_colors["color" .. index]
-    end
-  end)
+  kitty_colors.apply_palette(bufid, state.kitty_colors)
 end
 
 local function normalize_color(color)
