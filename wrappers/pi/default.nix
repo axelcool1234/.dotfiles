@@ -3,6 +3,7 @@
   hostVars,
   lib,
   myLib,
+  selfPkgs,
   ...
 }:
 let
@@ -16,6 +17,8 @@ in
   imports = [ ./module.nix ];
 
   config = {
+    runtimePkgs = [ selfPkgs.jjui ];
+
     settings = {
       "$schema" = "https://pi.dev/schemas/settings.schema.json";
       defaultProvider = lib.mkDefault "openai";
@@ -25,6 +28,7 @@ in
       enableInstallTelemetry = lib.mkDefault false;
 
       skills = lib.mkDefault (lib.mapAttrsToList (_name: source: toString source) discoveredSkills);
+      extensions = [ (toString ./extensions/jjui.ts) ];
 
       theme = lib.mkIf (hostVars.desktopShell == "noctalia") (lib.mkDefault "noctalia");
 
@@ -42,6 +46,24 @@ in
         "npm:pi-advisor-flow@0.14.4"
       ];
     };
+
+    constructFiles.advisorConfig = {
+      relPath = "${config.binName}-config/advisor.json";
+      output = lib.mkOverride 0 config.generatedConfig.output;
+      content = builtins.toJSON {
+        advisor = "openai-codex/gpt-6.1-sol";
+        advisorEffort = "high";
+        # We intentionally want a second opinion from the same model.
+        advisorDisableSameModel = false;
+      };
+    };
+
+    runShell = lib.mkIf config.autoSyncConfig [
+      {
+        name = "SYNC_PI_ADVISOR_CONFIG";
+        data = ''${config.constructFiles.syncPiConfig.path} advisor.json ${config.constructFiles.advisorConfig.path}'';
+      }
+    ];
 
     passthru.persist = {
       homeDirectories = [

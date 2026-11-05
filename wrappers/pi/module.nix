@@ -93,8 +93,11 @@ in
           set -euo pipefail
 
           pi_config_dir="''${PI_CODING_AGENT_DIR:-${runtimeConfigDir}}"
-          settings_path="$pi_config_dir/settings.json"
-          generated_settings="${config.constructFiles.generatedConfig.path}"
+          # Optional arguments also let local extensions reuse this merger for
+          # their own writable JSON configuration in the agent directory.
+          settings_name="''${1:-settings.json}"
+          settings_path="$pi_config_dir/$settings_name"
+          generated_settings="''${2:-${config.constructFiles.generatedConfig.path}}"
 
           ${pkgs.coreutils}/bin/mkdir -p "$pi_config_dir"
 
@@ -103,7 +106,7 @@ in
             exit 0
           fi
 
-          temporary_settings="$(${pkgs.coreutils}/bin/mktemp "$pi_config_dir/.settings.json.XXXXXX")"
+          temporary_settings="$(${pkgs.coreutils}/bin/mktemp "$pi_config_dir/.$settings_name.XXXXXX")"
           trap '${pkgs.coreutils}/bin/rm -f "$temporary_settings"' EXIT
 
           # Keep Pi-managed values that Nix does not declare, but make the
