@@ -2,11 +2,10 @@
   config,
   lib,
   myLib,
-  selfPkgs,
   ...
 }:
 let
-  discoveredSkills = myLib.importTree.dirsWithFile ./skills "SKILL.md";
+  discoveredSkills = myLib.importTree.dirsWithFile ../../skills "SKILL.md";
   runtimeHome = config.outOfStoreConfig;
   persistRoot =
     assert lib.hasPrefix ''${"$"}HOME/'' runtimeHome;
@@ -18,31 +17,11 @@ in
   ];
 
   config = {
-    env = {
-      LEAN4_PLUGIN_ROOT = "${selfPkgs."lean4-skill"}";
-      LEAN4_SCRIPTS = "${selfPkgs."lean4-skill"}/lib/scripts";
-      LEAN4_REFS = "${selfPkgs."lean4-skill"}/references";
-    };
-
     settings = lib.mkDefault {
-      model = "gpt-5.6-luna";
-      model_reasoning_effort = "xhigh";
-
-      mcp_servers = {
-        nixos = {
-          command = "nix";
-          args = [
-            "run"
-            "github:utensils/mcp-nixos"
-            "--"
-          ];
-        };
-
-        "lean-lsp" = {
-          command = "${selfPkgs."lean-lsp-mcp"}/bin/lean-lsp-mcp";
-        };
-
-      };
+      approval_policy = "never";
+      model = "gpt-6.1-sol";
+      model_reasoning_effort = "high";
+      sandbox_mode = "danger-full-access";
 
       projects."/home/axelcool1234/.dotfiles".trust_level = "trusted";
 
@@ -70,11 +49,7 @@ in
       };
     };
 
-    skills =
-      (lib.mapAttrs (_name: source: { inherit source; }) discoveredSkills)
-      // {
-        lean4.source = selfPkgs."lean4-skill";
-      };
+    skills = lib.mapAttrs (_name: source: { inherit source; }) discoveredSkills;
 
     passthru.persist = {
       homeDirectories = [

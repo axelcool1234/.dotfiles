@@ -23,12 +23,12 @@ in
       type = tomlFmt.type;
       default = { };
       description = ''
-        Bootstrap Codex config written to the generated `config.toml`.
+        Declarative Codex config written to the generated `config.toml`.
 
-        When `outOfStoreConfig` and `autoCopyConfig` are enabled, this seeds a
-        runtime `CODEX_HOME/config.toml` if it does not already exist. Existing
-        runtime config is preserved so Codex can continue to manage its mutable
-        settings at runtime.
+        When `outOfStoreConfig` and `autoCopyConfig` are enabled, these settings
+        are merged into the runtime `CODEX_HOME/config.toml` on launch. Declared
+        settings take precedence while unrelated mutable runtime settings are
+        preserved.
       '';
     };
 
@@ -65,9 +65,9 @@ in
         Whether to automatically provision and refresh wrapper-managed files in
         the active runtime Codex home on startup.
 
-        Existing `config.toml` is preserved after the first seed so Codex does
-        not lose runtime-managed changes. The wrapper still refreshes
-        wrapper-managed skill content.
+        Declared settings are merged into an existing `config.toml` while
+        unrelated runtime-managed settings are preserved. The wrapper also
+        refreshes wrapper-managed skill content.
       '';
     };
 
@@ -195,17 +195,28 @@ in
           config_path="$codex_home/config.toml"
           base_config_path="${config.constructFiles.generatedConfig.path}"
           mkdir -p "$(dirname "$config_path")"
-          # Preserve mutable runtime config after the initial seed.
+
           if [ ! -e "$config_path" ]; then
-            cat "$base_config_path" > "$config_path"
-            chmod 600 "$config_path"
+            ${pkgs.coreutils}/bin/install -m 0600 "$base_config_path" "$config_path"
+          else
+            runtime_json="$(${pkgs.coreutils}/bin/mktemp "$codex_home/.config.runtime.XXXXXX.json")"
+            generated_json="$(${pkgs.coreutils}/bin/mktemp "$codex_home/.config.generated.XXXXXX.json")"
+            merged_json="$(${pkgs.coreutils}/bin/mktemp "$codex_home/.config.merged.XXXXXX.json")"
+            merged_toml="$(${pkgs.coreutils}/bin/mktemp "$codex_home/.config.merged.XXXXXX.toml")"
+            trap '${pkgs.coreutils}/bin/rm -f "$runtime_json" "$generated_json" "$merged_json" "$merged_toml"' EXIT
+
+            ${pkgs.remarshal}/bin/toml2json "$config_path" "$runtime_json"
+            ${pkgs.remarshal}/bin/toml2json "$base_config_path" "$generated_json"
+            ${pkgs.jq}/bin/jq -s '.[0] * .[1]' "$runtime_json" "$generated_json" > "$merged_json"
+            ${pkgs.remarshal}/bin/json2toml "$merged_json" "$merged_toml"
+            ${pkgs.coreutils}/bin/install -m 0600 "$merged_toml" "$config_path"
           fi
 
           skills_path="$codex_home/skills/declarative"
           mkdir -p "$skills_path"
           # This subtree is reserved for Nix-declared skills, so convergence is
           # intentional and unmanaged entries here are removed.
-          ${pkgs.rsync}/bin/rsync -a --delete --exclude=.keep "${generatedSkillsPath}/" "$skills_path/"
+          ${pkgs.rsync}/bin/rsync -a --no-owner --no-group --delete --exclude=.keep "${generatedSkillsPath}/" "$skills_path/"
         '';
       };
     }
@@ -222,9 +233,9 @@ in
 
       Generates bootstrap config in the store, supports a structured
       `settings` attrset plus appended TOML via `extraSettings`, optional
-      runtime `CODEX_HOME` relocation, and can optionally seed generated config
-      and declared skills into the active Codex home on startup while
-      preserving existing runtime-managed config.
+      runtime `CODEX_HOME` relocation, and can optionally merge generated config
+      and declared skills into the active Codex home on startup while preserving
+      unrelated runtime-managed config.
     '';
   };
 }

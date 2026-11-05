@@ -2,9 +2,11 @@
   config,
   hostVars,
   lib,
+  myLib,
   ...
 }:
 let
+  discoveredSkills = myLib.importTree.dirsWithFile ../../skills "SKILL.md";
   runtimeHome = config.outOfStoreConfig;
   persistRoot =
     assert lib.hasPrefix ''${"$"}HOME/'' runtimeHome;
@@ -14,15 +16,32 @@ in
   imports = [ ./module.nix ];
 
   config = {
-    settings.theme = lib.mkIf (hostVars.desktopShell == "noctalia") (lib.mkDefault "noctalia");
+    settings = {
+      "$schema" = "https://pi.dev/schemas/settings.schema.json";
+      defaultProvider = lib.mkDefault "openai";
+      defaultModel = lib.mkDefault "gpt-6.1-sol";
+      defaultThinkingLevel = lib.mkDefault "high";
+      defaultProjectTrust = lib.mkDefault "always";
+      enableInstallTelemetry = lib.mkDefault false;
 
-    settings.packages = lib.mkDefault [
-      "npm:@tmustier/pi-usage-extension@0.9.4"
-      "npm:pi-tasks@0.2.6"
-      "git:github.com/m7l5/pi-msg@d65a741887f0c3cbf749b7f4a8fa017422acd10a"
-      "npm:pi-web-access@0.28.0"
-      "npm:pi-background-tasks@2.5.0"
-    ];
+      skills = lib.mkDefault (lib.mapAttrsToList (_name: source: toString source) discoveredSkills);
+
+      theme = lib.mkIf (hostVars.desktopShell == "noctalia") (lib.mkDefault "noctalia");
+
+      packages = lib.mkDefault [
+        "npm:@tmustier/pi-usage-extension@0.10.2"
+        "git:github.com/m7l5/pi-msg@d65a741887f0c3cbf749b7f4a8fa017422acd10a"
+        "npm:pi-web-access@0.47.0"
+        "npm:pi-background-tasks@2.6.10"
+        "npm:pi-subagents@0.84.0"
+        "npm:@juicesharp/rpiv-ask-user-question@2.15.0"
+        "npm:@plannotator/pi-extension@0.28.49"
+        "npm:@juicesharp/rpiv-todo@2.15.0"
+        "npm:pi-lens@4.4.8"
+        "npm:pi-btw@0.8.1"
+        "npm:pi-advisor-flow@0.14.4"
+      ];
+    };
 
     passthru.persist = {
       homeDirectories = [

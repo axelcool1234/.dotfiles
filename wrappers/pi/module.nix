@@ -57,10 +57,14 @@ in
     package = lib.mkDefault inputs.llm-agents.packages.${system}.pi;
 
     # Pi's package manager needs npm for npm sources and Git for Git sources.
+    # Native npm extensions may fall back to node-gyp when no prebuild exists.
     # xdg-open lets pi-web-access launch its curator UI on Linux.
     runtimePkgs = [
       pkgs.git
+      pkgs.gnumake
       pkgs.nodejs
+      pkgs.python3
+      pkgs.stdenv.cc
       pkgs.xdg-utils
     ];
 
