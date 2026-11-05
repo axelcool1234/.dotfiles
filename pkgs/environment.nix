@@ -28,7 +28,7 @@ let
     selfPkgs.jujutsu # Version control
     selfPkgs.jjui    # Jujutsu TUI
     selfPkgs.harness # Default LLM harness
-    selfPkgs.codex   # Alternate LLM harness
+    selfPkgs.pi      # Alternate LLM harness
     selfPkgs.helix   # Secondary editor
     selfPkgs.yazi    # Terminal file manager
 
