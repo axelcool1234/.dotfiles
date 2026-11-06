@@ -118,9 +118,9 @@ in
         glide.prefs.set("extensions.activeThemeID", "firefox-compact-dark@mozilla.org");
         glide.prefs.set("browser.download.useDownloadDir", true);
         glide.prefs.set("browser.download.folderList", 1);
-        glide.prefs.set("browser.startup.homepage", "https://axelcool1234.github.io/");
+        glide.prefs.set("browser.startup.homepage", "https://compilers.fail/");
         glide.prefs.set("widget.use-xdg-desktop-portal.file-picker", 1);
-        glide.o.newtab_url = "https://axelcool1234.github.io/";
+        glide.o.newtab_url = "https://compilers.fail/";
 
         // search.nixos.org autofocuses its search box; blur it shortly after navigation.
         glide.autocmds.create(
