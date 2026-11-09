@@ -3,7 +3,6 @@
   hostVars,
   inputs,
   lib,
-  pkgs,
   system,
   ...
 }:
@@ -38,16 +37,13 @@ let
 
   # Use Nixcord's normalization so plugin names and settings have the exact
   # JSON shape Vencord expects.
-  nixcordCore = import (inputs.nixcord.outPath + "/modules/lib/core.nix") {
+  nixcordNormalization = import (inputs.nixcord.outPath + "/modules/lib/normalization/normalization.nix") {
     inherit lib;
     parseRules = {
       upperNames = [ ];
       lowerPluginTitles = [ ];
       settingRenames = { };
     };
-    libva = pkgs.libva;
-    stdenv = pkgs.stdenv;
-    electron_40 = pkgs.electron_40;
   };
 in
 {
@@ -55,7 +51,7 @@ in
 
   config = {
     package = evaluated.config.programs.nixcord.finalPackage.vesktop;
-    settings = nixcordCore.mkVencordCfg vencordSettings;
+    settings = nixcordNormalization.mkVencordCfg vencordSettings;
 
     # Placement through Hjem is host policy, so keep the XDG-relative mapping
     # in this local instantiation rather than the reusable wrapper module.
