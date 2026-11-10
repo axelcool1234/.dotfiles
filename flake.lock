@@ -217,6 +217,30 @@
         "type": "github"
       }
     },
+    "lean-repeat-issue": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-R4wCJfRACrr57fNwwuHDjyy3Qqqlm6pthvhPjyrSjW4=",
+        "type": "file",
+        "url": "https://api.github.com/repos/leanprover/lean4/issues/14704"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://api.github.com/repos/leanprover/lean4/issues/14704"
+      }
+    },
+    "lean-rpc-cancellation-issue": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-SPREk3h0GizjKBippRuZ8q5Sdbu173xQKeASprzWBAo=",
+        "type": "file",
+        "url": "https://api.github.com/repos/Julian/lean.nvim/issues/492"
+      },
+      "original": {
+        "type": "file",
+        "url": "https://api.github.com/repos/Julian/lean.nvim/issues/492"
+      }
+    },
     "llm-agents": {
       "inputs": {
         "bun2nix": "bun2nix",
@@ -510,6 +534,8 @@
         "glide": "glide",
         "hjem": "hjem",
         "impermanence": "impermanence",
+        "lean-repeat-issue": "lean-repeat-issue",
+        "lean-rpc-cancellation-issue": "lean-rpc-cancellation-issue",
         "llm-agents": "llm-agents",
         "modded-helix": "modded-helix",
         "nix-index-database": "nix-index-database",

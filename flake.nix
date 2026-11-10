@@ -79,6 +79,22 @@
       url = "github:noctalia-dev/community-templates";
       flake = false;
     };
+
+    # The following are git issues that my dotfiles guard on in some form.
+
+    # Refresh with `nix flake update lean-repeat-issue`. Neovim evaluation
+    # asserts this issue is still open before keeping its infoview workaround.
+    lean-repeat-issue = {
+      url = "file+https://api.github.com/repos/leanprover/lean4/issues/14704";
+      flake = false;
+    };
+
+    # Refresh with `nix flake update lean-rpc-cancellation-issue`. Review the
+    # local infoview request cancellation when upstream closes #492.
+    lean-rpc-cancellation-issue = {
+      url = "file+https://api.github.com/repos/Julian/lean.nvim/issues/492";
+      flake = false;
+    };
   };
 
   # `outputs` is the function that turns all flake inputs into the values this

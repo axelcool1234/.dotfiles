@@ -4,29 +4,109 @@
   lib,
   pkgs,
   selfPkgs,
+  inputs,
   ...
 }:
 let
   useNoctaliaTheme = hostVars.desktopShell == "noctalia";
   enableKittyScrollback = hostVars.terminal == "kitty";
-  leanNvim = pkgs.vimPlugins.lean-nvim.overrideAttrs (old: {
-    # Fixed upstream after v2026.4.1: null RPC docstrings decode to vim.NIL.
-    postPatch = (old.postPatch or "") + ''
-      substituteInPlace lua/lean/widget/interactive_code.lua \
-        --replace-fail 'if info_popup.doc ~= nil then' \
-        'if info_popup.doc ~= nil and info_popup.doc ~= vim.NIL then'
-
-      substituteInPlace lua/lean/widget/interactive_code.lua \
-        --replace-fail "    vim.lsp.util.show_document(links[1], 'utf-16', { focus = true })" \
-        "    vim.api.nvim_exec_autocmds('User', { pattern = 'LeanInfoviewGoTo', modeline = false, data = { kind = kind } })
-        vim.lsp.util.show_document(links[1], 'utf-16', { focus = true })"
-
-      substituteInPlace lua/lean/widgets/GoToModuleLink.lua \
-        --replace-fail '        vim.lsp.util.show_document(' \
-        "        vim.api.nvim_exec_autocmds('User', { pattern = 'LeanInfoviewGoTo', modeline = false, data = { kind = 'definition' } })
-            vim.lsp.util.show_document("
+  leanRepeatIssue = builtins.fromJSON (builtins.readFile inputs.lean-repeat-issue);
+  leanRpcCancellationIssue = builtins.fromJSON (builtins.readFile inputs.lean-rpc-cancellation-issue);
+  leanNvim =
+    assert lib.assertMsg (leanRepeatIssue.state == "open") ''
+      leanprover/lean4#14704 is no longer open. Re-test incomplete `repeat rw`
+      with the project toolchain and review the lean.nvim infoview goal limit
+      in wrappers/neovim/default.nix before removing or updating its issue guard.
     '';
-  });
+    assert lib.assertMsg (leanRpcCancellationIssue.state == "open") ''
+      Julian/lean.nvim#492 is no longer open. Review the local infoview RPC
+      cancellation patch in wrappers/neovim/default.nix against upstream
+      before removing or updating its issue guard.
+    '';
+    pkgs.vimPlugins.lean-nvim.overrideAttrs (old: {
+      # Workaround for https://github.com/leanprover/lean4/issues/14704.
+      #
+      # Investigated on 2026-11-09 with Lean 4.34.0 and lean.nvim 2026.4.1.
+      # While typing the Bool-function exercise, an unfinished `repeat rw`
+      # repeatedly evaluated an incomplete tactic without changing its goal.
+      # At the `rw` cursor position, getInteractiveGoals returned 1,025 entries
+      # sharing ONE goal ID with maxHeartbeats = 5,000; at the default 200,000
+      # budget it returned 41,096 entries. Hovering over `repeat` instead returned
+      # one goal, which initially hid the reproduction from cursor-based tests.
+      #
+      # An isolated Neovim WITHOUT our Helix layer used 1.3 GiB RSS decoding that
+      # response, 4.0 GiB after constructing interactive widgets, and 6.4 GiB
+      # after rendering 287,671 lines and 3,123,297 element-position records.
+      # The real session reached roughly 11 GiB. Finishing the proof did not
+      # immediately release its old objects or return allocator pages: the live
+      # Lua collector was paused at a 6.4 GiB heap below a 7.6 GiB GC threshold.
+      # Even the isolated process retained 4.1 GiB RSS after discarding its
+      # widgets and explicitly collecting garbage. RPC proxy accumulation was
+      # a consequence of the oversized responses, not proof of a permanent leak.
+      #
+      # Related amplification mechanisms:
+      # https://github.com/Julian/lean.nvim/issues/442 -- redundant goal requests
+      # on progress updates; https://github.com/Julian/lean.nvim/issues/492 --
+      # cancellation of requests whose results are no longer needed (handled
+      # by the separate cancellation patch below). The live
+      # reproduction delivered three ~6.6 MB goal responses. A single response
+      # was already sufficient for multi-GiB UI growth, so cancellation alone
+      # would not protect the current infoview from this failure mode.
+      #
+      # Bound the cached interactive-goal prefix BEFORE constructing widgets,
+      # retain only the original count for the truncation notice, and let omitted
+      # RPC references become collectible. Default: 100; configurable through
+      # lean.setup({ infoview = { max_goals = ... } }). Do not deduplicate by goal
+      # ID: the same goal can legitimately be shown in different tactic states.
+      # JSON decoding and Lean's own repeated work still happen; this is a UI
+      # allocation bound, not a repair for the upstream tactic/parser bug.
+      # With 4,108 real goal entries (20,000 heartbeats), the patched path
+      # rendered 100 goals / 7,606 positions at 146 MiB RSS, down from 671 MiB.
+      #
+      # GitHub metadata is a locked non-flake input so normal evaluation remains
+      # pure/offline. `nix flake update` (or updating lean-repeat-issue alone)
+      # refreshes its state; evaluating Neovim then throws if the issue closed.
+      # Closure prompts REVIEW: an older project toolchain can still be affected.
+      # https://github.com/Julian/lean.nvim/issues/492: own pending RPCs per pin,
+      # cancel when its position/document/view options change or its window
+      # closes, and coalesce repeated updates for the same in-flight state.
+      # In the isolated comparison, cancelling a stale 10,273-goal request
+      # reduced received data from 19 MB to 2 KB and Neovim RSS from 331 MiB
+      # to 16 MiB; the new cursor position still received its correct goal.
+      # The server's cancellation ACK took ~7 seconds, so this establishes a
+      # client allocation benefit, not a reduction in Lean's elaboration CPU.
+      #
+      # Neovim swallows RequestCancelled ACKs instead of invoking the response
+      # callback. Cancellation must therefore complete the awaiting coroutine
+      # itself, exactly once. A successful reply racing with cancellation must
+      # release its RPC references and must not cache or render stale goals.
+      # Shared RPC connection handshakes and independent pins must survive.
+      # A pin waiting for a shared connection can stop waiting independently.
+      # With the production per-pin patch, moving off unfinished `repeat rw`
+      # received 5 KB at 17 MiB RSS and rendered the correct single current goal.
+      # As above, the issue-status guard refreshes through the lock file.
+      patches = (old.patches or [ ]) ++ [
+        ./patches/lean-infoview-goal-limit.patch
+        ./patches/lean-infoview-rpc-cancellation.patch
+      ];
+
+      # Fixed upstream after v2026.4.1: null RPC docstrings decode to vim.NIL.
+      postPatch = (old.postPatch or "") + ''
+        substituteInPlace lua/lean/widget/interactive_code.lua \
+          --replace-fail 'if info_popup.doc ~= nil then' \
+          'if info_popup.doc ~= nil and info_popup.doc ~= vim.NIL then'
+
+        substituteInPlace lua/lean/widget/interactive_code.lua \
+          --replace-fail "    vim.lsp.util.show_document(links[1], 'utf-16', { focus = true })" \
+          "    vim.api.nvim_exec_autocmds('User', { pattern = 'LeanInfoviewGoTo', modeline = false, data = { kind = kind } })
+          vim.lsp.util.show_document(links[1], 'utf-16', { focus = true })"
+
+        substituteInPlace lua/lean/widgets/GoToModuleLink.lua \
+          --replace-fail '        vim.lsp.util.show_document(' \
+          "        vim.api.nvim_exec_autocmds('User', { pattern = 'LeanInfoviewGoTo', modeline = false, data = { kind = 'definition' } })
+              vim.lsp.util.show_document("
+      '';
+    });
 in
 {
   imports = [ wlib.wrapperModules.neovim ];

@@ -1,0 +1,108 @@
+diff --git a/lua/lean/config.lua b/lua/lean/config.lua
+--- a/lua/lean/config.lua
++++ b/lua/lean/config.lua
+@@ -49,6 +49,7 @@
+ ---@field mappings? { [string]: ElementEvent }
+ ---@field orientation? "auto"|"vertical"|"horizontal" what orientation to use for opened infoviews
+ ---@field update_cooldown? integer milliseconds to throttle cursor-move updates (default 50, 0 to disable)
++---@field max_goals? integer maximum interactive goals to cache and render (default 100, positive integer)
+ ---@field view_options? InfoviewViewOptions
+ ---@field severity_markers? table<lsp.DiagnosticSeverity, string> characters to use for denoting diagnostic severity
+ 
+@@ -166,6 +167,7 @@
+ 
+   ---@type lean.infoview.Config
+   infoview = {
++    max_goals = 100,
+     ---@type InfoviewViewOptions
+     view_options = {
+       use_widgets = true,
+diff --git a/lua/lean/goals.lua b/lua/lean/goals.lua
+--- a/lua/lean/goals.lua
++++ b/lua/lean/goals.lua
+@@ -3,7 +3,7 @@
+ local goals = {}
+ 
+ ---The most recently fetched goals for a position within a buffer.
+----@type table<integer, { [1]: integer, [2]: lsp.Position, [3]: InteractiveGoal[] }>
++---@type table<integer, { [1]: integer, [2]: lsp.Position, [3]: InteractiveGoal[], [4]: integer, [5]: integer }>
+ ---                        changedtick           position             goals
+ local cache = {}
+ 
+@@ -11,6 +11,7 @@
+ ---@param sess ReconnectingSubsession
+ ---@return InteractiveGoal[]? goals
+ ---@return LspError? err
++---@return integer? total_goals original count before limiting the cached prefix
+ function goals.at(sess)
+   local params = sess.pos
+   local buffer = Buffer:from_uri(params.textDocument.uri)
+@@ -20,10 +21,19 @@
+ 
+   local tick = buffer.b.changedtick
+ 
++  local max_goals = require('lean.config')().infoview.max_goals
++  assert(
++    type(max_goals) == 'number' and max_goals >= 1 and max_goals < math.huge and max_goals % 1 == 0,
++    'lean.nvim: infoview.max_goals must be a positive integer'
++  )
++
+   local cached = cache[buffer.bufnr]
+-  local cache_hit = cached and cached[1] == tick and vim.deep_equal(cached[2], params.position)
++  local cache_hit = cached
++    and cached[1] == tick
++    and vim.deep_equal(cached[2], params.position)
++    and cached[5] == max_goals
+   if cache_hit then
+-    return cached[3]
++    return cached[3], nil, cached[4]
+   end
+ 
+   local result, err = sess:getInteractiveGoals()
+@@ -31,8 +41,19 @@
+     return nil, err
+   end
+ 
+-  cache[buffer.bufnr] = { tick, params.position, result.goals }
+-  return result.goals, err
++  local total_goals = #result.goals
++  local bounded = result.goals
++  if total_goals > max_goals then
++    -- Use a fresh prefix: retaining the original table also retains omitted
++    -- goals, their RPC references, and its oversized array allocation.
++    bounded = {}
++    for i = 1, max_goals do
++      bounded[i] = result.goals[i]
++    end
++  end
++
++  cache[buffer.bufnr] = { tick, params.position, bounded, total_goals, max_goals }
++  return bounded, err, total_goals
+ end
+ 
+ return goals
+diff --git a/lua/lean/infoview/components.lua b/lua/lean/infoview/components.lua
+--- a/lua/lean/infoview/components.lua
++++ b/lua/lean/infoview/components.lua
+@@ -112,12 +112,19 @@
+ ---@return Element[]? goal
+ ---@return LspError? error
+ function components.goal_at(sess, view_options)
+-  local goal, err = goals.at(sess)
++  local goal, err, total_goals = goals.at(sess)
+   if err then
+     return nil, err
+   end
+   local children = goal and interactive_goal.Goals(goal, sess, Locations.at(sess.pos), view_options)
+-  return wrap_goals(sess.pos, goal, children), err
++  local blocks = wrap_goals(sess.pos, goal, children)
++  if blocks and goal and total_goals and total_goals > #goal then
++    table.insert(blocks, 1, Element:new {
++      text = ('Showing %d of %d goals (infoview.max_goals limit).\n\n'):format(#goal, total_goals),
++      hlgroups = { 'WarningMsg' },
++    })
++  end
++  return blocks, err
+ end
+ 
+ ---@param params lsp.TextDocumentPositionParams

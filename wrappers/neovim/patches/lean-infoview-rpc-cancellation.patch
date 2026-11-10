@@ -1,0 +1,394 @@
+diff --git a/lua/lean/rpc/request.lua b/lua/lean/rpc/request.lua
+new file mode 100644
+--- /dev/null
++++ b/lua/lean/rpc/request.lua
+@@ -0,0 +1,134 @@
++---Cancellation ownership for Lean RPC calls made by one infoview update.
++local async = require 'std.async'
++local M = {}
++local contexts = setmetatable({}, { __mode = 'k' })
++local Context = {}
++Context.__index = Context
++
++function M.new_context()
++  return setmetatable({ cancelled = false, pending = {} }, Context)
++end
++
++function Context:cancel()
++  if self.cancelled then return end
++  self.cancelled = true
++  local pending = self.pending
++  self.pending = {}
++  for cancel in pairs(pending) do cancel() end
++end
++
++function M.is_cancelled()
++  local context = contexts[coroutine.running()]
++  return context ~= nil and context.cancelled
++end
++
++function M.cancelled_error()
++  return { code = -32800, message = 'Infoview update is no longer needed' }
++end
++
++local function pack(...)
++  return { n = select('#', ...), ... }
++end
++
++---The context follows this coroutine across yields, not the cached Subsession.
++---Interactive links can therefore keep using a Subsession after its original
++---render has completed, and a second pin never inherits another pin's owner.
++function M.run(context, fn)
++  local co = assert(coroutine.running(), 'RPC context requires a coroutine')
++  local previous = contexts[co]
++  contexts[co] = context
++  local results = pack(pcall(fn))
++  contexts[co] = previous
++  if not results[1] then error(results[2], 0) end
++  return unpack(results, 2, results.n)
++end
++
++---A shared handshake survives cancellation, but its individual waiters need
++---not. Unlike async.event(), remove cancelled waiters before the event is set.
++function M.connection_event()
++  local ready, waiters = false, {}
++  return {
++    set = function()
++      ready = true
++      local pending = waiters
++      waiters = {}
++      for _, finish in pairs(pending) do finish() end
++    end,
++    wait = function()
++      local context = contexts[coroutine.running()]
++      if context and context.cancelled then return false end
++      if ready then return true end
++      return async.wrap(function(handler)
++        local completed, cancel = false, nil
++        local function finish(connected)
++          if completed then return end
++          completed = true
++          waiters[cancel] = nil
++          if context then context.pending[cancel] = nil end
++          vim.schedule(function()
++            handler(connected and not (context and context.cancelled))
++          end)
++        end
++        cancel = function() finish(false) end
++        waiters[cancel] = function() finish(true) end
++        if context then context.pending[cancel] = true end
++      end, 1)()
++    end,
++  }
++end
++
++---Await a request once, including when cancellation suppresses Neovim's callback.
++---on_late_result releases server references from a successful reply racing with
++---cancellation. It must not create widgets or cache the discarded response.
++function M.request(client, method, params, on_late_result)
++  local context = contexts[coroutine.running()]
++  if context and context.cancelled then return M.cancelled_error(), nil end
++
++  return async.wrap(function(handler)
++    local completed, response_seen = false, false
++    local request_id, cancel_request
++    local function discard(result)
++      if result ~= nil and on_late_result then on_late_result(result) end
++    end
++    local function finish(err, result)
++      if completed then return end
++      completed = true
++      if context then context.pending[cancel_request] = nil end
++      -- Scheduling also handles synchronous in-process LSP implementations:
++      -- async.wrap must yield before its handler can resume the coroutine.
++      vim.schedule(function()
++        if context and context.cancelled then
++          discard(result)
++          handler(M.cancelled_error(), nil)
++        else
++          handler(err, result)
++        end
++      end)
++    end
++    cancel_request = function()
++      if completed then return end
++      if request_id then pcall(client.cancel_request, client, request_id) end
++      -- Neovim consumes RequestCancelled ACKs without invoking the handler.
++      finish(M.cancelled_error(), nil)
++    end
++    local ok
++    ok, request_id = client:request(method, params, function(err, result)
++      if response_seen then return end
++      response_seen = true
++      if completed then
++        discard(result)
++      else
++        finish(err, result)
++      end
++    end)
++    if not ok then
++      finish({ code = -32603, message = 'Lean client could not send the request' }, nil)
++    elseif context and not completed then
++      context.pending[cancel_request] = true
++      -- Cancellation may have happened synchronously inside client:request.
++      if context.cancelled then cancel_request() end
++    end
++  end, 1)()
++end
++
++return M
+diff --git a/lua/lean/rpc.lua b/lua/lean/rpc.lua
+--- a/lua/lean/rpc.lua
++++ b/lua/lean/rpc.lua
+@@ -12,17 +12,14 @@
+ 
+ local log = require 'lean.log'
+ local lsp = require 'lean.lsp'
++local requests = require 'lean.rpc.request'
+ 
+ ---@param client vim.lsp.Client
+ ---@param request string LSP request name
+ ---@param params table LSP request parameters
+ ---@return any error
+ ---@return any result
+-local function client_request(client, request, params)
+-  return async.wrap(function(handler)
+-    return client:request(request, params, handler)
+-  end, 1)()
+-end
++local client_request = requests.request
+ 
+ local rpc = {}
+ 
+@@ -197,7 +194,7 @@
+     session_id = nil,
+     connected = nil,
+     connect_err = nil,
+-    on_connected = async.event(),
++    on_connected = requests.connection_event(),
+     to_release = {},
+     release_timer = nil,
+     metrics = SessionMetrics:new(require 'lean.config'().debug.rpc_history),
+@@ -262,9 +259,11 @@
+ ---@param refs RpcRef[]
+ function Session:release_now(refs)
+   vim.list_extend(self.to_release, refs)
+-  if #self.to_release == 0 or self:is_closed() then
++  if self:is_closed() then
++    self.to_release = {}
+     return
+   end
++  if #self.to_release == 0 then return end
+ 
+   log:debug {
+     message = 'releasing RPC refs',
+@@ -299,6 +298,25 @@
+   end
+ end
+ 
++---Release references in a successful response that arrived after its owner
++---was cancelled. Such a response never reaches register(), so no finalizer
++---proxies will release these references for us.
++function Session:release_result(result)
++  local refs = {}
++  local function collect(obj)
++    if type(obj) ~= 'table' then return end
++    for key, value in pairs(obj) do
++      if key == self.ref_key and type(value) ~= 'table' then
++        refs[#refs + 1] = { [self.ref_key] = value }
++      else
++        collect(value)
++      end
++    end
++  end
++  collect(result)
++  if #refs > 0 then self:release_deferred(refs) end
++end
++
+ ---@param pos lsp.TextDocumentPositionParams
+ ---@param method string
+ ---@param params any
+@@ -306,7 +324,9 @@
+ ---@return LspError error
+ function Session:call(pos, method, params)
+   while not self.connected do
+-    self.on_connected.wait()
++    if not self.on_connected.wait() then
++      return self.metrics:record_error(method, requests.cancelled_error())
++    end
+   end
+   if self.connect_err ~= nil then
+     return self.metrics:record_error(method, self.connect_err)
+@@ -327,7 +347,8 @@
+   local err, result = client_request(
+     self.client,
+     '$/lean/rpc/call',
+-    vim.tbl_extend('error', pos, { sessionId = self.session_id, method = method, params = params })
++    vim.tbl_extend('error', pos, { sessionId = self.session_id, method = method, params = params }),
++    function(late_result) self:release_result(late_result) end
+   )
+   local elapsed = vim.uv.hrtime() - start_ns
+   self.metrics:record_call(method, start_ns, elapsed, err)
+@@ -364,7 +385,8 @@
+   register(result)
+ 
+   if err then
+-    local level = self:is_closed() and 'debug' or 'error'
++    local cancelled = type(err) == 'table' and err.code == -32800
++    local level = (cancelled or self:is_closed()) and 'debug' or 'error'
+     log[level](log, {
+       message = 'RPC error',
+       method = method,
+@@ -434,7 +456,9 @@
+ function ReconnectingSubsession:call(method, params)
+   local result, err
+   for _ = 1, self.max_attempts do
++    if requests.is_cancelled() then return nil, requests.cancelled_error() end
+     result, err = self.sess:call(self.pos, method, params)
++    if requests.is_cancelled() then return nil, requests.cancelled_error() end
+     if not err then
+       return result
+     end
+diff --git a/lua/lean/infoview.lua b/lua/lean/infoview.lua
+--- a/lua/lean/infoview.lua
++++ b/lua/lean/infoview.lua
+@@ -18,6 +18,7 @@
+ local log = require 'lean.log'
+ local progress = require 'lean.progress'
+ local rpc = require 'lean.rpc'
++local requests = require 'lean.rpc.request'
+ 
+ ---Convert a buffer position to a human-readable (1, 1)-indexed string.
+ ---Takes the workspace into account in order to return a relative path.
+@@ -1026,6 +1027,8 @@
+   end
+   self.window = nil
+   self.pin:__window_was_closed()
++  for _, pin in ipairs(self.pins) do pin:__cancel_update() end
++  if self.__diff_pin then self.__diff_pin:__cancel_update() end
+ end
+ 
+ ---Retrieve the contents of the infoview as a table.
+@@ -1291,6 +1294,7 @@
+ ---Close this pin's window if it has one.
+ ---The window was closed externally; clean up without force-closing.
+ function Pin:__window_was_closed()
++  self:__cancel_update()
+   self.window = nil
+   self.__renderer:detach_window()
+ end
+@@ -1434,6 +1438,7 @@
+ 
+ ---Stop updating this pin.
+ function Pin:pause()
++  self:__cancel_update()
+   self.paused = true
+   self.__infoview:__update_winhighlight()
+ end
+@@ -1591,52 +1596,72 @@
+   return wrap_content_blocks(blocks, params)
+ end
+ 
++---Invalidate this pin's work without affecting any other pin or RPC session.
++function Pin:__cancel_update()
++  self.__update_again = nil
++  local context = self.__request_context
++  self.__request_context = nil
++  self.loading = false
++  if context then context:cancel() end
++end
++
+ function Pin:update()
++  local iv = self.__infoview
++  if not iv or not iv.window then return end
++  if self.paused then
++    iv:__update_winhighlight()
++    return
++  end
++  local params = self.__position_params
++  if not params or not Buffer:from_uri(params.textDocument.uri):is_loaded() then return end
++  local tick = Buffer:from_uri(params.textDocument.uri).b.changedtick
++  local previous = self.__request_context
++  if previous and not previous.cancelled
++      and previous.changedtick == tick
++      and vim.deep_equal(previous.params, params)
++      and vim.deep_equal(previous.view_options, iv.view_options) then
++    -- Keep one refresh after this response, rather than cancelling/restarting
++    -- the same request on every progress/diagnostic notification.
++    self.__update_again = true
++    return
++  end
++  self:__cancel_update()
++  local context = requests.new_context()
++  context.changedtick = tick
++  context.params = params
++  context.view_options = vim.deepcopy(iv.view_options)
++  self.__request_context = context
++
+   async.run(function()
+-    log:trace { message = 'updating pin', id = self.id, paused = self.paused, loading = self.loading }
+-    local iv = self.__infoview
+-    if not iv.window then
+-      return
+-    end
+-    if self.paused then
+-      iv:__update_winhighlight()
+-      return
+-    end
+-
+-    local params = self.__position_params
+-    if not params or not Buffer:from_uri(params.textDocument.uri):is_loaded() then
+-      return
+-    end
+-
+     iv:__update_winhighlight()
+-
+-    if not self.loading then
+-      self.loading = true
+-      self:render()
+-    end
+-
++    self.loading = true
++    self:render()
+     self.__tick = self.__tick + 1
+-    local tick = self.__tick
+-
+-    self.__data_element = iv:render_contents(params)
+-    if self.__data_element == components.LSP_HAS_DIED then
++    local ok, data = pcall(requests.run, context, function()
++      return iv:render_contents(params)
++    end)
++    if context.cancelled or self.__request_context ~= context then return end
++    self.__request_context = nil
++    local update_again = self.__update_again
++    self.__update_again = nil
++    self.loading = false
++    if not self.__infoview or not iv.window then return end
++    if not ok then error(data, 0) end
++
++    -- Do not assign stale data before checking ownership: creating a newer
++    -- update, pausing, or closing the view may all happen while awaiting RPC.
++    self.__data_element = data
++    if data == components.LSP_HAS_DIED then
+       iv.window.o.winhighlight = 'NormalNC:leanInfoLSPDead'
+     end
+-
+-    if self.__tick ~= tick or not self.__infoview then
+-      return
+-    end
+-
+-    self.loading = false
+-    self.__element:set_children { self.__data_element }
++    self.__element:set_children { data }
+     iv.__last_trace_query = nil
+     self:render()
+-
+     if iv.window and not iv.window:is_current() and self == iv.pin then
+       iv:move_cursor_to_goal()
+     end
+-
+     iv:__refresh_diff()
++    if update_again then self:request_update() end
+   end)
+ end
+ 
