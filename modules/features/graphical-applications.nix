@@ -41,6 +41,9 @@ in
     ".config/Slack/Local Storage"
     # Session Storage keeps transient session state needed to resume logged-in app views.
     ".config/Slack/Session Storage"
+    # Slack atomically replaces root-state.json; persist its parent so workspace
+    # state survives without replacing a persistence symlink or a mounted file.
+    ".config/Slack/storage"
   ];
 
   preferences.impermanence.persist.homeFiles = lib.mkAfter [
@@ -48,10 +51,8 @@ in
     ".config/Slack/Cookies"
     # SQLite sidecar for the cookie database.
     ".config/Slack/Cookies-journal"
-    # Chromium network metadata associated with the current browser profile.
-    ".config/Slack/Network Persistent State"
-    # Slack's own workspace list and selected-workspace metadata.
-    ".config/Slack/storage/root-state.json"
+    # Chromium regenerates Network Persistent State. Keeping that atomically
+    # replaced file here makes subsequent activations fail on the regular file.
   ];
 
   environment.systemPackages = [
