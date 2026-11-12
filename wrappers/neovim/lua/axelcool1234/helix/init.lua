@@ -14,6 +14,7 @@ local range_module = require("axelcool1234.helix.range")
 local selection_module = require("axelcool1234.helix.selection")
 local integer = require("axelcool1234.helix.integer")
 local case = require("axelcool1234.helix.case")
+local regex = require("axelcool1234.helix.regex")
 
 local M = {}
 local selected_register_clear_ns = vim.api.nvim_create_namespace("axelcool1234-helix-selected-register")
@@ -236,42 +237,6 @@ local function sync_cursors_to_selection(selection, config)
   state.set_preview_selection(selection, config)
 end
 
-local function match_lines(lines, pattern)
-  local matches = {}
-
-  for index, line in ipairs(lines) do
-    local byteidx = 0
-
-    while true do
-      local match = vim.fn.matchstrpos(line, pattern, byteidx)
-      local text = match[1]
-      local start_col = match[2]
-      local end_col = match[3]
-      if start_col < 0 then
-        break
-      end
-
-      table.insert(matches, {
-        text = text,
-        idx = index - 1,
-        byteidx = start_col,
-      })
-
-      if end_col <= start_col then
-        byteidx = start_col + 1
-      else
-        byteidx = end_col
-      end
-
-      if byteidx > #line then
-        break
-      end
-    end
-  end
-
-  return matches
-end
-
 local function delete_selection(selection)
   if selection:len() == 0 then
     return selection
@@ -374,17 +339,6 @@ local function selection_search_fragment(entry, detect_word_boundaries)
   return escaped
 end
 
-local function get_preview_lines(entry)
-  local lines = vim.api.nvim_buf_get_lines(0, entry:start_cell()[1] - 1, entry:end_cell()[1], false)
-  if #lines == 0 then
-    return {}
-  end
-
-  lines[1] = position.suffix_from_grapheme_col(lines[1], entry:start_cell()[2])
-  lines[#lines] = position.slice_by_grapheme_range(lines[#lines], 1, entry:end_cell()[2])
-  return lines
-end
-
 local function find_trimmed_edge(entry, forward)
   local buffer = current_buffer()
   local pos = vim.deepcopy(forward and entry:start_cell() or entry:end_cell())
@@ -435,7 +389,7 @@ end
 
 local function validate_selection_regex(pattern)
   local compiled = compile_selection_regex(pattern)
-  match_lines({ "" }, compiled)
+  vim.fn.matchstrpos("", compiled, 0, 1)
   return compiled
 end
 
@@ -815,8 +769,7 @@ function M.search_selection_detect_word_boundaries()
 end
 
 local function preview_range_matches(entry, pattern)
-  local lines = get_preview_lines(entry)
-  local matches = match_lines(lines, pattern)
+  local matches = regex.matches(current_buffer(), entry, pattern)
   return #matches > 0
 end
 
@@ -825,20 +778,7 @@ local function echo_selection_message(message)
 end
 
 local function entry_regex_matches(entry, pattern)
-  local lines = get_preview_lines(entry)
-  local matches = match_lines(lines, pattern)
-  local entries = {}
-
-  for _, match in ipairs(matches) do
-    local row = entry:start_cell()[1] + match.idx
-    local start_char = position.grapheme_col_from_byte_col0(lines[match.idx + 1], match.byteidx)
-    local start_col = match.idx == 0 and (entry:start_cell()[2] + start_char - 1) or start_char
-    local width = math.max(position.grapheme_count(match.text), 1)
-    local end_col = start_col + width - 1
-    table.insert(entries, span_from_cells({ row, start_col }, { row, end_col }))
-  end
-
-  return entries
+  return regex.matches(current_buffer(), entry, pattern)
 end
 
 function current_buffer()
@@ -3283,13 +3223,16 @@ function M.select_regex_matches(pattern)
 
   local matches = {}
   for _, entry in ipairs(source_entries) do
-    vim.list_extend(matches, entry_regex_matches(entry, compiled))
+    for _, match in ipairs(entry_regex_matches(entry, compiled)) do
+      -- Empty matches at the exclusive end lie outside the source selection.
+      if not (match:is_empty() and position.boundaries_equal(match:from(), entry:to())) then
+        matches[#matches + 1] = match
+      end
+    end
   end
 
   if #matches == 0 then
-    if state.preview_active() then
-      state.clear_preview()
-    end
+    echo_selection_message("nothing selected")
     return
   end
 
@@ -4008,25 +3951,32 @@ function M.split_selection_by_regex(pattern)
   local primary
   for source_index, source in ipairs(source_selection.ranges) do
     local first_produced
-    local cursor = vim.deepcopy(source:start_cell())
-    for _, delimiter in ipairs(entry_regex_matches(source, compiled)) do
-      if pos_equal(cursor, delimiter:start_cell()) and pos_equal(cursor, source:start_cell()) then
-        local empty = range_module.empty(current_buffer(), position.boundary_before_cell(current_buffer(), cursor))
-        entries[#entries + 1] = empty
-        first_produced = first_produced or empty
+    local function append(from, to)
+      local produced
+      if position.boundaries_equal(from, to) then
+        produced = range_module.empty(current_buffer(), from)
+      elseif source:direction() < 0 then
+        produced = range_module.from_boundaries(current_buffer(), to, from)
+      else
+        produced = range_module.from_boundaries(current_buffer(), from, to)
       end
-      if pos_before(cursor, delimiter:start_cell()) then
-        local produced = directed_entry(source, cursor, position.prev_pos(current_buffer(), delimiter:start_cell()))
-        entries[#entries + 1] = produced
-        first_produced = first_produced or produced
-      end
-      cursor = position.next_pos(current_buffer(), delimiter:end_cell())
+      entries[#entries + 1] = produced
+      first_produced = first_produced or produced
     end
-    if not pos_before(source:end_cell(), cursor) then
-      local remainder = directed_entry(source, cursor, source:end_cell())
-      if remainder:text() ~= "" then
-        entries[#entries + 1] = remainder
-        first_produced = first_produced or remainder
+    local delimiters = not source:is_empty() and entry_regex_matches(source, compiled) or {}
+    if #delimiters == 0 then
+      entries[#entries + 1] = source:copy()
+      first_produced = entries[#entries]
+    else
+      local cursor = source:from()
+      for _, delimiter in ipairs(delimiters) do
+        if not delimiter:is_empty() or not position.boundaries_equal(cursor, delimiter:from()) then
+          append(cursor, delimiter:from())
+        end
+        cursor = delimiter:to()
+      end
+      if position.compare_boundaries(cursor, source:to()) < 0 then
+        append(cursor, source:to())
       end
     end
     if source_index == source_selection.primary_index then

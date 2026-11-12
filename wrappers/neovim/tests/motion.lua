@@ -974,6 +974,75 @@ local cases = {
     end,
   },
   {
+    name = "regex selection stays inside the selected theorem parameters",
+    run = function()
+      local line = "theorem allTrue_cons_of_neg {α : Type} (test : α → Bool) (a : α) (as : List α) (h : test a = false) : allTrue test (a :: as) = allTrue test as := by rfl"
+      local first = line:find("(test :", 1, true)
+      local last = line:find(") (h", 1, true)
+      local expected = {
+        { 1, first },
+        { 1, (line:find("(a :", 1, true)) },
+        { 1, (line:find("(as :", 1, true)) },
+      }
+      for _, backward in ipairs({ false, true }) do
+        reset_case({ line }, 1, (backward and last or first) - 1)
+        helix.toggle_select_mode()
+        local distance = position.grapheme_count(line:sub(first, last)) - 1
+        for _ = 1, distance do
+          helix.normal_motion(backward and "h" or "l")()
+        end
+        assert_equal(helix.primary_range():text(), line:sub(first, last), "the initial selection should cover only the requested parameters")
+        with_stubbed_input("\\(", helix.select_regex_matches)
+        assert_equal(all_cursor_positions(), expected, "s should select only the three opening parentheses inside the parameters")
+        assert_equal(helix.current_selection():texts(), { "(", "(", "(" }, "each regex range should contain one opening parenthesis")
+        assert_primary_cursor_synced("parameter regex selection")
+      end
+    end,
+  },
+  {
+    name = "regex selection clips Unicode and multiline edges",
+    run = function()
+      for _, lines in ipairs({ { "α é(x) (outside)" }, { "α é(x)", "(y) (outside)" } }) do
+        reset_case(lines, 1, #"α ")
+        helix.toggle_select_mode()
+        for _ = 1, 3 do
+          helix.normal_motion("l")()
+        end
+        if #lines > 1 then
+          helix.normal_motion("j")()
+          for _ = 1, 3 do
+            helix.normal_motion("h")()
+          end
+        end
+        helix.select_regex_matches("\\(")
+        local expected = { { 1, #"α é" + 1 } }
+        if #lines > 1 then
+          expected[#expected + 1] = { 2, 1 }
+        end
+        assert_equal(all_cursor_positions(), expected, "regex matches should respect grapheme columns and both selection edges")
+      end
+    end,
+  },
+  {
+    name = "regex split and filter respect partial line selections",
+    run = function()
+      for _, operation in ipairs({ "split", "keep", "remove" }) do
+        reset_case({ "prefix abc outside" }, 1, #"prefix ")
+        helix.toggle_select_mode()
+        helix.normal_motion("l")()
+        helix.normal_motion("l")()
+        if operation == "split" then
+          helix.split_selection_by_regex("outside")
+        else
+          with_stubbed_input("outside", function()
+            helix.filter_selections_by_regex(operation == "keep")
+          end)
+        end
+        assert_equal(helix.current_selection():texts(), { "abc" }, "regex operations must not inspect text beyond the selected end")
+      end
+    end,
+  },
+  {
     name = "adjacent regex matches stay as separate cursors",
     run = function()
       reset_case({ "aaaaa" }, 1, 0)
