@@ -2,10 +2,17 @@
   config,
   lib,
   myLib,
+  pkgs,
   ...
 }:
 let
   discoveredSkills = myLib.importTree.dirsWithFile ../../skills "SKILL.md";
+  janeStreetSkills = pkgs.fetchFromGitHub {
+    owner = "janestreet";
+    repo = "agent_skills";
+    rev = "7c6715c29548a3b39d4a9545c698ee4fd17a7213";
+    hash = "sha256-bKGKDaK2pSJsp5uVMUQDcj8J+N9nX2fDdeU1DXM2qLw=";
+  };
   runtimeHome = config.outOfStoreConfig;
   persistRoot =
     assert lib.hasPrefix ''${"$"}HOME/'' runtimeHome;
@@ -49,7 +56,9 @@ in
       };
     };
 
-    skills = lib.mapAttrs (_name: source: { inherit source; }) discoveredSkills;
+    skills = lib.mapAttrs (_name: source: { inherit source; }) discoveredSkills // {
+      socratic-tutor.source = "${janeStreetSkills}/socratic-tutor";
+    };
 
     passthru.persist = {
       homeDirectories = [

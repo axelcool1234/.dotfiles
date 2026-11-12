@@ -3,11 +3,18 @@
   hostVars,
   lib,
   myLib,
+  pkgs,
   selfPkgs,
   ...
 }:
 let
   discoveredSkills = myLib.importTree.dirsWithFile ../../skills "SKILL.md";
+  janeStreetSkills = pkgs.fetchFromGitHub {
+    owner = "janestreet";
+    repo = "agent_skills";
+    rev = "7c6715c29548a3b39d4a9545c698ee4fd17a7213";
+    hash = "sha256-bKGKDaK2pSJsp5uVMUQDcj8J+N9nX2fDdeU1DXM2qLw=";
+  };
   runtimeHome = config.outOfStoreConfig;
   persistRoot =
     assert lib.hasPrefix ''${"$"}HOME/'' runtimeHome;
@@ -27,7 +34,10 @@ in
       defaultProjectTrust = lib.mkDefault "always";
       enableInstallTelemetry = lib.mkDefault false;
 
-      skills = lib.mkDefault (lib.mapAttrsToList (_name: source: toString source) discoveredSkills);
+      skills = lib.mkDefault (
+        lib.mapAttrsToList (_name: source: toString source) discoveredSkills
+        ++ [ "${janeStreetSkills}/socratic-tutor" ]
+      );
       extensions = [ (toString ./extensions/jjui.ts) ];
 
       theme = lib.mkIf (hostVars.desktopShell == "noctalia") (lib.mkDefault "noctalia");
