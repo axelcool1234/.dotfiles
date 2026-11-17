@@ -29,7 +29,7 @@ in
     settings = {
       "$schema" = "https://pi.dev/schemas/settings.schema.json";
       defaultProvider = lib.mkDefault "openai";
-      defaultModel = lib.mkDefault "gpt-6.1-sol";
+      defaultModel = lib.mkDefault "gpt-6.2-sol";
       defaultThinkingLevel = lib.mkDefault "high";
       defaultProjectTrust = lib.mkDefault "always";
       enableInstallTelemetry = lib.mkDefault false;
@@ -61,7 +61,7 @@ in
       relPath = "${config.binName}-config/advisor.json";
       output = lib.mkOverride 0 config.generatedConfig.output;
       content = builtins.toJSON {
-        advisor = "openai-codex/gpt-6.1-sol";
+        advisor = "openai-codex/gpt-6.2-sol";
         advisorEffort = "high";
         # We intentionally want a second opinion from the same model.
         advisorDisableSameModel = false;

@@ -26,7 +26,7 @@ in
   config = {
     settings = lib.mkDefault {
       approval_policy = "never";
-      model = "gpt-6.1-sol";
+      model = "gpt-6.2-sol";
       model_reasoning_effort = "high";
       sandbox_mode = "danger-full-access";
 

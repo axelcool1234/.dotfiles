@@ -120,6 +120,10 @@ let
   wallhavenPluginRuntimePkgs = [ ];
 
   userTemplates = {
+    luciole = {
+      input_path = "${inputs.luciole}/assets/noctalia/colors.toml";
+      output_path = "$XDG_CONFIG_HOME/luciole/colors.toml";
+    };
     discord-midnight-vesktop = {
       input_path = "${inputs.noctalia-templates}/discord/discord-midnight.css";
       output_path = "$XDG_CONFIG_HOME/vesktop/themes/noctalia.theme.css";

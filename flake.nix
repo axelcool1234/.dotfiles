@@ -73,6 +73,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Native Wayland file manager and its matching Noctalia palette template.
+    luciole = {
+      url = "github:noctalia-dev/luciole";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Pin the external app templates used by the Noctalia wrapper so theme
     # behavior does not depend on a mutable runtime catalog download.
     noctalia-templates = {

@@ -18,7 +18,7 @@ pi -e ./wrappers/pi/extensions/jjui.ts
 
 ## Advisor
 
-`default.nix` declares `openai-codex/gpt-6.1-sol` with `high` reasoning in a
+`default.nix` declares `openai-codex/gpt-6.2-sol` with `high` reasoning in a
 separate `advisor.json`. Same-model consultations are explicitly allowed;
 otherwise the plugin skips reviews when the Executor uses that model too.
 This does not pin or change the Executor model.

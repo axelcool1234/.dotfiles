@@ -11,7 +11,8 @@ let
   musicHomeFiles = musicPackage.passthru.homeFiles or { };
   musicHostIntegration = musicPackage.passthru.hostIntegration or { };
 
-  graphicalHomeFiles = selfPkgs.nixcord.passthru.homeFiles // musicHomeFiles;
+  graphicalHomeFiles =
+    selfPkgs.nixcord.passthru.homeFiles // selfPkgs.luciole.passthru.homeFiles // musicHomeFiles;
 in
 {
   # Application wrappers own their generated configuration; the host only
@@ -22,19 +23,43 @@ in
     xdg.config.files = lib.mapAttrs (_path: source: {
       inherit source;
     }) graphicalHomeFiles;
+
+    # Prefer Luciole for applications that call ShowItems/ShowFolders on D-Bus.
+    xdg.data.files."dbus-1/services/org.freedesktop.FileManager1.service".source =
+      "${selfPkgs.luciole}/share/dbus-1/services/dev.noctalia.luciole.FileManager1.service";
   };
+
+  services.gvfs.enable = true;
+  programs.dconf.enable = true;
+  # Luciole supplies file pickers, so Niri no longer needs Nautilus on D-Bus.
+  programs.niri.useNautilus = lib.mkIf (hostVars.compositor == "niri") false;
+  xdg.mime.defaultApplications."inode/directory" = "dev.noctalia.luciole.desktop";
 
   services.flatpak = lib.mkIf (musicHostIntegration ? enableFlatpak) {
     enable = musicHostIntegration.enableFlatpak or false;
   };
 
-  xdg.portal = lib.mkIf (musicHostIntegration ? portalConfig) (
-    musicHostIntegration.portalConfig or { }
-  );
+  xdg.portal = lib.mkMerge [
+    (musicHostIntegration.portalConfig or { })
+    {
+      enable = true;
+      extraPortals = [ selfPkgs.luciole ];
+      config.common."org.freedesktop.impl.portal.FileChooser" = [
+        "luciole"
+        "gtk"
+      ];
+      config.niri."org.freedesktop.impl.portal.FileChooser" = lib.mkForce [
+        "luciole"
+        "gtk"
+      ];
+    }
+  ];
 
   systemd.user.services = musicHostIntegration.userServices or { };
 
   preferences.impermanence.persist.homeDirectories = lib.mkAfter [
+    # Luciole shares editable bookmarks with GTK applications.
+    ".config/gtk-3.0"
     # IndexedDB stores per-workspace app state that Slack uses to restore sessions.
     ".config/Slack/IndexedDB"
     # Local Storage holds Chromium key/value auth and team state for Slack.
@@ -61,7 +86,7 @@ in
     musicPackage # Music
     selfPkgs.nixcord # Casual communication
     pkgs.slack # Work communication
-    pkgs.pcmanfm # File manager
+    selfPkgs.luciole # File manager
     selfPkgs.zathura # PDFs
     pkgs.imv # Images
     pkgs.mpv # Videos

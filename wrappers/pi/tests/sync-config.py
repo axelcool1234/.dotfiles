@@ -10,7 +10,7 @@ import unittest
 
 WRAPPER = Path(sys.argv.pop(1)).resolve()
 ADVISOR = {
-    "advisor": "openai-codex/gpt-6.1-sol",
+    "advisor": "openai-codex/gpt-6.2-sol",
     "advisorEffort": "high",
     "advisorDisableSameModel": False,
 }
